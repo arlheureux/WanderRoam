@@ -18,10 +18,9 @@
 - **Containerization:** Docker & Docker Compose
 
 ### Services
-1. **Frontend** - React app on port 3000
+1. **Frontend** - React app on port 3000 (nginx)
 2. **Backend** - Express API on port 5000
 3. **PostgreSQL** - Database on port 5432
-4. **Immich** - Photo management on ports 2283 (server), 8081 (web)
 
 ## 3. Data Model
 
@@ -30,6 +29,8 @@
 - `username` - unique string
 - `email` - unique string
 - `password_hash` - bcrypt hash
+- `immich_url` - string (optional)
+- `immich_api_key` - string (optional)
 - `created_at` - timestamp
 
 ### Adventures
@@ -40,6 +41,7 @@
 - `center_lat` - decimal (map center)
 - `center_lng` - decimal (map center)
 - `zoom` - integer (default 10)
+- `preview_picture_id` - UUID (optional, selected preview)
 - `created_at` - timestamp
 - `updated_at` - timestamp
 
@@ -47,10 +49,11 @@
 - `id` - UUID primary key
 - `adventure_id` - foreign key to adventures
 - `name` - string
-- `type` - enum (hiking, cycling, running, climbing, other)
+- `type` - enum (walking, hiking, cycling, bus, metro, train, boat, car, other)
 - `color` - hex string (auto-assigned by type)
 - `file_path` - string (stored GPX file)
 - `data` - JSON (parsed GPX track points)
+- `distance` - float (distance in km)
 - `created_at` - timestamp
 
 ### Pictures
@@ -61,60 +64,93 @@
 - `latitude` - decimal (photo GPS)
 - `longitude` - decimal (photo GPS)
 - `taken_at` - timestamp (optional)
+- `thumbnail_url` - text (cached preview image)
 - `created_at` - timestamp
 
-### GPX Types & Colors
-| Type | Color |
-|------|-------|
-| hiking | #FF6B6B (red) |
-| cycling | #4ECDC4 (teal) |
-| running | #45B7D1 (blue) |
-| climbing | #96CEB4 (green) |
-| other | #9B59B6 (purple) |
+### Adventure Shares
+- `id` - UUID primary key
+- `adventure_id` - foreign key to adventures
+- `user_id` - foreign key to users
+- `permission` - enum (view, edit)
+
+### Transportation Types & Colors
+| Type    | Color   |
+|---------|---------|
+| walking | #FF6B6B |
+| hiking  | #FF9F43 |
+| cycling | #4ECDC4 |
+| bus     | #A55EEA |
+| metro   | #26DE81 |
+| train   | #45B7D1 |
+| boat    | #2D98DA |
+| car     | #FC5C65 |
+| other   | #9B59B6 |
 
 ## 4. API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Create new user
+- `POST /api/auth/register` - Create new user (can be disabled via ENABLE_REGISTRATION)
 - `POST /api/auth/login` - Login and get JWT
 - `GET /api/auth/me` - Get current user
+- `GET /api/auth/config` - Get registration status
 
 ### Adventures
-- `GET /api/adventures` - List user's adventures
+- `GET /api/adventures` - List user's adventures + shared adventures
 - `POST /api/adventures` - Create adventure
 - `GET /api/adventures/:id` - Get adventure with all data
 - `PUT /api/adventures/:id` - Update adventure
 - `DELETE /api/adventures/:id` - Delete adventure
 
+### Sharing
+- `GET /api/adventures/:id/share` - Get share list
+- `POST /api/adventures/:id/share` - Share adventure with user
+- `DELETE /api/adventures/:id/share/:shareId` - Remove share
+
 ### GPX Tracks
 - `POST /api/adventures/:id/gpx` - Upload GPX file
-- `DELETE /api/gpx/:id` - Delete GPX track
-- `GET /api/gpx/:id` - Get GPX data
+- `DELETE /api/adventures/:id/gpx/:gpxId` - Delete GPX track
 
 ### Pictures
 - `POST /api/adventures/:id/pictures` - Add picture (from Immich)
-- `DELETE /api/pictures/:id` - Delete picture
-- `GET /api/pictures/:id` - Get picture info
+- `DELETE /api/adventures/:id/pictures/:pictureId` - Delete picture
 
 ### Immich Integration
-- `GET /api/immich/albums` - List Immich albums
-- `GET /api/immich/assets` - List assets from Immich
-- `POST /api/immich/connect` - Connect to Immich server
+- `GET /api/immich/albums` - List Immich albums with thumbnails
+- `GET /api/immich/assets` - List assets from Immich (with GPS)
+- `GET /api/immich/thumbnails` - Batch fetch thumbnails
+- `GET /api/immich/thumbnail/:assetId` - Get thumbnail proxy
+- `GET /api/immich/asset/:id` - Get asset info
+
+### Users
+- `GET /api/adventures/users` - List other users (for sharing)
 
 ## 5. UI/UX Specification
 
 ### Pages
-1. **Login/Register** - Authentication forms
-2. **Dashboard** - List of user's adventures with thumbnails
-3. **Adventure Editor** - Create/edit adventure with map
-4. **Adventure View** - Public view of adventure with map
+1. **Login/Register** - Authentication forms (register hidden if disabled)
+2. **Dashboard** - List of adventures with preview pictures
+3. **Adventure Editor** - Edit adventure with map, sidebar panels
+4. **Adventure View** - View adventure with map (read-only for shared)
 
 ### Map Features
 - OpenStreetMap base layer
 - GPX track rendering with colored polylines
-- Picture markers on map (clickable thumbnails)
-- Auto-fit bounds to show all GPX tracks
+- Picture markers on map (clickable)
+- Hover highlighting (marker scales up, others fade)
+- Auto-fit bounds to show all content
 - Zoom controls
+
+### Sidebar Panels (Edit/View)
+- Description (textarea/card)
+- Transportation (GPX tracks list with distance)
+- Pictures (grid with add/remove)
+
+### Fullscreen Picture Viewer
+- Click picture to open fullscreen
+- Navigation arrows (← →)
+- Picture counter (1 / N)
+- Close button (×)
+- Click outside to close
 
 ### Color Palette
 - Primary: #2D3436 (dark gray)
@@ -131,22 +167,49 @@
 ## 6. Immich Integration
 
 ### Setup
-- Immich runs as separate container
-- User connects via API key from Immich admin
+- User connects via URL and API key from Immich admin
 - Photos stored in Immich, referenced by asset ID
 
 ### Flow
 1. User enters Immich URL and API key in settings
-2. Browse Immich albums/assets
-3. Select photos to add to adventure
-4. GPS coordinates extracted from Immich EXIF data
-5. Photos displayed on map at their coordinates
+2. Browse Immich albums (grid view with thumbnails)
+3. Select album to see photos with GPS coordinates
+4. Select photos to add to adventure
+5. GPS coordinates extracted from Immich EXIF data
+6. Preview images cached in database (preview size)
+7. Photos displayed on map at their coordinates
 
-## 7. File Structure
+### Image Optimization
+- Thumbnails fetched on adventure load (cached in DB)
+- Preview size from Immich (larger than thumbnail)
+- Fullscreen uses cached preview (to reduce transfer)
+
+## 7. Sharing
+
+### Features
+- Share adventures with other users
+- Permission levels: view or edit
+- Shared adventures appear in owner's dashboard
+- Shared users see adventures they can access
+- Read-only indicator for non-owners
+- Edit disabled for view-only shared users
+
+### Sharing Flow
+1. Owner clicks Share button in edit mode
+2. Select user from dropdown
+3. Choose permission (view/edit)
+4. Shared user sees adventure on their dashboard
+
+## 8. File Structure
 
 ```
 docker-app/
-├── docker-compose.yml
+├── docker-compose.yml          # Local development
+├── docker-compose.prod.yml     # Production (pre-built images)
+├── SPEC.md
+├── .gitignore
+├── scripts/
+│   └── release.sh            # Build & push to Docker Hub
 ├── backend/
 │   ├── Dockerfile
 │   ├── package.json
@@ -159,37 +222,59 @@ docker-app/
 │   │   ├── auth.js
 │   │   ├── adventures.js
 │   │   ├── gpx.js
-│   │   ├── pictures.js
 │   │   └── immich.js
 │   └── models/
 │       └── index.js
-├── frontend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── public/
-│   ├── src/
-│   │   ├── index.js
-│   │   ├── App.js
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── styles/
-│   └── nginx.conf
-└── data/
-    ├── postgres/
-    ├── uploads/
-    └── immich/
+└── frontend/
+    ├── Dockerfile
+    ├── package.json
+    ├── nginx.conf
+    ├── public/
+    └── src/
+        ├── index.js
+        ├── App.js
+        ├── components/
+        ├── pages/
+        ├── services/
+        └── styles/
 ```
 
-## 8. Acceptance Criteria
+## 9. Environment Variables
 
-- [ ] Users can register and login
-- [ ] Users can create, edit, delete adventures
-- [ ] Users can upload GPX files to adventures
-- [ ] GPX tracks display on map with correct colors by type
-- [ ] Users can connect to Immich and browse photos
-- [ ] Photos from Immich appear on map at GPS coordinates
-- [ ] Multiple GPX tracks can be displayed on same map
-- [ ] Adventure view shows map with all tracks and photos
-- [ ] Docker Compose starts all services
-- [ ] Application is accessible via browser
+### Backend
+- `NODE_ENV` - production/development
+- `PORT` - server port (default 5000)
+- `DB_HOST` - PostgreSQL host
+- `DB_PORT` - PostgreSQL port
+- `DB_NAME` - Database name
+- `DB_USER` - Database user
+- `DB_PASSWORD` - Database password
+- `JWT_SECRET` - JWT signing secret
+- `UPLOAD_DIR` - Upload directory
+- `ENABLE_REGISTRATION` - Enable/disable registration (default true)
+
+### Frontend
+- `REACT_APP_API_URL` - Backend API URL
+
+## 10. Acceptance Criteria
+
+- [x] Users can register and login
+- [x] Registration can be disabled via environment variable
+- [x] Users can create, edit, delete adventures
+- [x] Users can upload GPX files to adventures
+- [x] GPX tracks display on map with correct colors by type
+- [x] GPX distance is calculated and displayed
+- [x] Users can connect to Immich and browse albums
+- [x] Album thumbnails displayed correctly
+- [x] Photos from Immich appear on map at GPS coordinates
+- [x] Preview pictures can be selected for adventure cards
+- [x] Multiple GPX tracks can be displayed on same map
+- [x] Adventure view shows map with all tracks and photos
+- [x] Picture markers highlight on hover
+- [x] Fullscreen picture viewer with slideshow
+- [x] Description field for adventures
+- [x] Adventures can be shared with other users
+- [x] Shared users can view (or view/edit) shared adventures
+- [x] Docker Compose starts all services
+- [x] Application is accessible via browser
+- [x] Pre-built images can be used for deployment
