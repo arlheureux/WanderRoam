@@ -215,9 +215,19 @@ router.get('/', authMiddleware, async (req, res) => {
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,
-        preview_picture: adventure.preview_picture_id 
+        preview_picture: (adventure.preview_picture_id 
           ? pictures.find(p => p.id === adventure.preview_picture_id)
-          : (pictures.length > 0 ? pictures[0] : null),
+          : (pictures.length > 0 ? pictures[0] : null)
+        ) ? {
+          id: (adventure.preview_picture_id 
+            ? pictures.find(p => p.id === adventure.preview_picture_id)
+            : pictures[0]
+          ).id,
+          thumbnail_url: (adventure.preview_picture_id 
+            ? pictures.find(p => p.id === adventure.preview_picture_id)
+            : pictures[0]
+          ).thumbnail_url
+        } : null,
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
@@ -292,7 +302,6 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     const pictures = adventure.Pictures || [];
     const thumbnails = {};
-    const fullImages = {};
 
     if (pictures.length > 0) {
       const owner = await User.findByPk(adventure.user_id);
@@ -304,7 +313,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
           assetIds.map(async (assetId) => {
             try {
               const response = await fetch(
-                `${owner.immich_url}/api/assets/${assetId}/thumbnail?size=thumbnail`,
+                `${owner.immich_url}/api/assets/${assetId}/thumbnail?size=preview`,
                 {
                   headers: {
                     'x-api-key': owner.immich_api_key
@@ -318,38 +327,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
                 thumbnails[assetId] = `data:${contentType};base64,${base64}`;
               }
             } catch (e) {
-              console.error(`Failed to fetch thumbnail for ${assetId}:`, e);
-            }
-          })
-        );
-
-        await Promise.all(
-          assetIds.map(async (assetId) => {
-            try {
-              const response = await fetch(
-                `${owner.immich_url}/api/assets/${assetId}/original`,
-                {
-                  headers: {
-                    'x-api-key': owner.immich_api_key
-                  }
-                }
-              );
-              if (response.ok) {
-                const buffer = await response.arrayBuffer();
-                const base64 = Buffer.from(buffer).toString('base64');
-                const contentType = response.headers.get('content-type') || 'image/jpeg';
-                fullImages[assetId] = `data:${contentType};base64,${base64}`;
-              }
-            } catch (e) {
-              console.error(`Failed to fetch full image for ${assetId}:`, e);
+              console.error(`Failed to fetch preview for ${assetId}:`, e);
             }
           })
         );
 
         await Promise.all(
           pictures.map(async (pic) => {
-            if (pic.immich_asset_id && (thumbnails[pic.immich_asset_id] || fullImages[pic.immich_asset_id])) {
-              pic.thumbnail_url = thumbnails[pic.immich_asset_id] || fullImages[pic.immich_asset_id];
+            if (pic.immich_asset_id && thumbnails[pic.immich_asset_id]) {
+              pic.thumbnail_url = thumbnails[pic.immich_asset_id];
               await pic.save();
             }
           })
@@ -361,7 +347,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     adventureData.Pictures = adventureData.Pictures.map(p => ({
       ...p,
       thumbnail_base64: thumbnails[p.immich_asset_id] || null,
-      full_base64: fullImages[p.immich_asset_id] || null,
+      full_url: p.immich_asset_id ? `/api/immich/full/${p.immich_asset_id}` : null,
       thumbnail_url: p.thumbnail_url || null
     }));
 
