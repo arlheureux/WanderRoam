@@ -1,27 +1,36 @@
 #!/bin/bash
 # Release script - Build and push images to Docker Hub
-# Usage: ./scripts/release.sh YOUR_DOCKERHUB_USERNAME
+# Usage: ./scripts/release.sh YOUR_DOCKERHUB_USERNAME [DOCKER_PASSWORD]
+#
+# Example: ./scripts/release.sh myuser mypassword
+# Or login first: docker login, then: ./scripts/release.sh myuser
 
 set -e
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 <dockerhub-username>"
+    echo "Usage: $0 <dockerhub-username> [docker-password]"
     echo "Example: $0 johndoe"
     exit 1
 fi
 
 DOCKERHUB_USER="$1"
+DOCKER_PASSWORD="$2"
 IMAGE_PREFIX="$DOCKERHUB_USER/adventureshare"
 
 echo "Building images..."
 docker-compose build
 
 echo "Tagging images..."
-docker tag adventureshare-backend:latest ${IMAGE_PREFIX}/backend:latest
-docker tag adventureshare-frontend:latest ${IMAGE_PREFIX}/frontend:latest
+docker tag docker-app-backend:latest ${IMAGE_PREFIX}/backend:latest
+docker tag docker-app-frontend:latest ${IMAGE_PREFIX}/frontend:latest
 
-echo "Logging in to Docker Hub..."
-docker login
+if [ -n "$DOCKER_PASSWORD" ]; then
+    echo "Logging in to Docker Hub..."
+    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKERHUB_USER" --password-stdin
+else
+    echo "Logging in to Docker Hub..."
+    docker login -u "$DOCKERHUB_USER"
+fi
 
 echo "Pushing images to Docker Hub..."
 docker push ${IMAGE_PREFIX}/backend:latest
