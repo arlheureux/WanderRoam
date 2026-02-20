@@ -1,5 +1,5 @@
 const express = require('express');
-const { User } = require('../models');
+const { User, Adventure } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -322,6 +322,43 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
       {
         headers: {
           'x-api-key': user.immich_api_key
+        }
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(response.status).send('Failed to fetch full image');
+    }
+
+    res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Get full image error:', error);
+    res.status(500).send('Failed to fetch full image');
+  }
+});
+
+router.get('/full/:adventureId/:assetId', authMiddleware, async (req, res) => {
+  try {
+    const { adventureId, assetId } = req.params;
+    
+    const adventure = await Adventure.findByPk(adventureId);
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    const owner = await User.findByPk(adventure.user_id);
+    
+    if (!owner.immich_url || !owner.immich_api_key) {
+      return res.status(400).json({ error: 'Immich not configured by adventure owner' });
+    }
+    
+    const response = await fetch(
+      `${owner.immich_url}/api/assets/${assetId}/original`,
+      {
+        headers: {
+          'x-api-key': owner.immich_api_key
         }
       }
     );

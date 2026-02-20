@@ -26,20 +26,22 @@ const fixLeafletIcons = () => {
   });
 };
 
-const createCustomIcon = (color) => {
+const createCustomIcon = (color, scale = 1) => {
+  const size = 24 * scale;
+  const half = size / 2;
   return L.divIcon({
     className: 'custom-marker',
     html: `<div style="
       background-color: ${color};
-      width: 24px;
-      height: 24px;
+      width: ${size}px;
+      height: ${size}px;
       border-radius: 50%;
       border: 3px solid white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     "></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12]
+    iconSize: [size, size],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half]
   });
 };
 
@@ -92,6 +94,7 @@ const AdventureEdit = () => {
   const [mapKey, setMapKey] = useState(0);
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
+  const [hoveredPictureId, setHoveredPictureId] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shares, setShares] = useState([]);
   const [users, setUsers] = useState([]);
@@ -349,26 +352,28 @@ const AdventureEdit = () => {
   return (
     <div>
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/" className="back-link">← Back</Link>
-          <input
-            type="text"
-            value={adventure.name}
-            onChange={(e) => updateAdventure({ name: e.target.value })}
-            style={{ 
-              fontSize: '1.5rem', 
-              fontWeight: 600, 
-              border: 'none', 
-              background: 'transparent',
-              borderBottom: '2px solid transparent'
-            }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Link to="/" className="btn btn-outline btn-sm">← Back</Link>
           {!adventure.isOwner && (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
               Read only
             </span>
           )}
         </div>
+        <input
+          type="text"
+          value={adventure.name}
+          onChange={(e) => updateAdventure({ name: e.target.value })}
+          style={{ 
+            flex: 1,
+            textAlign: 'center',
+            fontSize: '1.5rem', 
+            fontWeight: 600, 
+            border: 'none', 
+            background: 'transparent',
+            borderBottom: '2px solid transparent'
+          }}
+        />
         <div className="header-actions">
           {adventure.isOwner && (
             <button onClick={handleOpenShareModal} className="btn btn-outline btn-sm">Share</button>
@@ -411,7 +416,8 @@ const AdventureEdit = () => {
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
-                    icon={createCustomIcon('#FFD700')}
+                    icon={createCustomIcon('#FFD700', hoveredPictureId === picture.id ? 1.3 : 1)}
+                    opacity={hoveredPictureId && hoveredPictureId !== picture.id ? 0.5 : 1}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (
@@ -591,8 +597,10 @@ const AdventureEdit = () => {
                     <div 
                       key={picture.id} 
                       className="picture-thumb" 
-                      style={{ position: 'relative', cursor: 'pointer' }}
+                      style={{ position: 'relative', cursor: 'pointer', transform: hoveredPictureId === picture.id ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }}
                       onClick={() => openPicture(picture, index)}
+                      onMouseEnter={() => setHoveredPictureId(picture.id)}
+                      onMouseLeave={() => setHoveredPictureId(null)}
                     >
                       {(picture.thumbnail_base64 || picture.thumbnail_url) ? (
                         <img src={picture.thumbnail_base64 || picture.thumbnail_url} alt={picture.filename} />
@@ -655,7 +663,7 @@ const AdventureEdit = () => {
             }}
           >
             <img 
-              src={viewingPicture.full_base64 || viewingPicture.thumbnail_base64 || viewingPicture.thumbnail_url} 
+              src={viewingPicture.thumbnail_base64 || viewingPicture.thumbnail_url} 
               alt={viewingPicture.filename}
               style={{ maxWidth: '110%', maxHeight: '110%', objectFit: 'contain' }}
             />

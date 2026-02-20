@@ -1,6 +1,9 @@
-# docker-compose.yml - Local development
-# Run with: docker-compose up -d
-# Images are built locally from ./backend and ./frontend
+# docker-compose.prod.yml - Production deployment using pre-built images
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+# 
+# Before using:
+# 1. Build and push images: ./scripts/release.sh
+# 2. Or pull from Docker Hub: docker-compose -f docker-compose.prod.yml pull
 
 services:
   postgres:
@@ -21,9 +24,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-adventureshare}/backend:latest
     container_name: adventureshare-backend
     environment:
       NODE_ENV: production
@@ -46,9 +47,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-adventureshare}/frontend:latest
     container_name: adventureshare-frontend
     environment:
       REACT_APP_API_URL: http://localhost:5000/api
