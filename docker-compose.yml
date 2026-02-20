@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: adventureshare-db
+    environment:
+      POSTGRES_USER: adventureshare
+      POSTGRES_PASSWORD: adventureshare_password
+      POSTGRES_DB: adventureshare
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adventureshare"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: adventureshare-backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: adventureshare
+      DB_USER: adventureshare
+      DB_PASSWORD: adventureshare_password
+      JWT_SECRET: ${JWT_SECRET:-adventureshare_secret_key_change_in_production}
+      UPLOAD_DIR: /app/uploads
+      ENABLE_REGISTRATION: ${ENABLE_REGISTRATION:-true}
+    volumes:
+      - upload_data:/app/uploads
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: adventureshare-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  upload_data:
+
+networks:
+  default:
+    name: adventureshare-network
