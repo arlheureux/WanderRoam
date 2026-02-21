@@ -64,12 +64,20 @@ Services:
 
 ### Environment Variables
 
+Copy `.env.example` to `.env` and update the values before deploying.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `JWT_SECRET` | wanderroam_secret_key_change_in_production | JWT signing secret |
-| `ENABLE_REGISTRATION` | true | Allow new user registration |
 | `DB_HOST` | postgres | Database host |
+| `DB_PORT` | 5432 | Database port |
+| `DB_NAME` | wanderroam | Database name |
+| `DB_USER` | wanderroam | Database user |
 | `DB_PASSWORD` | wanderroam_password | Database password |
+| `PORT` | 5000 | Server port |
+| `TZ` | Europe/Paris | Timezone for date formatting |
+| `JWT_SECRET` | wanderroam_secret_key_change_in_production | JWT signing secret (change!) |
+| `ENABLE_REGISTRATION` | true | Allow new user registration |
+| `UPLOAD_DIR` | /app/uploads | Upload directory |
 
 ### Default Credentials
 
