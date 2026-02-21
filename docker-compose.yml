@@ -4,7 +4,7 @@
 
 services:
   postgres:
-    image: postgres:14
+    image: postgres:15-alpine
     container_name: wanderroam-db
     environment:
       POSTGRES_USER: wanderroam
