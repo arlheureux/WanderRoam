@@ -71,21 +71,6 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const userCount = await User.count();
-    const isFirstUser = userCount === 0;
-
-    const user = await User.create({
-      username: username.toLowerCase(),
-      password_hash: hashedPassword,
-      isAdmin: isFirstUser
-    });
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
