@@ -29,20 +29,6 @@ const getAdventureAccess = async (adventureId, userId) => {
   };
 };
 
-router.get('/users', authMiddleware, async (req, res) => {
-  try {
-    const users = await User.findAll({
-      where: { id: { [Op.ne]: req.user.id } },
-      attributes: ['id', 'username', 'email']
-    });
-
-    res.json({ users });
-  } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
-  }
-});
-
 const parseGpx = async (filePath) => {
   const xml = fs.readFileSync(filePath, 'utf-8');
   const points = [];
@@ -686,14 +672,13 @@ router.get('/:id/share', authMiddleware, async (req, res) => {
 
     const shares = await AdventureShare.findAll({
       where: { AdventureId: adventure.id },
-      include: [{ model: User, as: 'User', attributes: ['id', 'username', 'email'] }]
+      include: [{ model: User, as: 'User', attributes: ['id', 'username'] }]
     });
 
     res.json({ shares: shares.map(s => ({
       id: s.id,
       userId: s.User.id,
       username: s.User.username,
-      email: s.User.email,
       permission: s.permission
     })) });
   } catch (error) {
@@ -781,7 +766,7 @@ router.get('/users', authMiddleware, async (req, res) => {
   try {
     const users = await User.findAll({
       where: { id: { [Op.ne]: req.user.id } },
-      attributes: ['id', 'username', 'email']
+      attributes: ['id', 'username']
     });
 
     res.json({ users });

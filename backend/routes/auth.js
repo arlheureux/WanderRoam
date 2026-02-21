@@ -14,18 +14,10 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email, and password are required' });
-    }
-
-    const existingUser = await User.findOne({
-      where: { email }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const existingUsername = await User.findOne({
@@ -43,7 +35,6 @@ router.post('/register', async (req, res) => {
 
     const user = await User.create({
       username,
-      email,
       password_hash: hashedPassword,
       isAdmin: isFirstUser
     });
@@ -52,7 +43,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       token,
-      user: { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin }
+      user: { id: user.id, username: user.username, isAdmin: user.isAdmin }
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -66,20 +57,14 @@ router.get('/config', (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { username, password } = req.body;
 
-    const loginField = email || username;
-    if (!loginField || !password) {
-      return res.status(400).json({ error: 'Username/email and password are required' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
     }
 
     const user = await User.findOne({
-      where: {
-        [Op.or]: [
-          { email: loginField.toLowerCase() },
-          { username: loginField.toLowerCase() }
-        ]
-      }
+      where: { username: username.toLowerCase() }
     });
 
     if (!user) {
@@ -98,7 +83,6 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
         isAdmin: user.isAdmin,
         immich_url: user.immich_url,
         immich_api_key: user.immich_api_key ? '***' : null
@@ -114,7 +98,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'isAdmin', 'createdAt']
+      attributes: ['id', 'username', 'isAdmin', 'createdAt']
     });
 
     if (!user) {
@@ -147,7 +131,6 @@ router.put('/settings', authMiddleware, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
         isAdmin: user.isAdmin,
         immich_url: user.immich_url,
         immich_api_key: user.immich_api_key ? '***' : null
