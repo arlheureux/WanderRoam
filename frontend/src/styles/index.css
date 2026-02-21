@@ -329,17 +329,21 @@ body {
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .adventure-map-container {
-  height: calc(100vh - 380px);
+  height: 500px;
   width: 100%;
+  flex: 1;
 }
 
 .adventure-picture-section {
   flex: 2;
   display: flex;
   flex-direction: column;
+  height: 500px;
 }
 
 .adventure-picture-section .sidebar-section {
