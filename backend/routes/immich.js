@@ -79,8 +79,23 @@ router.get('/albums', authMiddleware, async (req, res) => {
       user.immich_api_key
     );
 
-    const processedAlbums = albums.map(album => {
-      const thumbId = album.albumThumbnailAssetId || album.thumbnail?.id;
+    const processedAlbums = await Promise.all(albums.map(async (album) => {
+      let thumbId = album.albumThumbnailAssetId || album.thumbnail?.id;
+      
+      if (!thumbId && album.assetCount > 0) {
+        try {
+          const albumData = await fetchWithAuth(
+            `${user.immich_url}/api/albums/${album.id}`,
+            user.immich_api_key
+          );
+          if (albumData.assets && albumData.assets.length > 0) {
+            thumbId = albumData.assets[0].id;
+          }
+        } catch (e) {
+          console.error(`Failed to get first asset for album ${album.id}:`, e);
+        }
+      }
+
       return {
         id: album.id,
         albumName: album.albumName,
@@ -90,7 +105,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
           ? `/api/immich/thumbnail/${thumbId}?size=thumbnail`
           : null
       };
-    });
+    }));
 
     res.json({ albums: processedAlbums });
   } catch (error) {
