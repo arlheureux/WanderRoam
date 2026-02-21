@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/arlheureux/adventureshare/refs/heads/master/frontend/public/logo.svg" width="120" alt="WanderRoam Logo"/>
+  <img src="https://raw.githubusercontent.com/arlheureux/WanderRoam/refs/heads/master/frontend/public/logo.svg" width="120" alt="WanderRoam Logo"/>
 </p>
 
 <h1 align="center">WanderRoam</h1>
@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/arlheureux/adventureshare/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/arlheureux/adventureshare/docker.yml?branch=master" alt="Build Status">
+  <a href="https://github.com/arlheureux/WanderRoam/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/arlheureux/WanderRoam/docker.yml?branch=master" alt="Build Status">
   </a>
-  <a href="https://github.com/arlheureux/adventureshare/releases">
-    <img src="https://img.shields.io/github/v/release/arlheureux/adventureshare" alt="Release">
+  <a href="https://github.com/arlheureux/WanderRoam/releases">
+    <img src="https://img.shields.io/github/v/release/arlheureux/WanderRoam" alt="Release">
   </a>
-  <a href="https://github.com/arlheureux/adventureshare/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/arlheureux/adventureshare" alt="License">
+  <a href="https://github.com/arlheureux/WanderRoam/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/arlheureux/WanderRoam" alt="License">
   </a>
 </p>
 
@@ -44,18 +44,17 @@
 
 - Docker & Docker Compose
 
-### Production Deployment
+### Deployment
 
 ```bash
-# Pull and run (after images are built)
-docker-compose -f docker-compose.prod.yml up -d
+# Fetch the docker-compose file
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.prod.yml
+
+# Start services
+docker-compose up -d
 ```
 
-Docker Hub images:
-- `arlheureux/wanderroam-backend:latest`
-- `arlheureux/wanderroam-frontend:latest`
-- `arlheureux/wanderroam-admin:latest`
-
+Services:
 - Main App: http://localhost:3000
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
@@ -99,4 +98,4 @@ docker-app/
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License (non-commercial use only) - see [LICENSE](LICENSE) for details.
