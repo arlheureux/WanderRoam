@@ -1,6 +1,6 @@
 # docker-compose.yml - Local development
 # Run with: docker-compose up -d
-# Images are built locally from ./backend and ./frontend
+# Uses pre-built images from Docker Hub
 
 services:
   postgres:
@@ -21,9 +21,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-backend:latest
     container_name: wanderroam-backend
     environment:
       NODE_ENV: production
@@ -46,9 +44,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-frontend:latest
     container_name: wanderroam-frontend
     environment:
       REACT_APP_API_URL: http://localhost:5000/api
@@ -59,9 +55,7 @@ services:
     restart: unless-stopped
 
   admin:
-    build:
-      context: ./admin
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-admin:latest
     container_name: wanderroam-admin
     ports:
       - "4000:80"
