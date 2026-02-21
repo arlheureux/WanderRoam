@@ -59,17 +59,6 @@ Services:
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
 
-### Local Development
-
-```bash
-# Build and run
-docker-compose up -d
-
-# Or run services individually
-docker-compose up -d postgres backend
-cd frontend && npm start
-```
-
 ## Configuration
 
 ### Environment Variables
