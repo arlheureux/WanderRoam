@@ -179,20 +179,20 @@ const AdventureView = () => {
             </div>
           )}
 
-          {adventure.description && (
-            <div className="sidebar-section">
-              <h3>Description</h3>
-              <div style={{ 
-                padding: '12px', 
-                background: 'var(--background)', 
-                borderRadius: '8px',
-                fontSize: '0.9rem',
-                color: 'var(--text-light)'
-              }}>
-                {adventure.description}
-              </div>
+          <div className="sidebar-section">
+            <h3>Description</h3>
+            <div style={{ 
+              padding: '12px', 
+              background: 'var(--background)', 
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              color: adventure.description ? 'var(--text-light)' : 'var(--text-light)',
+              fontStyle: adventure.description ? 'normal' : 'italic',
+              opacity: adventure.description ? 1 : 0.5
+            }}>
+              {adventure.description || 'No description'}
             </div>
-          )}
+          </div>
 
           <div className="sidebar-section">
             <h3>
