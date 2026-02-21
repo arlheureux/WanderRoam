@@ -85,7 +85,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
       if (!thumbId && album.assetCount > 0) {
         try {
           const albumData = await fetchWithAuth(
-            `${user.immich_url}/api/albums/${album.id}`,
+            `${user.immich_url}/api/albums/${album.id}?withoutAssets=false`,
             user.immich_api_key
           );
           if (albumData.assets && albumData.assets.length > 0) {
@@ -93,6 +93,23 @@ router.get('/albums', authMiddleware, async (req, res) => {
           }
         } catch (e) {
           console.error(`Failed to get first asset for album ${album.id}:`, e);
+        }
+      }
+
+      if (!thumbId && album.assetCount > 0) {
+        try {
+          const assetsResponse = await fetch(
+            `${user.immich_url}/api/albums/${album.id}/assets`,
+            { headers: { 'x-api-key': user.immich_api_key } }
+          );
+          if (assetsResponse.ok) {
+            const assetsData = await assetsResponse.json();
+            if (assetsData.length > 0) {
+              thumbId = assetsData[0].id;
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to get assets for album ${album.id}:`, e);
         }
       }
 
