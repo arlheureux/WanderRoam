@@ -21,7 +21,7 @@ router.post('/register', async (req, res) => {
     }
 
     const existingUsername = await User.findOne({
-      where: { username }
+      where: { username: username.toLowerCase() }
     });
 
     if (existingUsername) {
@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
     const isFirstUser = userCount === 0;
 
     const user = await User.create({
-      username,
+      username: username.toLowerCase(),
       password_hash: hashedPassword,
       isAdmin: isFirstUser
     });
@@ -65,6 +65,21 @@ router.post('/login', async (req, res) => {
 
     const user = await User.findOne({
       where: { username: username.toLowerCase() }
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const userCount = await User.count();
+    const isFirstUser = userCount === 0;
+
+    const user = await User.create({
+      username: username.toLowerCase(),
+      password_hash: hashedPassword,
+      isAdmin: isFirstUser
     });
 
     if (!user) {
