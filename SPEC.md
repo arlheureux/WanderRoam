@@ -21,14 +21,15 @@
 1. **Frontend** - React app on port 3000 (nginx)
 2. **Backend** - Express API on port 5000
 3. **PostgreSQL** - Database on port 5432
+4. **Admin** - Admin panel on port 4000 (nginx)
 
 ## 3. Data Model
 
 ### Users
 - `id` - UUID primary key
 - `username` - unique string
-- `email` - unique string
 - `password_hash` - bcrypt hash
+- `isAdmin` - boolean (first user is admin)
 - `immich_url` - string (optional)
 - `immich_api_key` - string (optional)
 - `created_at` - timestamp
@@ -242,8 +243,8 @@ docker-app/
 ## 9. Environment Variables
 
 ### Backend
-- `NODE_ENV` - production/development
 - `PORT` - server port (default 5000)
+- `TZ` - timezone for date formatting (default Europe/Paris)
 - `DB_HOST` - PostgreSQL host
 - `DB_PORT` - PostgreSQL port
 - `DB_NAME` - Database name
@@ -254,7 +255,7 @@ docker-app/
 - `ENABLE_REGISTRATION` - Enable/disable registration (default true)
 
 ### Frontend
-- `REACT_APP_API_URL` - Backend API URL
+- `REACT_APP_API_URL` - Backend API URL (default /api via nginx proxy)
 
 ## 10. Acceptance Criteria
 
