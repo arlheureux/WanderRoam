@@ -16,7 +16,7 @@ const adminMiddleware = async (req, res, next) => {
 router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: ['id', 'username', 'email', 'isAdmin', 'createdAt'],
+      attributes: ['id', 'username', 'isAdmin', 'createdAt'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -25,7 +25,6 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
       return {
         id: user.id,
         username: user.username,
-        email: user.email,
         isAdmin: user.isAdmin,
         createdAt: user.createdAt,
         adventureCount
@@ -41,19 +40,14 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
 
 router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email, and password are required' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
     }
 
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
     }
 
     const existingUsername = await User.findOne({ where: { username } });
@@ -65,7 +59,6 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
 
     const user = await User.create({
       username,
-      email,
       password_hash: hashedPassword,
       isAdmin: false
     });
@@ -74,7 +67,6 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
         isAdmin: user.isAdmin,
         createdAt: user.createdAt,
         adventureCount: 0
@@ -167,7 +159,6 @@ router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, async (re
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
         isAdmin: user.isAdmin
       }
     });

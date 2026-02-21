@@ -78,7 +78,7 @@ const AdminDashboard = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
+  const [newUser, setNewUser] = useState({ username: '', password: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -136,7 +136,7 @@ const AdminDashboard = () => {
       });
       alert('User created successfully');
       setShowCreateModal(false);
-      setNewUser({ username: '', email: '', password: '' });
+      setNewUser({ username: '', password: '' });
       loadUsers();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to create user');
@@ -179,7 +179,6 @@ const AdminDashboard = () => {
           <thead>
             <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
               <th style={{ padding: '12px', textAlign: 'left' }}>Username</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Adventures</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Role</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
@@ -189,7 +188,6 @@ const AdminDashboard = () => {
             {users.map(user => (
               <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '12px' }}>{user.username}</td>
-                <td style={{ padding: '12px', color: 'var(--text-light)' }}>{user.email}</td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>{user.adventureCount}</td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
                   {user.isAdmin && <span style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontSize: '0.75rem' }}>Admin</span>}
@@ -228,7 +226,6 @@ const AdminDashboard = () => {
             <h2>Create User</h2>
             <form onSubmit={handleCreateUser}>
               <div className="form-group"><label>Username</label><input type="text" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} required /></div>
-              <div className="form-group"><label>Email</label><input type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required /></div>
               <div className="form-group"><label>Password</label><input type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} minLength={6} required /></div>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-outline">Cancel</button>

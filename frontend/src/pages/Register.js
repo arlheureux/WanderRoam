@@ -4,7 +4,6 @@ import { useAuth } from '../services/AuthContext';
 
 const Register = () => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +28,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      await register(username, email, password);
+      await register(username, password);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Failed to register');
@@ -54,16 +53,6 @@ const Register = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               minLength={3}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
             />
           </div>
 
