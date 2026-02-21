@@ -176,7 +176,7 @@ const GpxMap = () => {
                   <Polyline
                     key={track.id}
                     positions={track.data.map(p => [p.lat, p.lng])}
-                    pathOptions={{ color: track.color, weight: 3, opacity: 0.8 }}
+                    pathOptions={{ color: track.color, weight: 4, opacity: 0.8 }}
                   >
                     <Popup>
                       <div style={{ minWidth: '150px' }}>
