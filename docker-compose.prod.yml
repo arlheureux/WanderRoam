@@ -1,14 +1,17 @@
 # docker-compose.yml - Production (pulls from Docker Hub)
 # Run with: docker-compose -f docker-compose.prod.yml up -d
+# IMPORTANT: Create a .env file before running (copy from .env.example)
 
 services:
   postgres:
     image: postgres:15-alpine
     container_name: wanderroam-db
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: wanderroam
-      POSTGRES_PASSWORD: wanderroam_password
-      POSTGRES_DB: wanderroam
+      POSTGRES_USER: ${DB_USER:-wanderroam}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-wanderroam_password}
+      POSTGRES_DB: ${DB_NAME:-wanderroam}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -22,16 +25,18 @@ services:
   backend:
     image: arlheureux/wanderroam-backend:latest
     container_name: wanderroam-backend
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
-      PORT: 5000
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: wanderroam
-      DB_USER: wanderroam
-      DB_PASSWORD: wanderroam_password
+      PORT: ${PORT:-5000}
+      TZ: ${TZ:-Europe/Paris}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-wanderroam}
+      DB_USER: ${DB_USER:-wanderroam}
+      DB_PASSWORD: ${DB_PASSWORD:-wanderroam_password}
       JWT_SECRET: ${JWT_SECRET:-wanderroam_secret_key_change_in_production}
-      UPLOAD_DIR: /app/uploads
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       ENABLE_REGISTRATION: ${ENABLE_REGISTRATION:-true}
     volumes:
       - upload_data:/app/uploads
@@ -45,8 +50,6 @@ services:
   frontend:
     image: arlheureux/wanderroam-frontend:latest
     container_name: wanderroam-frontend
-    environment:
-      REACT_APP_API_URL: http://localhost:5000/api
     ports:
       - "3000:80"
     depends_on:
