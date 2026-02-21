@@ -72,7 +72,7 @@ Services:
 
 ### Default Credentials
 
-After first run, create an admin user through the admin panel at port 4000.
+Register a new account at http://localhost:3000/register. The first registered user becomes admin automatically.
 
 ## Development
 
