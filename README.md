@@ -51,6 +51,11 @@
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+Docker Hub images:
+- `arlheureux/wanderroam-backend:latest`
+- `arlheureux/wanderroam-frontend:latest`
+- `arlheureux/wanderroam-admin:latest`
+
 - Main App: http://localhost:3000
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
