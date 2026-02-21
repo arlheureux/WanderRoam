@@ -308,6 +308,7 @@ body {
 .adventure-info-row {
   display: flex;
   gap: 16px;
+  margin-bottom: 8px;
 }
 
 .adventure-info-row .sidebar-section {
@@ -321,13 +322,18 @@ body {
   flex: 1;
 }
 
-.adventure-map-container {
+.adventure-map-card {
   flex: 3;
-  height: calc(100vh - 340px);
+  background: var(--card);
   border-radius: var(--radius-lg);
-  overflow: hidden;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.adventure-map-container {
+  height: calc(100vh - 380px);
+  width: 100%;
 }
 
 .adventure-picture-section {
