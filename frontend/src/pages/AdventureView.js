@@ -157,7 +157,86 @@ const AdventureView = () => {
       </header>
 
       <div className="container">
-        <div className="adventure-detail">
+        {/* Row 1: Date, Description, Transportation */}
+        <div className="adventure-info-row">
+          {adventure.adventure_date && (
+            <div className="sidebar-section">
+              <h3>Date</h3>
+              <div style={{ 
+                padding: '12px', 
+                background: 'var(--background)', 
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                color: 'var(--text-light)'
+              }}>
+                {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
+            </div>
+          )}
+
+          {adventure.description && (
+            <div className="sidebar-section">
+              <h3>Description</h3>
+              <div style={{ 
+                padding: '12px', 
+                background: 'var(--background)', 
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                color: 'var(--text-light)'
+              }}>
+                {adventure.description}
+              </div>
+            </div>
+          )}
+
+          <div className="sidebar-section">
+            <h3>
+              Transportation
+              <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
+                {gpxTracks.length}
+              </span>
+            </h3>
+
+            {gpxTracks.length === 0 ? (
+              <p style={{ color: 'var(--text-light)' }}>No GPX tracks</p>
+            ) : (
+              <div className="gpx-list">
+                {gpxTracks.map(track => (
+                  <div 
+                    key={track.id} 
+                    className="gpx-item"
+                    style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
+                    onClick={() => setSelectedTrack(track)}
+                  >
+                    <div>
+                      <div className="gpx-item-name">{track.name}</div>
+                      <div className="gpx-item-type">{track.type}</div>
+                      {track.distance > 0 && (
+                        <div className="gpx-item-stats">
+                          {track.distance.toFixed(1)} km
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ 
+                      color: track.color || TYPE_COLORS[track.type],
+                      fontWeight: 600
+                    }}>
+                      ●
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Map and Pictures */}
+        <div className="adventure-content-row">
           <div className="adventure-map-container">
             <MapContainer 
               center={defaultCenter} 
@@ -165,7 +244,7 @@ const AdventureView = () => {
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                attribution='&copy; <a href="httpsmap.org/copyright://www.openstreet">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               
@@ -209,86 +288,11 @@ const AdventureView = () => {
             </MapContainer>
           </div>
 
-          <div className="adventure-sidebar">
-            {adventure.adventure_date && (
-              <div className="sidebar-section">
-                <h3>Date</h3>
-                <div style={{ 
-                  padding: '12px', 
-                  background: 'var(--background)', 
-                  borderRadius: '8px',
-                  fontSize: '0.9rem',
-                  color: 'var(--text-light)'
-                }}>
-                  {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </div>
-              </div>
-            )}
-
-            {adventure.description && (
-              <div className="sidebar-section">
-                <h3>Description</h3>
-                <div style={{ 
-                  padding: '12px', 
-                  background: 'var(--background)', 
-                  borderRadius: '8px',
-                  fontSize: '0.9rem',
-                  color: 'var(--text-light)'
-                }}>
-                  {adventure.description}
-                </div>
-              </div>
-            )}
-
-            <div className="sidebar-section">
-              <h3>
-                Transportation
-                <span style={{ fontWeight: 400, color: 'var(--text-light)' }}>
-                  {gpxTracks.length}
-                </span>
-              </h3>
-
-              {gpxTracks.length === 0 ? (
-                <p style={{ color: 'var(--text-light)' }}>No GPX tracks added yet</p>
-              ) : (
-                <div className="gpx-list">
-                  {gpxTracks.map(track => (
-                    <div 
-                      key={track.id} 
-                      className="gpx-item"
-                      style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
-                      onClick={() => setSelectedTrack(track)}
-                    >
-                      <div>
-                        <div className="gpx-item-name">{track.name}</div>
-                        <div className="gpx-item-type">{track.type}</div>
-                        {track.distance > 0 && (
-                          <div className="gpx-item-stats">
-                            {track.distance.toFixed(1)} km
-                          </div>
-                        )}
-                      </div>
-                      <span style={{ 
-                        color: track.color || TYPE_COLORS[track.type],
-                        fontWeight: 600
-                      }}>
-                        ●
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
+          <div className="adventure-picture-section">
             <div className="sidebar-section">
               <h3>
                 Pictures
-                <span style={{ fontWeight: 400, color: 'var(--text-light)' }}>
+                <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
                   {pictures.length}
                 </span>
               </h3>
