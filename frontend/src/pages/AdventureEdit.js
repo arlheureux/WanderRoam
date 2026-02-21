@@ -402,7 +402,7 @@ const AdventureEdit = () => {
                   positions={track.data?.map(p => [p.lat, p.lng]) || []}
                   pathOptions={{ 
                     color: track.color || TYPE_COLORS[track.type] || TYPE_COLORS.other,
-                    weight: 4,
+                    weight: 5,
                     opacity: selectedTrack && selectedTrack.id !== track.id ? 0.4 : 1
                   }}
                   eventHandlers={{
