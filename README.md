@@ -88,3 +88,5 @@ docker-app/
 ## License
 
 MIT License (non-commercial use only) - see [LICENSE](LICENSE) for details.
+
+Built with [OpenCode](https://opencode.ai) AI assistant.
