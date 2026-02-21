@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
 const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -59,6 +60,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
 app.use('/api/immich', immichRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

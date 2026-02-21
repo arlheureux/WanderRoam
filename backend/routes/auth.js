@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const { generateToken, authMiddleware } = require('../middleware/auth');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 
@@ -36,18 +37,22 @@ router.post('/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const userCount = await User.count();
+    const isFirstUser = userCount === 0;
 
     const user = await User.create({
       username,
       email,
-      password_hash: hashedPassword
+      password_hash: hashedPassword,
+      isAdmin: isFirstUser
     });
 
     const token = generateToken(user);
 
     res.status(201).json({
       token,
-      user: { id: user.id, username: user.username, email: user.email }
+      user: { id: user.id, username: user.username, email: user.email, isAdmin: user.isAdmin }
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -61,14 +66,20 @@ router.get('/config', (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const loginField = email || username;
+    if (!loginField || !password) {
+      return res.status(400).json({ error: 'Username/email and password are required' });
     }
 
     const user = await User.findOne({
-      where: { email }
+      where: {
+        [Op.or]: [
+          { email: loginField.toLowerCase() },
+          { username: loginField.toLowerCase() }
+        ]
+      }
     });
 
     if (!user) {
@@ -88,6 +99,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
         email: user.email,
+        isAdmin: user.isAdmin,
         immich_url: user.immich_url,
         immich_api_key: user.immich_api_key ? '***' : null
       },
@@ -102,7 +114,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'immich_url', 'createdAt']
+      attributes: ['id', 'username', 'email', 'isAdmin', 'createdAt']
     });
 
     if (!user) {
@@ -136,6 +148,7 @@ router.put('/settings', authMiddleware, async (req, res) => {
         id: user.id,
         username: user.username,
         email: user.email,
+        isAdmin: user.isAdmin,
         immich_url: user.immich_url,
         immich_api_key: user.immich_api_key ? '***' : null
       }

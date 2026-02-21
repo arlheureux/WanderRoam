@@ -1,8 +1,8 @@
-# AdventureShare - Specification Document
+# WanderRoam - Specification Document
 
 ## 1. Project Overview
 
-**Project Name:** AdventureShare
+**Project Name:** WanderRoam
 **Type:** Full-stack Docker web application
 **Core Functionality:** A platform to share outdoor adventures consisting of maps, GPX tracks, and photos with Immich integration
 **Target Users:** Outdoor enthusiasts, hikers, cyclists, travelers

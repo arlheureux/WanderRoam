@@ -1,7 +1,7 @@
 {
-  "name": "adventureshare-backend",
+  "name": "wanderroam-backend",
   "version": "1.0.0",
-  "description": "Backend API for AdventureShare",
+  "description": "Backend API for WanderRoam",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

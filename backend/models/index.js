@@ -24,6 +24,10 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  isAdmin: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
   immich_url: {
     type: DataTypes.STRING,
     allowNull: true
@@ -46,6 +50,10 @@ const Adventure = sequelize.define('Adventure', {
   },
   description: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  adventure_date: {
+    type: DataTypes.DATEONLY,
     allowNull: true
   },
   center_lat: {
