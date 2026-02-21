@@ -5,7 +5,7 @@ const sequelize = new Sequelize(
   process.env.DB_USER || 'wanderroam',
   process.env.DB_PASSWORD || 'wanderroam_password',
   {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'postgres',
     port: process.env.DB_PORT,
     dialect: 'postgres',
     logging: false,
