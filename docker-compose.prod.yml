@@ -8,12 +8,16 @@ services:
     container_name: wanderroam-db
     env_file:
       - .env
+    environment:
+      POSTGRES_USER: ${DB_USER:-wanderroam}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-wanderroam_password}
+      POSTGRES_DB: ${DB_NAME:-wanderroam}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wanderroam"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-wanderroam}"]
       interval: 5s
       timeout: 5s
       retries: 5
