@@ -237,8 +237,9 @@ const AdventureView = () => {
 
         {/* Row 2: Map and Pictures */}
         <div className="adventure-content-row">
-          <div className="adventure-map-container">
-            <MapContainer 
+          <div className="adventure-map-card">
+            <div className="adventure-map-container">
+              <MapContainer 
               center={defaultCenter} 
               zoom={defaultZoom} 
               style={{ height: '100%', width: '100%' }}
@@ -286,6 +287,7 @@ const AdventureView = () => {
 
               <MapBounds tracks={gpxTracks} pictures={pictures} />
             </MapContainer>
+            </div>
           </div>
 
           <div className="adventure-picture-section">
