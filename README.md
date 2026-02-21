@@ -47,8 +47,9 @@
 ### Deployment
 
 ```bash
-# Fetch the docker-compose file
+# Fetch the docker-compose file and environment template
 wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.prod.yml
+wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env.example
 
 # Start services
 docker-compose up -d
