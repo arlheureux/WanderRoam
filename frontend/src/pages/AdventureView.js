@@ -269,8 +269,7 @@ const AdventureView = () => {
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
-                    icon={createCustomIcon('#FFD700', hoveredPictureId === picture.id ? 1.3 : 1)}
-                    opacity={hoveredPictureId && hoveredPictureId !== picture.id ? 0.5 : 1}
+                    icon={createCustomIcon(hoveredPictureId === picture.id ? '#10B981' : '#FFD700', hoveredPictureId === picture.id ? 1.5 : 1)}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (
