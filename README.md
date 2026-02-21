@@ -48,7 +48,7 @@
 
 ```bash
 # Fetch the docker-compose file
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.yml
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.prod.yml
 
 # Start services
 docker-compose up -d

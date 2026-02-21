@@ -1,0 +1,71 @@
+# docker-compose.yml - Production (pulls from Docker Hub)
+# Run with: docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: wanderroam-db
+    environment:
+      POSTGRES_USER: wanderroam
+      POSTGRES_PASSWORD: wanderroam_password
+      POSTGRES_DB: wanderroam
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wanderroam"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: arlheureux/wanderroam-backend:latest
+    container_name: wanderroam-backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: wanderroam
+      DB_USER: wanderroam
+      DB_PASSWORD: wanderroam_password
+      JWT_SECRET: ${JWT_SECRET:-wanderroam_secret_key_change_in_production}
+      UPLOAD_DIR: /app/uploads
+      ENABLE_REGISTRATION: ${ENABLE_REGISTRATION:-true}
+    volumes:
+      - upload_data:/app/uploads
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: arlheureux/wanderroam-frontend:latest
+    container_name: wanderroam-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  admin:
+    image: arlheureux/wanderroam-admin:latest
+    container_name: wanderroam-admin
+    ports:
+      - "4000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  upload_data:
+
+networks:
+  default:
+    name: wanderroam-network
