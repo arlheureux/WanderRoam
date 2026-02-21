@@ -268,7 +268,7 @@ const Dashboard = () => {
                     <h3>{adventure.name}</h3>
                     {adventure.adventure_date && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '-8px' }}>
-                        {new Date(adventure.adventure_date).toLocaleDateString('en-US', { 
+                        {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
                           year: 'numeric', 
                           month: 'short', 
                           day: 'numeric' 

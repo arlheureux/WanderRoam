@@ -220,7 +220,7 @@ const AdventureView = () => {
                   fontSize: '0.9rem',
                   color: 'var(--text-light)'
                 }}>
-                  {new Date(adventure.adventure_date).toLocaleDateString('en-US', { 
+                  {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 

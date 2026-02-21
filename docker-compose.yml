@@ -28,6 +28,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
+      TZ: ${TZ:-Europe/Paris}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: wanderroam
