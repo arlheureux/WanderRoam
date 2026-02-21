@@ -3,7 +3,7 @@
 
 services:
   postgres:
-    image: docker.io/library/postgres:15
+    image: postgres:14
     container_name: wanderroam-db
     environment:
       POSTGRES_USER: wanderroam
