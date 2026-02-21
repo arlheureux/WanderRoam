@@ -80,6 +80,7 @@ const AdventureView = () => {
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
@@ -157,10 +158,10 @@ const AdventureView = () => {
       </header>
 
       <div className="container">
-        {/* Row 1: Date, Description, Transportation */}
-        <div className="adventure-info-row">
+        {/* Row 1: Date (30%) + Description (70%) */}
+        <div className="adventure-info-row" style={{ marginBottom: '16px' }}>
           {adventure.adventure_date && (
-            <div className="sidebar-section">
+            <div className="sidebar-section" style={{ flex: '0 0 30%' }}>
               <h3>Date</h3>
               <div style={{ 
                 padding: '12px', 
@@ -179,7 +180,7 @@ const AdventureView = () => {
             </div>
           )}
 
-          <div className="sidebar-section">
+          <div className="sidebar-section" style={{ flex: '1' }}>
             <h3>Description</h3>
             <div style={{ 
               padding: '12px', 
@@ -188,56 +189,66 @@ const AdventureView = () => {
               fontSize: '0.9rem',
               color: adventure.description ? 'var(--text-light)' : 'var(--text-light)',
               fontStyle: adventure.description ? 'normal' : 'italic',
-              opacity: adventure.description ? 1 : 0.5
+              opacity: adventure.description ? 1 : 0.5,
+              minHeight: '60px'
             }}>
               {adventure.description || 'No description'}
             </div>
           </div>
-
-          <div className="sidebar-section">
-            <h3>
-              Transportation
-              <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
-                {gpxTracks.length}
-              </span>
-            </h3>
-
-            {gpxTracks.length === 0 ? (
-              <p style={{ color: 'var(--text-light)' }}>No GPX tracks</p>
-            ) : (
-              <div className="gpx-list">
-                {gpxTracks.map(track => (
-                  <div 
-                    key={track.id} 
-                    className="gpx-item"
-                    style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
-                    onClick={() => setSelectedTrack(track)}
-                  >
-                    <div>
-                      <div className="gpx-item-name">{track.name}</div>
-                      <div className="gpx-item-type">{track.type}</div>
-                      {track.distance > 0 && (
-                        <div className="gpx-item-stats">
-                          {track.distance.toFixed(1)} km
-                        </div>
-                      )}
-                    </div>
-                    <span style={{ 
-                      color: track.color || TYPE_COLORS[track.type],
-                      fontWeight: 600
-                    }}>
-                      ●
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Row 2: Map and Pictures */}
+        {/* Row 2: Transportation (100%) */}
+        <div className="sidebar-section" style={{ marginBottom: '16px' }}>
+          <h3>
+            Transportation
+            <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
+              {gpxTracks.length}
+            </span>
+          </h3>
+
+          {gpxTracks.length === 0 ? (
+            <p style={{ color: 'var(--text-light)' }}>No GPX tracks</p>
+          ) : (
+            <div className="gpx-list">
+              {gpxTracks.map(track => (
+                <div 
+                  key={track.id} 
+                  className="gpx-item"
+                  style={{ 
+                    borderLeftColor: track.color || TYPE_COLORS[track.type],
+                    background: hoveredTrackId === track.id ? 'var(--background)' : 'transparent'
+                  }}
+                  onClick={() => setSelectedTrack(track)}
+                  onMouseEnter={() => setHoveredTrackId(track.id)}
+                  onMouseLeave={() => setHoveredTrackId(null)}
+                >
+                  <div>
+                    <div className="gpx-item-name">{track.name}</div>
+                    <div className="gpx-item-type">{track.type}</div>
+                    {track.distance > 0 && (
+                      <div className="gpx-item-stats">
+                        {track.distance.toFixed(1)} km
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ 
+                    color: track.color || TYPE_COLORS[track.type],
+                    fontWeight: 600
+                  }}>
+                    ●
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Row 3: Map (60%) + Pictures (40%) */}
         <div className="adventure-content-row">
           <div className="adventure-map-card">
+            <div className="adventure-card-header">
+              <h3>Map</h3>
+            </div>
             <div className="adventure-map-container">
               <MapContainer 
               center={defaultCenter} 
@@ -256,7 +267,7 @@ const AdventureView = () => {
                   pathOptions={{ 
                     color: track.color || TYPE_COLORS[track.type] || TYPE_COLORS.other,
                     weight: 5,
-                    opacity: selectedTrack && selectedTrack.id !== track.id ? 0.4 : 1
+                    opacity: (selectedTrack && selectedTrack.id !== track.id) || (hoveredTrackId && hoveredTrackId !== track.id) ? 0.4 : 1
                   }}
                   eventHandlers={{
                     click: () => setSelectedTrack(track)
@@ -291,12 +302,14 @@ const AdventureView = () => {
 
           <div className="adventure-picture-section">
             <div className="sidebar-section">
-              <h3>
-                Pictures
-                <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
-                  {pictures.length}
-                </span>
-              </h3>
+              <div className="adventure-card-header">
+                <h3>
+                  Pictures
+                  <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
+                    {pictures.length}
+                  </span>
+                </h3>
+              </div>
               {pictures.length === 0 ? (
                 <p style={{ color: 'var(--text-light)' }}>No pictures added yet</p>
               ) : (
