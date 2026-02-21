@@ -30,7 +30,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: arlheureux/wanderroam-backend:latest,arlheureux/wanderroam-backend:${{ github.sha }}
+          tags: arnaudlhx/wanderroam-backend:latest,arnaudlhx/wanderroam-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -39,7 +39,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: arlheureux/wanderroam-frontend:latest,arlheureux/wanderroam-frontend:${{ github.sha }}
+          tags: arnaudlhx/wanderroam-frontend:latest,arnaudlhx/wanderroam-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -48,6 +48,6 @@ jobs:
         with:
           context: ./admin
           push: true
-          tags: arlheureux/wanderroam-admin:latest,arlheureux/wanderroam-admin:${{ github.sha }}
+          tags: arnaudlhx/wanderroam-admin:latest,arnaudlhx/wanderroam-admin:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
