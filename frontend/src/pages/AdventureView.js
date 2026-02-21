@@ -146,8 +146,8 @@ const AdventureView = () => {
   return (
     <div>
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Link to="/" className="btn btn-outline btn-sm">← Back</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link to="/" className="back-link">← Back</Link>
         </div>
         <h1 style={{ flex: 1, textAlign: 'center', margin: 0 }}>{adventure.name}</h1>
         <div className="header-actions">
@@ -210,6 +210,26 @@ const AdventureView = () => {
           </div>
 
           <div className="adventure-sidebar">
+            {adventure.adventure_date && (
+              <div className="sidebar-section">
+                <h3>Date</h3>
+                <div style={{ 
+                  padding: '12px', 
+                  background: 'var(--background)', 
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-light)'
+                }}>
+                  {new Date(adventure.adventure_date).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </div>
+              </div>
+            )}
+
             {adventure.description && (
               <div className="sidebar-section">
                 <h3>Description</h3>

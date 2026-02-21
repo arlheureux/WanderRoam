@@ -3,7 +3,8 @@ const fs = require('fs');
 const xml2js = require('xml2js');
 const { Adventure, GpxTrack, Picture, User, AdventureShare } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
+const sequelize = require('../config/database');
 
 const router = express.Router();
 
@@ -122,6 +123,11 @@ const TYPE_COLORS = {
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const { sort = 'adventure_date', order = 'DESC' } = req.query;
+    const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const nullsOrder = sortOrder === 'DESC' ? 'NULLS LAST' : 'NULLS FIRST';
+
     const myAdventures = await Adventure.findAll({
       where: { user_id: req.user.id },
       include: [
@@ -134,7 +140,7 @@ router.get('/', authMiddleware, async (req, res) => {
           attributes: ['id', 'filename', 'thumbnail_url']
         }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [[sequelize.literal(`"Adventure"."${sortField}" ${nullsOrder}`)]]
     });
 
     const sharedAdventureIds = await AdventureShare.findAll({
@@ -161,11 +167,31 @@ router.get('/', authMiddleware, async (req, res) => {
             as: 'owner',
             attributes: ['id', 'username']
           }
-        ]
+        ],
+        order: [[sequelize.literal(`"Adventure"."${sortField}" ${nullsOrder}`)]]
       });
     }
 
-    const allAdventures = [...myAdventures, ...sharedAdventures];
+    const allAdventures = [...myAdventures, ...sharedAdventures].sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      
+      if (sortField === 'adventure_date') {
+        aVal = aVal ? new Date(aVal).getTime() : (sortOrder === 'ASC' ? Infinity : -Infinity);
+        bVal = bVal ? new Date(bVal).getTime() : (sortOrder === 'ASC' ? Infinity : -Infinity);
+      } else if (sortField === 'name') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+      } else {
+        aVal = aVal ? new Date(aVal).getTime() : (sortOrder === 'ASC' ? Infinity : -Infinity);
+        bVal = bVal ? new Date(bVal).getTime() : (sortOrder === 'ASC' ? Infinity : -Infinity);
+      }
+      
+      if (sortOrder === 'ASC') {
+        return aVal > bVal ? 1 : -1;
+      }
+      return aVal < bVal ? 1 : -1;
+    });
 
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
@@ -207,6 +233,7 @@ router.get('/', authMiddleware, async (req, res) => {
         id: adventure.id,
         name: adventure.name,
         description: adventure.description,
+        adventure_date: adventure.adventure_date,
         center_lat,
         center_lng,
         zoom,
@@ -237,6 +264,82 @@ router.get('/', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Get adventures error:', error);
     res.status(500).json({ error: 'Failed to get adventures' });
+  }
+});
+
+router.get('/all-gpx', authMiddleware, async (req, res) => {
+  try {
+    const myAdventures = await Adventure.findAll({
+      where: { user_id: req.user.id },
+      attributes: ['id', 'name', 'adventure_date', 'user_id'],
+      include: [
+        {
+          model: GpxTrack,
+          attributes: ['id', 'name', 'type', 'color', 'data', 'distance']
+        }
+      ]
+    });
+
+    const sharedAdventureIds = await AdventureShare.findAll({
+      where: { UserId: req.user.id },
+      attributes: ['AdventureId']
+    });
+    const sharedIds = sharedAdventureIds.map(s => s.AdventureId);
+
+    let sharedAdventures = [];
+    if (sharedIds.length > 0) {
+      sharedAdventures = await Adventure.findAll({
+        where: { id: sharedIds },
+        attributes: ['id', 'name', 'adventure_date', 'user_id'],
+        include: [
+          {
+            model: GpxTrack,
+            attributes: ['id', 'name', 'type', 'color', 'data', 'distance']
+          },
+          {
+            model: User,
+            as: 'owner',
+            attributes: ['id', 'username']
+          }
+        ]
+      });
+    }
+
+    const allAdventures = [...myAdventures, ...sharedAdventures];
+
+    const ADVENTURE_COLORS = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+      '#F8B500', '#00CED1', '#FF69B4', '#32CD32', '#FF8C00'
+    ];
+
+    const tracks = [];
+    allAdventures.forEach((adventure, idx) => {
+      const adventureColor = ADVENTURE_COLORS[idx % ADVENTURE_COLORS.length];
+      const gpxTracks = adventure.GpxTracks || [];
+      
+      gpxTracks.forEach(track => {
+        if (track.data && track.data.length > 0) {
+          tracks.push({
+            id: track.id,
+            name: track.name,
+            type: track.type,
+            color: adventureColor,
+            adventureId: adventure.id,
+            adventureName: adventure.name,
+            adventureDate: adventure.adventure_date,
+            isOwner: adventure.user_id === req.user.id,
+            ownerName: adventure.owner ? adventure.owner.username : null,
+            data: track.data
+          });
+        }
+      });
+    });
+
+    res.json({ tracks });
+  } catch (error) {
+    console.error('Get all GPX error:', error);
+    res.status(500).json({ error: 'Failed to get GPX tracks' });
   }
 });
 
@@ -360,7 +463,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, description, center_lat, center_lng, zoom } = req.body;
+    const { name, description, adventure_date, center_lat, center_lng, zoom } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
@@ -369,6 +472,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const adventure = await Adventure.create({
       name,
       description,
+      adventure_date,
       center_lat: center_lat || 46.2276,
       center_lng: center_lng || 2.2137,
       zoom: zoom || 10,
@@ -394,10 +498,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
     }
 
-    const { name, description, center_lat, center_lng, zoom, preview_picture_id } = req.body;
+    const { name, description, adventure_date, center_lat, center_lng, zoom, preview_picture_id } = req.body;
 
     if (name !== undefined) adventure.name = name;
     if (description !== undefined) adventure.description = description;
+    if (adventure_date !== undefined) adventure.adventure_date = adventure_date;
     if (center_lat !== undefined) adventure.center_lat = center_lat;
     if (center_lng !== undefined) adventure.center_lng = center_lng;
     if (zoom !== undefined) adventure.zoom = zoom;

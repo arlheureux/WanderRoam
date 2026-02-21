@@ -57,8 +57,9 @@ const Settings = () => {
       <header className="header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Link to="/" className="back-link">← Back</Link>
-          <h1>Settings</h1>
         </div>
+        <h1>Settings</h1>
+        <div style={{ width: '100px' }}></div>
       </header>
 
       <div className="container" style={{ maxWidth: '600px' }}>

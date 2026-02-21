@@ -4,7 +4,7 @@ import { useAuth } from '../services/AuthContext';
 import api from '../services/api';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(username, password);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Failed to login');
@@ -42,11 +42,11 @@ const Login = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label>Username</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>

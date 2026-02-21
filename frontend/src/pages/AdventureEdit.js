@@ -352,8 +352,8 @@ const AdventureEdit = () => {
   return (
     <div>
       <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Link to="/" className="btn btn-outline btn-sm">← Back</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link to="/" className="back-link">← Back</Link>
           {!adventure.isOwner && (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
               Read only
@@ -478,6 +478,25 @@ const AdventureEdit = () => {
                   {uploadingGpx ? 'Uploading...' : 'Upload GPX'}
                 </button>
               </form>
+            </div>
+
+            <div className="sidebar-section">
+              <h3>Date</h3>
+              <input
+                type="date"
+                value={adventure.adventure_date || ''}
+                onChange={(e) => updateAdventure({ adventure_date: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--background)',
+                  color: 'var(--text)',
+                  fontFamily: 'inherit',
+                  fontSize: '0.9rem'
+                }}
+              />
             </div>
 
             <div className="sidebar-section">
