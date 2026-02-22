@@ -19,12 +19,12 @@ const AdminLogin = () => {
     try {
       const res = await api.post('/auth/login', { username, password });
       
-      if (!res.user.isAdmin) {
+      if (!res.data.user.isAdmin) {
         setError('Access denied. Admin only.');
         return;
       }
 
-      localStorage.setItem('adminToken', res.token);
+      localStorage.setItem('adminToken', res.data.token);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials');
@@ -96,7 +96,7 @@ const AdminDashboard = () => {
       const res = await api.get('/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUsers(res.users);
+      setUsers(res.data.users);
     } catch (err) {
       if (err.response?.status === 401) {
         localStorage.removeItem('adminToken');
