@@ -46,7 +46,14 @@
 
 ### Deployment
 
-#### Stable Version (recommended)
+### Branches
+
+| Branch | Docker Tag | Description |
+|--------|------------|-------------|
+| `master` | `:stable`, `:v0.1` | Stable production version |
+| `dev` | `:latest` | Development version for testing |
+
+### Stable Version (recommended)
 ```bash
 # Fetch the docker-compose file and environment template
 wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.yml
@@ -56,13 +63,14 @@ wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env
 docker compose up -d
 ```
 
-#### Development Version (testing new features)
+### Development Version (testing new features)
 ```bash
 # Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.dev.yml
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.yml
+wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
 
 # Start services
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose up -d
 ```
 
 Docker Hub images:
@@ -103,10 +111,16 @@ Register a new account at http://localhost:3000/register. The first registered u
 docker-app/
 ├── frontend/          # React frontend (port 3000)
 ├── backend/           # Express API (port 5000)
-├── admin/            # Admin panel (port 4000)
-├── docker-compose.yml
-└── docker-compose.prod.yml
+├── admin/             # Admin panel (port 4000)
+├── docker-compose.yml       # Stable version
+└── docker-compose.dev.yml  # Development version
 ```
+
+## Contributing
+
+1. Work on `dev` branch
+2. Test locally
+3. Merge `dev` to `master` for stable release
 
 ## License
 
