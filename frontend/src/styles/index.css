@@ -389,19 +389,21 @@ body {
 
 .gpx-list {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .gpx-item {
+  flex: 0 0 calc(25% - 8px);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px;
+  padding: 12px;
   background: var(--background);
   border-radius: var(--radius-md);
   border-left: 4px solid;
   transition: all 0.2s ease;
+  min-width: 200px;
 }
 
 .gpx-item:hover {
