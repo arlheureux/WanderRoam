@@ -819,16 +819,27 @@ body {
   .adventure-info-row .sidebar-section {
     flex: none !important;
     width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  
+  .adventure-info-row .sidebar-section > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   
   .adventure-content-row {
     flex-direction: column !important;
+    display: flex !important;
   }
   
   .adventure-map-card,
   .adventure-picture-section {
     flex: none !important;
     width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 16px !important;
   }
   
   .adventure-map-container {
