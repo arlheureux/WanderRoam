@@ -18,12 +18,14 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,14 +39,12 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          if [ "${{ github.event.inputs.release_type }}" == "new" ]; then
-            # Get current version from GitHub variable or start at v0.1
+          if [ "${{ github.event.inputs.release_type }}" = "new" ]; then
             CURRENT_VERSION="${{ vars.VERSION }}"
             if [ -z "$CURRENT_VERSION" ]; then
               CURRENT_VERSION="v0.0"
             fi
             
-            # Extract numeric part and increment
             VERSION_NUM=${CURRENT_VERSION#v}
             MAJOR=$(echo $VERSION_NUM | cut -d. -f1)
             MINOR=$(echo $VERSION_NUM | cut -d. -f2)
@@ -55,7 +55,6 @@ jobs:
             echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
             echo "is_new_release=true" >> $GITHUB_OUTPUT
           else
-            # Keep current version
             CURRENT_VERSION="${{ vars.VERSION }}"
             if [ -z "$CURRENT_VERSION" ]; then
               CURRENT_VERSION="v0.1"
@@ -64,7 +63,6 @@ jobs:
             echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
             echo "is_new_release=false" >> $GITHUB_OUTPUT
           fi
-          echo "Release type: ${{ github.event.inputs.release_type }}"
 
       - name: Get previous version for stable
         id: previous
@@ -89,7 +87,6 @@ jobs:
           tags: |
             arlheureux/wanderroam-backend:latest
             arlheureux/wanderroam-backend:stable
-            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-backend:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -101,7 +98,6 @@ jobs:
           tags: |
             arlheureux/wanderroam-frontend:latest
             arlheureux/wanderroam-frontend:stable
-            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-frontend:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -113,7 +109,6 @@ jobs:
           tags: |
             arlheureux/wanderroam-admin:latest
             arlheureux/wanderroam-admin:stable
-            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-admin:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -122,27 +117,32 @@ jobs:
         run: |
           PREV_TAG="${{ steps.previous.outputs.previous_version }}"
           if [ -z "$PREV_TAG" ]; then
-            # First release - get all commits
-            NOTES=$(git log --pretty=format:"- %s (%h)" -n 20)
+            NOTES=$(git log --pretty=format:"- %s (%h)" -n 20 2>/dev/null || echo "Initial release")
           else
-            # Get commits since previous version
-            NOTES=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+            NOTES=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD 2>/dev/null || echo "Updates")
           fi
-          echo "notes=$NOTES" >> $GITHUB_OUTPUT
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create or update GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
+        if: steps.version.outputs.is_new_release == 'true'
         with:
           tag_name: ${{ steps.version.outputs.new_version }}
           name: WanderRoam ${{ steps.version.outputs.new_version }}
-          body: "${{ steps.release_notes.outputs.notes }}"
+          body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: ${{ startsWith(steps.version.outputs.new_version, 'v0') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update version variable
+      - name: Update GitHub variable
         if: steps.version.outputs.is_new_release == 'true'
         run: |
-          echo "VERSION=${{ steps.version.outputs.new_version }}" >> $GITHUB_ENV
-          echo "Updating GitHub variable VERSION to ${{ steps.version.outputs.new_version }}"
+          curl -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables \
+            -d '{"name":"VERSION","value":"${{ steps.version.outputs.new_version }}"}' \
+            2>/dev/null || echo "Note: Update VERSION variable manually to ${{ steps.version.outputs.new_version }}"
