@@ -1,5 +1,9 @@
 # WanderRoam - Specification Document
 
+## License
+
+GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
+
 ## 1. Project Overview
 
 **Project Name:** WanderRoam
@@ -74,6 +78,15 @@
 - `user_id` - foreign key to users
 - `permission` - enum (view, edit)
 
+### Waypoints
+- `id` - UUID primary key
+- `adventure_id` - foreign key to adventures
+- `name` - string (optional)
+- `icon` - string (emoji, default 📍)
+- `latitude` - decimal (required)
+- `longitude` - decimal (required)
+- `created_at` - timestamp
+
 ### Transportation Types & Colors
 | Type    | Color   |
 |---------|---------|
@@ -115,6 +128,11 @@
 - `POST /api/adventures/:id/pictures` - Add picture (from Immich)
 - `DELETE /api/adventures/:id/pictures/:pictureId` - Delete picture
 
+### Waypoints
+- `POST /api/adventures/:id/waypoints` - Create waypoint
+- `PUT /api/adventures/:id/waypoints/:waypointId` - Update waypoint
+- `DELETE /api/adventures/:id/waypoints/:waypointId` - Delete waypoint
+
 ### Immich Integration
 - `GET /api/immich/albums` - List Immich albums with thumbnails
 - `GET /api/immich/assets` - List assets from Immich (with GPS)
@@ -137,9 +155,25 @@
 - OpenStreetMap base layer
 - GPX track rendering with colored polylines
 - Picture markers on map (clickable)
+- Waypoint markers with emoji icons (click to add/edit)
 - Hover highlighting (marker scales up, others fade)
 - Auto-fit bounds to show all content
 - Zoom controls
+
+### Waypoint Icons
+| Icon | Description |
+|------|-------------|
+| 📍 | Marker (default) |
+| 🏃 | Break |
+| 🍽️ | Food |
+| 📸 | Photo |
+| 🚿 | Bath |
+| 🏔️ | Viewpoint |
+| ⚠️ | Danger |
+| ⛺ | Camp |
+| 🅿️ | Parking |
+| 💧 | Water |
+| 🔍 | View |
 
 ### Sidebar Panels (Edit/View)
 - Description (textarea/card)
@@ -286,6 +320,9 @@ docker-app/
 - [x] Description field for adventures
 - [x] Adventures can be shared with other users
 - [x] Shared users can view (or view/edit) shared adventures
+- [x] Users can add waypoints by clicking on the map
+- [x] Waypoints display with emoji icons on the map
+- [x] Waypoints can be edited (name, icon) and deleted
 - [x] Docker Compose starts all services
 - [x] Application is accessible via browser
 - [x] Pre-built images can be used for deployment
