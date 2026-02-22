@@ -201,16 +201,26 @@
 3. Choose permission (view/edit)
 4. Shared user sees adventure on their dashboard
 
-## 8. File Structure
+## 8. Release & Deployment
+
+### Branches
+| Branch | Docker Tag | Description |
+|--------|------------|-------------|
+| `master` | `:stable`, `:v0.x` | Stable production version |
+| `dev` | `:latest` | Development version for testing |
+
+### Docker Compose Files
+- `docker-compose.yml` - Stable version (pulls :stable images)
+- `docker-compose.dev.yml` - Development version (pulls :latest images)
+
+### File Structure
 
 ```
 docker-app/
-├── docker-compose.yml          # Local development
-├── docker-compose.prod.yml     # Production (pre-built images)
+├── docker-compose.yml          # Stable version
+├── docker-compose.dev.yml      # Development version
 ├── SPEC.md
 ├── .gitignore
-├── scripts/
-│   └── release.sh            # Build & push to Docker Hub
 ├── backend/
 │   ├── Dockerfile
 │   ├── package.json
