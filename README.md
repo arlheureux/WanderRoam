@@ -65,12 +65,13 @@ docker compose up -d
 
 ### Development Version (testing new features)
 ```bash
-# Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.yml
-wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
+# Clone the repository
+git clone -b dev https://github.com/arlheureux/WanderRoam.git
+cd WanderRoam
+cp .env.example .env
 
-# Start services
-docker compose up -d
+# Start services (uses :latest images)
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 Docker Hub images:
