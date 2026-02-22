@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const xml2js = require('xml2js');
-const { Adventure, GpxTrack, Picture, User, AdventureShare } = require('../models');
+const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
@@ -124,6 +124,10 @@ router.get('/', authMiddleware, async (req, res) => {
         {
           model: Picture,
           attributes: ['id', 'filename', 'thumbnail_url']
+        },
+        {
+          model: Waypoint,
+          attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
         }
       ],
       order: [[sequelize.literal(`"Adventure"."${sortField}" ${nullsOrder}`)]]
@@ -147,6 +151,10 @@ router.get('/', authMiddleware, async (req, res) => {
           {
             model: Picture,
             attributes: ['id', 'filename', 'thumbnail_url']
+          },
+          {
+            model: Waypoint,
+            attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
           },
           {
             model: User,
@@ -344,6 +352,10 @@ router.get('/:id', authMiddleware, async (req, res) => {
         {
           model: Picture,
           attributes: ['id', 'immich_asset_id', 'filename', 'latitude', 'longitude', 'taken_at', 'thumbnail_url']
+        },
+        {
+          model: Waypoint,
+          attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
         }
       ]
     });
@@ -370,6 +382,10 @@ router.get('/:id', authMiddleware, async (req, res) => {
           {
             model: Picture,
             attributes: ['id', 'immich_asset_id', 'filename', 'latitude', 'longitude', 'taken_at', 'thumbnail_url']
+          },
+          {
+            model: Waypoint,
+            attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
           },
           {
             model: User,
@@ -773,6 +789,87 @@ router.get('/users', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+router.post('/:id/waypoints', authMiddleware, async (req, res) => {
+  try {
+    const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const { name, icon, latitude, longitude } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    const waypoint = await Waypoint.create({
+      name: name || '',
+      icon: icon || '📍',
+      latitude,
+      longitude,
+      adventure_id: req.params.id
+    });
+
+    res.status(201).json({ waypoint });
+  } catch (error) {
+    console.error('Create waypoint error:', error);
+    res.status(500).json({ error: 'Failed to create waypoint' });
+  }
+});
+
+router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+  try {
+    const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const waypoint = await Waypoint.findOne({
+      where: { id: req.params.waypointId, adventure_id: req.params.id }
+    });
+
+    if (!waypoint) {
+      return res.status(404).json({ error: 'Waypoint not found' });
+    }
+
+    const { name, icon } = req.body;
+
+    if (name !== undefined) waypoint.name = name;
+    if (icon !== undefined) waypoint.icon = icon;
+
+    await waypoint.save();
+
+    res.json({ waypoint });
+  } catch (error) {
+    console.error('Update waypoint error:', error);
+    res.status(500).json({ error: 'Failed to update waypoint' });
+  }
+});
+
+router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+  try {
+    const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const waypoint = await Waypoint.findOne({
+      where: { id: req.params.waypointId, adventure_id: req.params.id }
+    });
+
+    if (!waypoint) {
+      return res.status(404).json({ error: 'Waypoint not found' });
+    }
+
+    await waypoint.destroy();
+
+    res.json({ message: 'Waypoint deleted successfully' });
+  } catch (error) {
+    console.error('Delete waypoint error:', error);
+    res.status(500).json({ error: 'Failed to delete waypoint' });
   }
 });
 

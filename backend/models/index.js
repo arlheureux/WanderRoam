@@ -132,6 +132,30 @@ const Picture = sequelize.define('Picture', {
   }
 });
 
+const Waypoint = sequelize.define('Waypoint', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  icon: {
+    type: DataTypes.STRING,
+    defaultValue: '📍'
+  },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: false
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7),
+    allowNull: false
+  }
+});
+
 const AdventureShare = sequelize.define('AdventureShare', {
   id: {
     type: DataTypes.UUID,
@@ -161,6 +185,9 @@ GpxTrack.belongsTo(Adventure, { foreignKey: 'adventure_id' });
 Adventure.hasMany(Picture, { foreignKey: 'adventure_id', onDelete: 'CASCADE' });
 Picture.belongsTo(Adventure, { foreignKey: 'adventure_id' });
 
+Adventure.hasMany(Waypoint, { foreignKey: 'adventure_id', onDelete: 'CASCADE' });
+Waypoint.belongsTo(Adventure, { foreignKey: 'adventure_id' });
+
 Adventure.belongsToMany(User, { through: AdventureShare, as: 'sharedWith' });
 User.belongsToMany(Adventure, { through: AdventureShare, as: 'sharedAdventures' });
 
@@ -173,5 +200,6 @@ module.exports = {
   Adventure,
   GpxTrack,
   Picture,
+  Waypoint,
   AdventureShare
 };
