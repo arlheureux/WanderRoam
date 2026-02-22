@@ -118,6 +118,6 @@ docker-app/
 
 ## License
 
-MIT License (non-commercial use only) - see [LICENSE](LICENSE) for details.
+GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 Built with [OpenCode](https://opencode.ai) AI assistant (big-pickle model).
