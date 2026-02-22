@@ -107,6 +107,18 @@ const AdventureEdit = () => {
     loadAdventure();
   }, [id]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!viewingPicture) return;
+      if (e.key === 'ArrowLeft') prevPicture();
+      if (e.key === 'ArrowRight') nextPicture();
+      if (e.key === 'Escape') setViewingPicture(null);
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewingPicture, pictureIndex]);
+
   const loadAdventure = async () => {
     try {
       const res = await api.get(`/adventures/${id}`);
