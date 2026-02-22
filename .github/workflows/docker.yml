@@ -49,12 +49,26 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.ref_name }}" = "master" ]; then
+            echo "VERSION=v0.1" >> $GITHUB_OUTPUT
+            echo "CHANNEL=stable" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "CHANNEL=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
           tags: ${{ steps.tags.outputs.frontend_tags }}
+          build-args: |
+            REACT_APP_VERSION=${{ steps.version.outputs.VERSION }}
+            REACT_APP_CHANNEL=${{ steps.version.outputs.CHANNEL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
