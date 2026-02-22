@@ -52,9 +52,10 @@ body {
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
+  width: 100%;
 }
 
 .header {
@@ -707,10 +708,21 @@ body {
 .adventure-name a {
   white-space: nowrap;
 }
+/* Dashboard grid */
+.adventure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   /* General */
   .container {
     padding: 12px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
     max-width: 100% !important;
   }
   
@@ -774,6 +786,24 @@ body {
   .dashboard-tabs {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  
+  .adventure-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  .adventure-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .adventure-card-preview {
+    height: 150px !important;
+  }
+  
+  .adventure-card-body {
+    padding: 12px !important;
   }
   
   .adventure-grid {
