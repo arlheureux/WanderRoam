@@ -1,6 +1,5 @@
-# docker-compose.yml - Production (pulls from Docker Hub)
-# Run with: docker-compose -f docker-compose.prod.yml up -d
-# IMPORTANT: Create a .env file before running (copy from .env.example)
+# docker-compose.dev.yml - Development (pulls latest from Docker Hub)
+# Run with: docker-compose -f docker-compose.dev.yml up -d
 
 services:
   postgres:
