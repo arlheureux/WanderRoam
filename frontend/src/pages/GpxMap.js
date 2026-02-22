@@ -234,8 +234,8 @@ const GpxMap = () => {
                     style={{ height: '100%', width: '100%' }}
                   >
                     <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> & CartoDB'
+                      url="https://{s}.basemaps.cartocdn.com/positron_all/{z}/{x}/{y}{r}.png"
                     />
                     <MapBounds tracks={visibleTracks} />
                     {visibleTracks.map(track => (
