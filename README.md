@@ -49,7 +49,7 @@
 #### Stable Version (recommended)
 ```bash
 # Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.prod.yml
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.yml
 wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env.example
 
 # Start services
@@ -59,11 +59,10 @@ docker-compose up -d
 #### Development Version (testing new features)
 ```bash
 # Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.prod.yml
-wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.dev.yml
 
 # Start services
-docker-compose up -d
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 Docker Hub images:
