@@ -1,6 +1,5 @@
-# docker-compose.yml - Local development
+# docker-compose.yml - Production (pulls stable from Docker Hub)
 # Run with: docker-compose up -d
-# Images are built locally from ./backend, ./frontend, ./admin
 
 services:
   postgres:
@@ -23,9 +22,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-backend:stable
     container_name: wanderroam-backend
     env_file:
       - .env
@@ -39,9 +36,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-frontend:stable
     container_name: wanderroam-frontend
     ports:
       - "3000:80"
@@ -50,9 +45,7 @@ services:
     restart: unless-stopped
 
   admin:
-    build:
-      context: ./admin
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-admin:stable
     container_name: wanderroam-admin
     ports:
       - "4000:80"
