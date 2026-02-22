@@ -31,9 +31,9 @@ jobs:
         id: tags
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tags=arlheureux/wanderroam-backend:stable" >> $GITHUB_OUTPUT
-            echo "frontend_tags=arlheureux/wanderroam-frontend:stable" >> $GITHUB_OUTPUT
-            echo "admin_tags=arlheureux/wanderroam-admin:stable" >> $GITHUB_OUTPUT
+            echo "tags=arlheureux/wanderroam-backend:stable,arlheureux/wanderroam-backend:v0.1" >> $GITHUB_OUTPUT
+            echo "frontend_tags=arlheureux/wanderroam-frontend:stable,arlheureux/wanderroam-frontend:v0.1" >> $GITHUB_OUTPUT
+            echo "admin_tags=arlheureux/wanderroam-admin:stable,arlheureux/wanderroam-admin:v0.1" >> $GITHUB_OUTPUT
           else
             echo "tags=arlheureux/wanderroam-backend:latest" >> $GITHUB_OUTPUT
             echo "frontend_tags=arlheureux/wanderroam-frontend:latest" >> $GITHUB_OUTPUT
