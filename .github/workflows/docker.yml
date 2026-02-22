@@ -3,14 +3,23 @@ name: Build and Push Docker Images
 on:
   push:
     branches: [main, master]
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'new'
+        type: choice
+        options:
+          - 'new'
+          - 'overwrite'
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -25,12 +34,62 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event.inputs.release_type }}" == "new" ]; then
+            # Get current version from GitHub variable or start at v0.1
+            CURRENT_VERSION="${{ vars.VERSION }}"
+            if [ -z "$CURRENT_VERSION" ]; then
+              CURRENT_VERSION="v0.0"
+            fi
+            
+            # Extract numeric part and increment
+            VERSION_NUM=${CURRENT_VERSION#v}
+            MAJOR=$(echo $VERSION_NUM | cut -d. -f1)
+            MINOR=$(echo $VERSION_NUM | cut -d. -f2)
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="v${MAJOR}.${NEW_MINOR}"
+            
+            echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "is_new_release=true" >> $GITHUB_OUTPUT
+          else
+            # Keep current version
+            CURRENT_VERSION="${{ vars.VERSION }}"
+            if [ -z "$CURRENT_VERSION" ]; then
+              CURRENT_VERSION="v0.1"
+            fi
+            echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "is_new_release=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Release type: ${{ github.event.inputs.release_type }}"
+
+      - name: Get previous version for stable
+        id: previous
+        run: |
+          CURRENT="${{ steps.version.outputs.new_version }}"
+          VERSION_NUM=${CURRENT#v}
+          MAJOR=$(echo $VERSION_NUM | cut -d. -f1)
+          MINOR=$(echo $VERSION_NUM | cut -d. -f2)
+          if [ $MINOR -gt 1 ]; then
+            PREV_MINOR=$((MINOR - 1))
+            PREV_VERSION="v${MAJOR}.${PREV_MINOR}"
+          else
+            PREV_VERSION=""
+          fi
+          echo "previous_version=$PREV_VERSION" >> $GITHUB_OUTPUT
+
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: arlheureux/wanderroam-backend:latest,arlheureux/wanderroam-backend:${{ github.sha }}
+          tags: |
+            arlheureux/wanderroam-backend:latest
+            arlheureux/wanderroam-backend:stable
+            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-backend:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -39,7 +98,10 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: arlheureux/wanderroam-frontend:latest,arlheureux/wanderroam-frontend:${{ github.sha }}
+          tags: |
+            arlheureux/wanderroam-frontend:latest
+            arlheureux/wanderroam-frontend:stable
+            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-frontend:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -48,6 +110,39 @@ jobs:
         with:
           context: ./admin
           push: true
-          tags: arlheureux/wanderroam-admin:latest,arlheureux/wanderroam-admin:${{ github.sha }}
+          tags: |
+            arlheureux/wanderroam-admin:latest
+            arlheureux/wanderroam-admin:stable
+            ${{ steps.version.outputs.is_new_release == 'true' && format('arlheureux/wanderroam-admin:{0}', steps.version.outputs.new_version) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          PREV_TAG="${{ steps.previous.outputs.previous_version }}"
+          if [ -z "$PREV_TAG" ]; then
+            # First release - get all commits
+            NOTES=$(git log --pretty=format:"- %s (%h)" -n 20)
+          else
+            # Get commits since previous version
+            NOTES=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+          fi
+          echo "notes=$NOTES" >> $GITHUB_OUTPUT
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: WanderRoam ${{ steps.version.outputs.new_version }}
+          body: "${{ steps.release_notes.outputs.notes }}"
+          draft: false
+          prerelease: ${{ startsWith(steps.version.outputs.new_version, 'v0') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update version variable
+        if: steps.version.outputs.is_new_release == 'true'
+        run: |
+          echo "VERSION=${{ steps.version.outputs.new_version }}" >> $GITHUB_ENV
+          echo "Updating GitHub variable VERSION to ${{ steps.version.outputs.new_version }}"
