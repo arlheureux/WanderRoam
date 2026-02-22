@@ -53,7 +53,7 @@ wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRo
 wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env.example
 
 # Start services
-docker-compose up -d
+docker compose up -d
 ```
 
 #### Development Version (testing new features)
@@ -62,7 +62,7 @@ docker-compose up -d
 wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.dev.yml
 
 # Start services
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 Docker Hub images:
