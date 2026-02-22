@@ -46,6 +46,7 @@
 
 ### Deployment
 
+#### Stable Version (recommended)
 ```bash
 # Fetch the docker-compose file and environment template
 wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.prod.yml
@@ -54,6 +55,20 @@ wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env
 # Start services
 docker-compose up -d
 ```
+
+#### Development Version (testing new features)
+```bash
+# Fetch the docker-compose file and environment template
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.prod.yml
+wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
+
+# Start services
+docker-compose up -d
+```
+
+Docker Hub images:
+- **Stable**: `arlheureux/wanderroam-{service}:stable` or `:v0.1`
+- **Development**: `arlheureux/wanderroam-{service}:latest`
 
 Services:
 - Main App: http://localhost:3000
