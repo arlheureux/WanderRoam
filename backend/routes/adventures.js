@@ -261,6 +261,20 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/users', authMiddleware, async (req, res) => {
+  try {
+    const users = await User.findAll({
+      where: { id: { [Op.ne]: req.user.id } },
+      attributes: ['id', 'username']
+    });
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
 router.get('/all-gpx', authMiddleware, async (req, res) => {
   try {
     const myAdventures = await Adventure.findAll({
@@ -775,20 +789,6 @@ router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Remove share error:', error);
     res.status(500).json({ error: 'Failed to remove share' });
-  }
-});
-
-router.get('/users', authMiddleware, async (req, res) => {
-  try {
-    const users = await User.findAll({
-      where: { id: { [Op.ne]: req.user.id } },
-      attributes: ['id', 'username']
-    });
-
-    res.json({ users });
-  } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
   }
 });
 

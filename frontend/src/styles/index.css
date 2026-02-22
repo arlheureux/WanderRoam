@@ -304,6 +304,14 @@ body {
   flex-direction: column;
   gap: 24px;
   margin-top: 24px;
+  min-height: 500px;
+}
+
+.adventure-sidebar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .adventure-info-row {
@@ -347,7 +355,11 @@ body {
 .adventure-map-container {
   height: 500px;
   width: 100%;
+  min-height: 400px;
   flex: 1;
+  display: block;
+  visibility: visible;
+  position: relative;
 }
 
 .adventure-picture-section {
