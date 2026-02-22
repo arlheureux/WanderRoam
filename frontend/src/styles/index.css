@@ -842,6 +842,11 @@ body {
     margin-bottom: 16px !important;
     display: flex !important;
     visibility: visible !important;
+    flex-direction: column !important;
+  }
+  
+  .adventure-map-card {
+    height: 320px !important;
   }
   
   .adventure-map-container {
@@ -849,6 +854,15 @@ body {
     min-height: 250px !important;
     display: block !important;
     visibility: visible !important;
+    position: relative !important;
+  }
+  
+  .adventure-map-container .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
   }
   
   .adventure-picture-section {
