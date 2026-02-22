@@ -3,8 +3,8 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - master   # → pushes :latest + :stable
-      - dev      # → pushes :develop
+      - master   # → pushes :stable
+      - dev      # → pushes :latest
   workflow_dispatch:
 
 jobs:
@@ -31,13 +31,13 @@ jobs:
         id: tags
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "tags=arlheureux/wanderroam-backend:latest,arlheureux/wanderroam-backend:stable" >> $GITHUB_OUTPUT
-            echo "frontend_tags=arlheureux/wanderroam-frontend:latest,arlheureux/wanderroam-frontend:stable" >> $GITHUB_OUTPUT
-            echo "admin_tags=arlheureux/wanderroam-admin:latest,arlheureux/wanderroam-admin:stable" >> $GITHUB_OUTPUT
+            echo "tags=arlheureux/wanderroam-backend:stable" >> $GITHUB_OUTPUT
+            echo "frontend_tags=arlheureux/wanderroam-frontend:stable" >> $GITHUB_OUTPUT
+            echo "admin_tags=arlheureux/wanderroam-admin:stable" >> $GITHUB_OUTPUT
           else
-            echo "tags=arlheureux/wanderroam-backend:develop" >> $GITHUB_OUTPUT
-            echo "frontend_tags=arlheureux/wanderroam-frontend:develop" >> $GITHUB_OUTPUT
-            echo "admin_tags=arlheureux/wanderroam-admin:develop" >> $GITHUB_OUTPUT
+            echo "tags=arlheureux/wanderroam-backend:latest" >> $GITHUB_OUTPUT
+            echo "frontend_tags=arlheureux/wanderroam-frontend:latest" >> $GITHUB_OUTPUT
+            echo "admin_tags=arlheureux/wanderroam-admin:latest" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push backend
