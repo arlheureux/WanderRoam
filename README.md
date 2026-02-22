@@ -67,8 +67,8 @@ docker-compose up -d
 ```
 
 Docker Hub images:
-- **Stable**: `arlheureux/wanderroam-{service}:latest` or `:stable`
-- **Development**: `arlheureux/wanderroam-{service}:develop`
+- **Stable**: `arlheureux/wanderroam-{service}:stable`
+- **Development**: `arlheureux/wanderroam-{service}:latest`
 
 Services:
 - Main App: http://localhost:3000
