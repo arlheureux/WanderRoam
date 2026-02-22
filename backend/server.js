@@ -14,6 +14,12 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const VERSION = '1.0.0';
+const TAG = 'dev';
+
+app.get('/api/version', (req, res) => {
+  res.json({ version: VERSION, tag: TAG });
+});
 
 app.use(cors());
 
