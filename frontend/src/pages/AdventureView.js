@@ -45,7 +45,22 @@ const createCustomIcon = (color, scale = 1) => {
   });
 };
 
-const MapBounds = ({ tracks, pictures }) => {
+const createWaypointIcon = (icon, scale = 1) => {
+  const size = 28 * scale;
+  return L.divIcon({
+    className: 'waypoint-marker',
+    html: `<div style="
+      font-size: ${size}px;
+      line-height: ${size}px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    ">${icon}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -size/2]
+  });
+};
+
+const MapBounds = ({ tracks, pictures, waypoints }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -63,6 +78,11 @@ const MapBounds = ({ tracks, pictures }) => {
         .filter(p => p.latitude && p.longitude)
         .map(p => [p.latitude, p.longitude]);
       allPoints.push(...picturePoints);
+    }
+
+    if (waypoints && waypoints.length > 0) {
+      const waypointPoints = waypoints.map(w => [w.latitude, w.longitude]);
+      allPoints.push(...waypointPoints);
     }
 
     if (allPoints.length > 0) {
@@ -152,6 +172,7 @@ const AdventureView = () => {
 
   const gpxTracks = adventure.GpxTracks || [];
   const pictures = adventure.Pictures || [];
+  const waypoints = adventure.Waypoints || [];
   
   const defaultCenter = [parseFloat(adventure.center_lat) || 46.2276, parseFloat(adventure.center_lng) || 2.2137];
   const defaultZoom = adventure.zoom || 10;
@@ -307,7 +328,22 @@ const AdventureView = () => {
                 )
               ))}
 
-              <MapBounds tracks={gpxTracks} pictures={pictures} />
+              {waypoints.map(waypoint => (
+                <Marker
+                  key={waypoint.id}
+                  position={[waypoint.latitude, waypoint.longitude]}
+                  icon={createWaypointIcon(waypoint.icon)}
+                >
+                  <Popup>
+                    <div style={{ minWidth: '100px', textAlign: 'center' }}>
+                      <strong>{waypoint.name || 'Waypoint'}</strong>
+                      <div style={{ fontSize: '1.5rem', marginTop: '4px' }}>{waypoint.icon}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              <MapBounds tracks={gpxTracks} pictures={pictures} waypoints={waypoints} />
             </MapContainer>
             </div>
           </div>
