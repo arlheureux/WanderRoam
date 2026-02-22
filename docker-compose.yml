@@ -45,7 +45,8 @@ services:
     restart: unless-stopped
 
   admin:
-    image: arlheureux/wanderroam-admin:stable
+    build: ./admin
+    image: arlheureux/wanderroam-admin:dev
     container_name: wanderroam-admin
     ports:
       - "4000:80"
