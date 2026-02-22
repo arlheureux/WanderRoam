@@ -50,7 +50,7 @@
 
 | Branch | Docker Tag | Description |
 |--------|------------|-------------|
-| `master` | `:stable`, `:v0.1` | Stable production version |
+| `master` | `:stable` | Stable production version |
 | `dev` | `:latest` | Development version for testing |
 
 ### Stable Version (recommended)
@@ -75,7 +75,7 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 Docker Hub images:
-- **Stable**: `arlheureux/wanderroam-{service}:stable` or `:v0.1`
+- **Stable**: `arlheureux/wanderroam-{service}:stable`
 - **Development**: `arlheureux/wanderroam-{service}:latest`
 
 Services:
