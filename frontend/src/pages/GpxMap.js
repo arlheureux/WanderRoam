@@ -40,6 +40,8 @@ const GpxMap = () => {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visibleAdventures, setVisibleAdventures] = useState({});
+  const [hoveredAdventure, setHoveredAdventure] = useState(null);
+  const [selectedTrack, setSelectedTrack] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -81,18 +83,7 @@ const GpxMap = () => {
 
   const uniqueAdventures = [...new Set(tracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
 
-  const getBounds = () => {
-    const visibleTracks = tracks.filter(t => visibleAdventures[t.adventureId]);
-    if (visibleTracks.length === 0) return [[46.2276, 2.2137], [46.2276, 2.2137]];
-    
-    const allPoints = visibleTracks
-      .filter(t => t.data && t.data.length > 0)
-      .flatMap(t => t.data.map(p => [p.lat, p.lng]));
-    
-    if (allPoints.length === 0) return [[46.2276, 2.2137], [46.2276, 2.2137]];
-    
-    return allPoints;
-  };
+  const visibleTracks = tracks.filter(t => visibleAdventures[t.adventureId]);
 
   if (loading) {
     return <div className="loading-screen">Loading tracks...</div>;
@@ -111,101 +102,162 @@ const GpxMap = () => {
         </div>
       </header>
 
-      <div className="container">
-        {tracks.length === 0 ? (
-          <div className="empty-state">
-            <h3>No tracks found</h3>
-            <p>Add GPX tracks to your adventures to see them here</p>
-            <Link to="/" className="btn btn-primary">Go to Dashboard</Link>
-          </div>
-        ) : (
-          <>
-            <div style={{ 
-              marginTop: '16px', 
-              marginBottom: '16px', 
-              padding: '12px', 
-              background: 'var(--surface)', 
-              borderRadius: '8px',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '12px',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: 600 }}>Adventures:</span>
-              <button onClick={() => toggleAll(true)} className="btn btn-outline btn-sm">Show All</button>
-              <button onClick={() => toggleAll(false)} className="btn btn-outline btn-sm">Hide All</button>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: '8px' }}>
-                {uniqueAdventures.map(adv => (
-                  <label 
-                    key={adv.id} 
+      <div className="container" style={{ display: 'flex', gap: '24px', marginTop: '24px' }}>
+        {/* Sidebar */}
+        <div className="sidebar" style={{ width: '320px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Adventure Legend */}
+          <div className="sidebar-section">
+            <h3 style={{ marginBottom: '16px' }}>
+              Adventures
+              <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: '8px' }}>
+                ({uniqueAdventures.length})
+              </span>
+            </h3>
+            
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button onClick={() => toggleAll(true)} className="btn btn-outline btn-sm" style={{ flex: 1 }}>Show All</button>
+              <button onClick={() => toggleAll(false)} className="btn btn-outline btn-sm" style={{ flex: 1 }}>Hide All</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+              {uniqueAdventures.map(adv => (
+                <label 
+                  key={adv.id}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    background: hoveredAdventure === adv.id || visibleAdventures[adv.id] ? adv.color + '15' : 'transparent',
+                    border: `1px solid ${visibleAdventures[adv.id] ? adv.color : 'var(--border)'}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={() => setHoveredAdventure(adv.id)}
+                  onMouseLeave={() => setHoveredAdventure(null)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!visibleAdventures[adv.id]}
+                    onChange={() => toggleAdventure(adv.id)}
+                    style={{ accentColor: adv.color, width: '16px', height: '16px' }}
+                  />
+                  <span 
                     style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '6px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      background: visibleAdventures[adv.id] ? adv.color + '20' : 'transparent',
-                      border: `1px solid ${visibleAdventures[adv.id] ? adv.color : 'var(--border)'}`,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!visibleAdventures[adv.id]}
-                      onChange={() => toggleAdventure(adv.id)}
-                      style={{ accentColor: adv.color }}
-                    />
-                    <span style={{ fontSize: '0.85rem' }}>{adv.name}</span>
-                  </label>
-                ))}
+                      width: '12px', 
+                      height: '12px', 
+                      borderRadius: '50%', 
+                      background: adv.color,
+                      flexShrink: 0
+                    }} 
+                  />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {adv.name}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                    {tracks.filter(t => t.adventureId === adv.id).length}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Selected Track Info */}
+          {selectedTrack && (
+            <div className="sidebar-section">
+              <h3 style={{ marginBottom: '12px' }}>Selected Track</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>
+                  <span style={{ fontWeight: 600 }}>{selectedTrack.name}</span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                  Adventure: {selectedTrack.adventureName}
+                </div>
+                {selectedTrack.distance && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                    Distance: {selectedTrack.distance.toFixed(1)} km
+                  </div>
+                )}
+                {selectedTrack.adventureDate && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                    Date: {new Date(selectedTrack.adventureDate).toLocaleDateString()}
+                  </div>
+                )}
+                {selectedTrack.ownerName && !selectedTrack.isOwner && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                    Shared by: {selectedTrack.ownerName}
+                  </div>
+                )}
+                <button 
+                  onClick={() => navigate(`/adventure/${selectedTrack.adventureId}`)}
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: '8px' }}
+                >
+                  View Adventure
+                </button>
               </div>
             </div>
+          )}
 
-            <div style={{ height: 'calc(100vh - 200px)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <MapContainer 
-                center={[46.2276, 2.2137]} 
-                zoom={5} 
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapBounds tracks={tracks.filter(t => visibleAdventures[t.adventureId])} />
-                {tracks.filter(t => visibleAdventures[t.adventureId]).map(track => (
-                  <Polyline
-                    key={track.id}
-                    positions={track.data.map(p => [p.lat, p.lng])}
-                    pathOptions={{ color: track.color, weight: 4, opacity: 0.8 }}
+          {/* Stats */}
+          <div className="sidebar-section">
+            <h3 style={{ marginBottom: '8px' }}>Statistics</h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+              <div>Visible tracks: {visibleTracks.length}</div>
+              <div>Total tracks: {tracks.length}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Map */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {tracks.length === 0 ? (
+            <div className="empty-state">
+              <h3>No tracks found</h3>
+              <p>Add GPX tracks to your adventures to see them here</p>
+              <Link to="/" className="btn btn-primary">Go to Dashboard</Link>
+            </div>
+          ) : (
+            <>
+              <div className="adventure-map-card" style={{ flex: 1, minHeight: '600px' }}>
+                <div className="adventure-card-header">
+                  <h3>Map</h3>
+                  <span style={{ fontWeight: 400, color: 'var(--text-light)', fontSize: '0.85rem' }}>
+                    {visibleTracks.length} tracks visible • Click track for details
+                  </span>
+                </div>
+                <div className="adventure-map-container" style={{ height: 'auto', flex: 1 }}>
+                  <MapContainer 
+                    center={[46.2276, 2.2137]} 
+                    zoom={5} 
+                    style={{ height: '100%', width: '100%' }}
                   >
-                    <Popup>
-                      <div style={{ minWidth: '150px' }}>
-                        <strong>{track.name}</strong><br />
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>
-                          Adventure: {track.adventureName}
-                        </span>
-                        {track.adventureDate && (
-                          <><br /><span style={{ fontSize: '0.85rem', color: '#666' }}>
-                            {new Date(track.adventureDate).toLocaleDateString()}
-                          </span></>
-                        )}
-                        {track.ownerName && !track.isOwner && (
-                          <><br /><span style={{ fontSize: '0.85rem', color: '#666' }}>
-                            Shared by: {track.ownerName}
-                          </span></>
-                        )}
-                      </div>
-                    </Popup>
-                  </Polyline>
-                ))}
-              </MapContainer>
-            </div>
-
-            <div style={{ marginTop: '16px', color: 'var(--text-light)', fontSize: '0.85rem' }}>
-              {tracks.filter(t => visibleAdventures[t.adventureId]).length} tracks visible • Click on a track to see details
-            </div>
-          </>
-        )}
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <MapBounds tracks={visibleTracks} />
+                    {visibleTracks.map(track => (
+                      <Polyline
+                        key={track.id}
+                        positions={track.data.map(p => [p.lat, p.lng])}
+                        pathOptions={{ 
+                          color: track.color, 
+                          weight: 6, 
+                          opacity: (hoveredAdventure && hoveredAdventure !== track.adventureId) || (selectedTrack && selectedTrack.id !== track.id) ? 0.3 : 1
+                        }}
+                        eventHandlers={{
+                          click: () => setSelectedTrack(track)
+                        }}
+                      />
+                    ))}
+                  </MapContainer>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
