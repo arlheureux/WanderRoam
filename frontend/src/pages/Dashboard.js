@@ -162,7 +162,6 @@ const Dashboard = () => {
           </span>
         </div>
         <div className="header-actions">
-          {user?.isAdmin && <Link to="/admin" className="btn btn-outline btn-sm">Admin</Link>}
           <Link to="/settings" className="btn btn-outline btn-sm">Settings</Link>
           <span>Welcome, {user?.username}</span>
           <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
