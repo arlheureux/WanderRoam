@@ -52,9 +52,10 @@ body {
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
+  width: 100%;
 }
 
 .header {
@@ -688,4 +689,296 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Text overflow handling */
+.adventure-name,
+.adventure-name a,
+.gpx-item-name,
+.sidebar-section,
+.sidebar-section h3,
+.sidebar-section p,
+.adventure-info-row .sidebar-section,
+.adventure-card {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.adventure-name,
+.adventure-name a {
+  white-space: nowrap;
+}
+/* Dashboard grid */
+.adventure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  /* General */
+  .container {
+    padding: 12px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  h1 {
+    font-size: 1.25rem !important;
+  }
+  
+  h2 {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Header */
+  .header {
+    padding: 8px 12px !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .header h1 {
+    font-size: 1rem !important;
+  }
+  
+  .header-actions {
+    gap: 6px !important;
+  }
+  
+  .header-actions span {
+    display: none;
+  }
+  
+  /* Buttons */
+  .btn {
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    min-height: 36px;
+  }
+  
+  .btn-sm {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  /* Forms */
+  .form-group {
+    margin-bottom: 12px;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+  
+  /* Cards */
+  .adventure-card {
+    padding: 12px !important;
+  }
+  
+  /* Dashboard */
+  .dashboard-tabs {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .adventure-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  .adventure-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .adventure-card-preview {
+    height: 150px !important;
+  }
+  
+  .adventure-card-body {
+    padding: 12px !important;
+  }
+  
+  .adventure-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Adventure View */
+  .adventure-info-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  
+  .adventure-info-row .sidebar-section {
+    flex: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  
+  .adventure-info-row .sidebar-section > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .adventure-content-row {
+    flex-direction: column !important;
+    display: flex !important;
+  }
+  
+  .adventure-map-card,
+  .adventure-picture-section {
+    flex: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    visibility: visible !important;
+    flex-direction: column !important;
+  }
+  
+  .adventure-map-card {
+    height: 320px !important;
+  }
+  
+  .adventure-map-container {
+    height: 300px !important;
+    min-height: 250px !important;
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+  }
+  
+  .adventure-map-container .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+  }
+  
+  .adventure-picture-section {
+    height: auto !important;
+    max-height: 400px;
+  }
+  
+  /* Sidebar */
+  .sidebar-section {
+    padding: 12px !important;
+  }
+  
+  .sidebar-section h3 {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  
+  /* Gpx List */
+  .gpx-list {
+    flex-direction: column !important;
+  }
+  
+  .gpx-item {
+    flex: none !important;
+    min-width: auto !important;
+    width: 100% !important;
+  }
+  
+  /* Picture Grid */
+  .picture-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  /* Auth Pages */
+  .auth-card {
+    margin: 12px;
+    padding: 20px !important;
+    max-width: calc(100% - 24px) !important;
+  }
+  
+  /* Modal */
+  .modal-overlay {
+    padding: 12px;
+  }
+  
+  .modal-content {
+    padding: 16px !important;
+    max-width: 100% !important;
+    margin: 12px;
+  }
+  
+  /* Settings */
+  .settings-section {
+    padding: 16px !important;
+  }
+  
+  /* Album Grid */
+  .album-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  
+  /* Header logo */
+  .header > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .header h1 {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem !important;
+  }
+  
+  /* Version badge */
+  .header span[style*="margin-left"] {
+    display: none !important;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .container {
+    padding: 8px !important;
+  }
+  
+  .picture-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .adventure-map-container {
+    height: 250px !important;
+  }
+  
+  .header-actions .btn {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .picture-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+  
+  .adventure-content-row {
+    flex-wrap: wrap;
+  }
+  
+  .adventure-map-card,
+  .adventure-picture-section {
+    flex: 1 1 45% !important;
+    min-width: 300px;
+  }
 }
