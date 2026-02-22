@@ -116,12 +116,6 @@ docker-app/
 └── docker-compose.dev.yml  # Development version
 ```
 
-## Contributing
-
-1. Work on `dev` branch
-2. Test locally
-3. Merge `dev` to `master` for stable release
-
 ## License
 
 MIT License (non-commercial use only) - see [LICENSE](LICENSE) for details.
