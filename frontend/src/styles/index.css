@@ -840,10 +840,15 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     margin-bottom: 16px !important;
+    display: flex !important;
+    visibility: visible !important;
   }
   
   .adventure-map-container {
     height: 300px !important;
+    min-height: 250px !important;
+    display: block !important;
+    visibility: visible !important;
   }
   
   .adventure-picture-section {
@@ -945,5 +950,23 @@ body {
   .header-actions .btn {
     padding: 6px 8px;
     font-size: 0.75rem;
+  }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .picture-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+  
+  .adventure-content-row {
+    flex-wrap: wrap;
+  }
+  
+  .adventure-map-card,
+  .adventure-picture-section {
+    flex: 1 1 45% !important;
+    min-width: 300px;
   }
 }
