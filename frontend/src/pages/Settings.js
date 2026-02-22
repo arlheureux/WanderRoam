@@ -136,12 +136,6 @@ const Settings = () => {
             </>
           )}
         </div>
-
-        <div className="settings-section">
-          <h3>Account</h3>
-          <p><strong>Username:</strong> {user?.username}</p>
-          <p><strong>Email:</strong> {user?.email}</p>
-        </div>
       </div>
     </div>
   );
