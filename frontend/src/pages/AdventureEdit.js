@@ -186,16 +186,20 @@ const AdventureEdit = () => {
 
   const loadAdventure = async () => {
     try {
-      const [adventureRes, tagsRes] = await Promise.all([
-        api.get(`/adventures/${id}`),
-        api.getTags()
-      ]);
-      setAdventure(adventureRes.data.adventure);
-      setAllTags(tagsRes.data.tags || []);
-      setSelectedTags(adventureRes.data.adventure.tags || []);
+      const res = await api.get(`/adventures/${id}`);
+      setAdventure(res.data.adventure);
+      setSelectedTags(res.data.adventure.tags || []);
     } catch (err) {
       console.error('Failed to load adventure:', err);
       navigate('/');
+      return;
+    }
+
+    try {
+      const tagsRes = await api.getTags();
+      setAllTags(tagsRes.data.tags || []);
+    } catch (err) {
+      console.error('Failed to load tags:', err);
     } finally {
       setLoading(false);
     }

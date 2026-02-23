@@ -14,7 +14,7 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.3';
+const VERSION = 'v0.3.1';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
