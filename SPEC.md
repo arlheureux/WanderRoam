@@ -87,6 +87,31 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 - `longitude` - decimal (required)
 - `created_at` - timestamp
 
+### Tags
+- `id` - UUID primary key
+- `name` - string (unique)
+- `color` - hex string
+- `type` - enum (activity, location)
+
+### Adventure Tags (many-to-many)
+- `adventure_id` - foreign key to adventures
+- `tag_id` - foreign key to tags
+
+### Predefined Tags
+| Name | Type | Color |
+|------|------|-------|
+| Hiking | activity | #FF9F43 |
+| Cycling | activity | #4ECDC4 |
+| Walking | activity | #FF6B6B |
+| Running | activity | #26DE81 |
+| Swimming | activity | #45B7D1 |
+| Skiing | activity | #A55EEA |
+| Kayaking | activity | #2D98DA |
+| Mountain | location | #9B59B6 |
+| Sea | location | #45B7D1 |
+| Forest | location | #26DE81 |
+| City | location | #FC5C65 |
+
 ### Transportation Types & Colors
 | Type    | Color   |
 |---------|---------|
@@ -110,6 +135,7 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Adventures
 - `GET /api/adventures` - List user's adventures + shared adventures
+- `GET /api/adventures?tags=id1,id2` - Filter by tags (inclusive)
 - `POST /api/adventures` - Create adventure
 - `GET /api/adventures/:id` - Get adventure with all data
 - `PUT /api/adventures/:id` - Update adventure
@@ -133,6 +159,10 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 - `PUT /api/adventures/:id/waypoints/:waypointId` - Update waypoint
 - `DELETE /api/adventures/:id/waypoints/:waypointId` - Delete waypoint
 
+### Tags
+- `GET /api/adventures/tags` - List all available tags
+- `PUT /api/adventures/:id/tags` - Update adventure tags (replace all)
+
 ### Immich Integration
 - `GET /api/immich/albums` - List Immich albums with thumbnails
 - `GET /api/immich/assets` - List assets from Immich (with GPS)
@@ -147,8 +177,8 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Pages
 1. **Login/Register** - Authentication forms (register hidden if disabled)
-2. **Dashboard** - List of adventures with preview pictures
-3. **Adventure Editor** - Edit adventure with map, sidebar panels
+2. **Dashboard** - List of adventures with preview pictures and tag filter
+3. **Adventure Editor** - Edit adventure with map, sidebar panels, tag selector
 4. **Adventure View** - View adventure with map (read-only for shared)
 
 ### Map Features
@@ -177,6 +207,7 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Sidebar Panels (Edit/View)
 - Description (textarea/card)
+- Tags (clickable chips to select/deselect)
 - Transportation (GPX tracks list with distance)
 - Pictures (grid with add/remove)
 
@@ -323,6 +354,9 @@ docker-app/
 - [x] Users can add waypoints by clicking on the map
 - [x] Waypoints display with emoji icons on the map
 - [x] Waypoints can be edited (name, icon) and deleted
+- [x] Users can tag adventures with predefined activity/location tags
+- [x] Tag filter on dashboard allows filtering by selected tags
+- [x] Tags display on adventure cards in dashboard
 - [x] Docker Compose starts all services
 - [x] Application is accessible via browser
 - [x] Pre-built images can be used for deployment
