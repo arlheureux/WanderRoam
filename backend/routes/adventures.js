@@ -377,6 +377,18 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/tags', authMiddleware, async (req, res) => {
+  try {
+    const tags = await Tag.findAll({
+      order: [['type', 'ASC'], ['name', 'ASC']]
+    });
+    res.json({ tags });
+  } catch (error) {
+    console.error('Get tags error:', error);
+    res.status(500).json({ error: 'Failed to get tags' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     let adventure = await Adventure.findOne({
@@ -931,18 +943,6 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
   } catch (error) {
     console.error('Delete waypoint error:', error);
     res.status(500).json({ error: 'Failed to delete waypoint' });
-  }
-});
-
-router.get('/tags', authMiddleware, async (req, res) => {
-  try {
-    const tags = await Tag.findAll({
-      order: [['type', 'ASC'], ['name', 'ASC']]
-    });
-    res.json({ tags });
-  } catch (error) {
-    console.error('Get tags error:', error);
-    res.status(500).json({ error: 'Failed to get tags' });
   }
 });
 
