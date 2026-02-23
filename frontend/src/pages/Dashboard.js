@@ -58,13 +58,16 @@ const Dashboard = () => {
   const [allTracks, setAllTracks] = useState([]);
   const [visibleAdventures, setVisibleAdventures] = useState({});
   const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAdventures();
+    loadTags();
     api.getVersion().then(v => setAppVersion(v)).catch(() => {});
-  }, [sortBy, sortOrder]);
+  }, [sortBy, sortOrder, selectedTags]);
 
   useEffect(() => {
     if (activeTab === 'map') {
@@ -77,9 +80,19 @@ const Dashboard = () => {
     localStorage.setItem('sortOrder', sortOrder);
   }, [sortBy, sortOrder]);
 
+  const loadTags = async () => {
+    try {
+      const res = await api.getTags();
+      setAllTags(res.data.tags || []);
+    } catch (err) {
+      console.error('Failed to load tags:', err);
+    }
+  };
+
   const loadAdventures = async () => {
     try {
-      const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}`);
+      const tagsParam = selectedTags.length > 0 ? `&tags=${selectedTags.join(',')}` : '';
+      const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}${tagsParam}`);
       setAdventures(res.data.adventures);
     } catch (err) {
       console.error('Failed to load adventures:', err);
@@ -227,6 +240,66 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {allTags.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '8px' }}>Filter:</span>
+              <button
+                onClick={() => setSelectedTags([])}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.8rem',
+                  borderRadius: '12px',
+                  border: selectedTags.length === 0 ? '1px solid #2196F3' : '1px solid var(--border)',
+                  background: selectedTags.length === 0 ? '#E3F2FD' : 'transparent',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  marginBottom: '8px'
+                }}
+              >
+                All
+              </button>
+              {['activity', 'location'].map(type => {
+                const typeTags = allTags.filter(t => t.type === type);
+                if (typeTags.length === 0) return null;
+                return (
+                  <div key={type} style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      {type === 'activity' ? 'Activities' : 'Locations'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {typeTags.map(tag => {
+                        const isSelected = selectedTags.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                              } else {
+                                setSelectedTags([...selectedTags, tag.id]);
+                              }
+                            }}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '0.8rem',
+                              borderRadius: '12px',
+                              border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                              background: isSelected ? tag.color + '20' : 'transparent',
+                              color: 'var(--text)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {adventures.length === 0 ? (
             <div className="empty-state">
               <h3>No adventures yet</h3>
@@ -298,6 +371,25 @@ const Dashboard = () => {
                           {adventure.gpxByType[type]} {type}
                         </span>
                       ))}
+                      {adventure.tags && adventure.tags.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                          {adventure.tags.map(tag => (
+                            <span
+                              key={tag.id}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '0.7rem',
+                                borderRadius: '10px',
+                                background: tag.color + '30',
+                                color: tag.color,
+                                border: `1px solid ${tag.color}`
+                              }}
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
