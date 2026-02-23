@@ -166,6 +166,10 @@ const AdventureEdit = () => {
   const [waypointIcon, setWaypointIcon] = useState('📍');
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagType, setNewTagType] = useState('activity');
+  const [creatingTag, setCreatingTag] = useState(false);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -288,6 +292,31 @@ const AdventureEdit = () => {
       : [...selectedTags, allTags.find(t => t.id === tagId)];
     setSelectedTags(newSelected);
     saveTags(newSelected.map(t => t.id));
+  };
+
+  const handleCreateTag = async (e) => {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    
+    setCreatingTag(true);
+    try {
+      const res = await api.createTag(newTagName.trim(), newTagType);
+      const newTag = res.data.tag;
+      setAllTags([...allTags, newTag].sort((a, b) => {
+        if (a.type !== b.type) return a.type.localeCompare(b.type);
+        return a.name.localeCompare(b.name);
+      }));
+      setSelectedTags([...selectedTags, newTag]);
+      await saveTags([...selectedTags.map(t => t.id), newTag.id]);
+      setShowTagModal(false);
+      setNewTagName('');
+      setNewTagType('activity');
+    } catch (err) {
+      console.error('Failed to create tag:', err);
+      alert(err.response?.data?.error || 'Failed to create tag');
+    } finally {
+      setCreatingTag(false);
+    }
   };
 
   const handleGpxUpload = async (e) => {
@@ -799,30 +828,57 @@ const AdventureEdit = () => {
 
             <div className="sidebar-section">
               <h3>Tags</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                {allTags.map(tag => {
-                  const isSelected = selectedTags.some(t => t.id === tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: '0.8rem',
-                        borderRadius: '12px',
-                        border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
-                        background: isSelected ? tag.color + '20' : 'transparent',
-                        color: 'var(--text)',
-                        cursor: 'pointer',
-                        opacity: saving ? 0.5 : 1
-                      }}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
+              {['activity', 'location'].map(type => {
+                const typeTags = allTags.filter(t => t.type === type);
+                if (typeTags.length === 0) return null;
+                return (
+                  <div key={type} style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                      {type === 'activity' ? 'Activities' : 'Locations'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {typeTags.map(tag => {
+                        const isSelected = selectedTags.some(t => t.id === tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => toggleTag(tag.id)}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '0.8rem',
+                              borderRadius: '12px',
+                              border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                              background: isSelected ? tag.color + '20' : 'transparent',
+                              color: 'var(--text)',
+                              cursor: 'pointer',
+                              opacity: saving ? 0.5 : 1
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowTagModal(true)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.8rem',
+                  borderRadius: '12px',
+                  border: '1px dashed var(--border)',
+                  background: 'transparent',
+                  color: 'var(--text-light)',
+                  cursor: 'pointer',
+                  marginTop: '4px'
+                }}
+              >
+                + Add Tag
+              </button>
             </div>
 
             <div className="sidebar-section">
@@ -1263,6 +1319,57 @@ const AdventureEdit = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showTagModal && (
+        <div className="modal-overlay" onClick={() => setShowTagModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>Create New Tag</h3>
+            <form onSubmit={handleCreateTag}>
+              <div className="form-group">
+                <label>Tag Name</label>
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Enter tag name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Type</label>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="tagType"
+                      value="activity"
+                      checked={newTagType === 'activity'}
+                      onChange={(e) => setNewTagType(e.target.value)}
+                    />
+                    Activity
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="tagType"
+                      value="location"
+                      checked={newTagType === 'location'}
+                      onChange={(e) => setNewTagType(e.target.value)}
+                    />
+                    Location
+                  </label>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn" onClick={() => setShowTagModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingTag || !newTagName.trim()}>
+                  {creatingTag ? 'Creating...' : 'Create Tag'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

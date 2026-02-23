@@ -161,6 +161,7 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Tags
 - `GET /api/adventures/tags` - List all available tags
+- `POST /api/adventures/tags` - Create a new tag (name, type: activity|location)
 - `PUT /api/adventures/:id/tags` - Update adventure tags (replace all)
 
 ### Immich Integration
@@ -357,6 +358,8 @@ docker-app/
 - [x] Users can tag adventures with predefined activity/location tags
 - [x] Tag filter on dashboard allows filtering by selected tags
 - [x] Tags display on adventure cards in dashboard
+- [x] Users can create custom tags with activity or location type
+- [x] Tags grouped by category with headers (Activities, Locations)
 - [x] Docker Compose starts all services
 - [x] Application is accessible via browser
 - [x] Pre-built images can be used for deployment

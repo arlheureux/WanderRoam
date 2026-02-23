@@ -80,6 +80,10 @@ class ApiService {
   updateAdventureTags(adventureId, tagIds) {
     return this.put(`/adventures/${adventureId}/tags`, { tagIds });
   }
+
+  createTag(name, type) {
+    return this.post('/adventures/tags', { name, type });
+  }
 }
 
 export default new ApiService();

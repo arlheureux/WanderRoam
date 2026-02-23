@@ -241,8 +241,8 @@ const Dashboard = () => {
           </div>
 
           {allTags.length > 0 && (
-            <div style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Filter:</span>
+            <div style={{ marginTop: '16px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '8px' }}>Filter:</span>
               <button
                 onClick={() => setSelectedTags([])}
                 style={{
@@ -252,35 +252,49 @@ const Dashboard = () => {
                   border: selectedTags.length === 0 ? '1px solid #2196F3' : '1px solid var(--border)',
                   background: selectedTags.length === 0 ? '#E3F2FD' : 'transparent',
                   color: 'var(--text)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  marginBottom: '8px'
                 }}
               >
                 All
               </button>
-              {allTags.map(tag => {
-                const isSelected = selectedTags.includes(tag.id);
+              {['activity', 'location'].map(type => {
+                const typeTags = allTags.filter(t => t.type === type);
+                if (typeTags.length === 0) return null;
                 return (
-                  <button
-                    key={tag.id}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedTags(selectedTags.filter(id => id !== tag.id));
-                      } else {
-                        setSelectedTags([...selectedTags, tag.id]);
-                      }
-                    }}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.8rem',
-                      borderRadius: '12px',
-                      border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
-                      background: isSelected ? tag.color + '20' : 'transparent',
-                      color: 'var(--text)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {tag.name}
-                  </button>
+                  <div key={type} style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      {type === 'activity' ? 'Activities' : 'Locations'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {typeTags.map(tag => {
+                        const isSelected = selectedTags.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                              } else {
+                                setSelectedTags([...selectedTags, tag.id]);
+                              }
+                            }}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '0.8rem',
+                              borderRadius: '12px',
+                              border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                              background: isSelected ? tag.color + '20' : 'transparent',
+                              color: 'var(--text)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
