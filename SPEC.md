@@ -333,7 +333,21 @@ docker-app/
 ### Frontend
 - `REACT_APP_API_URL` - Backend API URL (default /api via nginx proxy)
 
-## 10. Acceptance Criteria
+## 10. Security
+
+### Rate Limiting
+- Auth endpoints (`/api/auth/*`) limited to 5 attempts per 60 minutes per IP
+- Returns 429 status with error message when exceeded
+
+### Authentication
+- JWT-based authentication
+- Token expiry: 24 hours
+
+### CORS
+- Configurable via `CORS_ORIGIN` environment variable
+- Default: `http://frontend:3000`
+
+## 11. Acceptance Criteria
 
 - [x] Users can register and login
 - [x] Registration can be disabled via environment variable

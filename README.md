@@ -33,6 +33,12 @@
 - **Multiple Transport Types** - Hiking, cycling, running, climbing
 - **Admin Panel** - User management on port 4000
 
+## Security
+
+- **Rate Limiting** - Auth endpoints limited to 5 attempts per 60 minutes per IP
+- **JWT Authentication** - Token-based authentication (24h expiry)
+- **CORS configurable** - Restrict access by origin
+
 ## Tech Stack
 
 - **Frontend**: React, React Router, Leaflet

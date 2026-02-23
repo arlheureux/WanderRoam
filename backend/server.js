@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const { sequelize, Tag } = require('./models');
 
 const authRoutes = require('./routes/auth');
@@ -14,7 +15,7 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.3.3';
+const VERSION = 'v0.3.6';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
