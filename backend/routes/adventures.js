@@ -573,6 +573,14 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Name is required' });
     }
 
+    if (name.length > 100) {
+      return res.status(400).json({ error: 'Name must be 100 characters or less' });
+    }
+
+    if (description && description.length > 5000) {
+      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
+    }
+
     const adventure = await Adventure.create({
       name,
       description,
@@ -603,6 +611,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     const { name, description, adventure_date, center_lat, center_lng, zoom, preview_picture_id } = req.body;
+
+    if (name !== undefined && name.length > 100) {
+      return res.status(400).json({ error: 'Name must be 100 characters or less' });
+    }
+
+    if (description !== undefined && description.length > 5000) {
+      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
+    }
 
     if (name !== undefined) adventure.name = name;
     if (description !== undefined) adventure.description = description;
