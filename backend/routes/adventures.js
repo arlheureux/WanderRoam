@@ -389,6 +389,38 @@ router.get('/tags', authMiddleware, async (req, res) => {
   }
 });
 
+router.post('/tags', authMiddleware, async (req, res) => {
+  try {
+    const { name, type } = req.body;
+
+    if (!name || !type) {
+      return res.status(400).json({ error: 'Name and type are required' });
+    }
+
+    if (!['activity', 'location'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be activity or location' });
+    }
+
+    const existingTag = await Tag.findOne({ where: { name } });
+    if (existingTag) {
+      return res.status(400).json({ error: 'Tag with this name already exists' });
+    }
+
+    const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+
+    const tag = await Tag.create({
+      name,
+      type,
+      color: randomColor
+    });
+
+    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, type: tag.type } });
+  } catch (error) {
+    console.error('Create tag error:', error);
+    res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     let adventure = await Adventure.findOne({
