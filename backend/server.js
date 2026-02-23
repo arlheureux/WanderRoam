@@ -68,15 +68,7 @@ const upload = multer({
 
 app.use('/uploads', express.static(uploadDir));
 
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { error: 'Too many attempts, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
 app.use('/api/immich', immichRoutes);

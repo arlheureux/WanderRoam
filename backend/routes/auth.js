@@ -7,6 +7,46 @@ const router = express.Router();
 
 const ENABLE_REGISTRATION = process.env.ENABLE_REGISTRATION !== 'false';
 
+const failedAttempts = new Map();
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+
+function getClientIp(req) {
+  return req.ip || req.connection.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const record = failedAttempts.get(ip);
+  
+  if (!record) {
+    return true;
+  }
+  
+  if (now - record.resetTime > RATE_LIMIT_WINDOW) {
+    failedAttempts.delete(ip);
+    return true;
+  }
+  
+  return record.count < MAX_ATTEMPTS;
+}
+
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const record = failedAttempts.get(ip);
+  
+  if (!record || now - record.resetTime > RATE_LIMIT_WINDOW) {
+    failedAttempts.set(ip, { count: 1, resetTime: now });
+  } else {
+    record.count += 1;
+    record.resetTime = now;
+  }
+}
+
+function resetFailedAttempts(ip) {
+  failedAttempts.delete(ip);
+}
+
 router.post('/register', async (req, res) => {
   if (!ENABLE_REGISTRATION) {
     return res.status(403).json({ error: 'Registration is disabled' });
@@ -55,6 +95,12 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  const clientIp = getClientIp(req);
+  
+  if (!checkRateLimit(clientIp)) {
+    return res.status(429).json({ error: 'Too many attempts, please try again later' });
+  }
+
   try {
     const { username, password } = req.body;
 
@@ -67,14 +113,18 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
+      recordFailedAttempt(clientIp);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
+      recordFailedAttempt(clientIp);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    resetFailedAttempts(clientIp);
 
     const token = generateToken(user);
 
