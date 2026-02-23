@@ -5,6 +5,11 @@ class ApiService {
     this.baseUrl = API_URL;
   }
 
+  async getVersion() {
+    const response = await fetch(`${this.baseUrl}/version`);
+    return response.json();
+  }
+
   getHeaders(includeAuth = true, isFormData = false) {
     const headers = {};
     if (!isFormData) {

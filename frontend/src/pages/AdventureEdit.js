@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
@@ -16,6 +16,8 @@ const TYPE_COLORS = {
   car: '#FC5C65',
   other: '#9B59B6'
 };
+
+const WAYPOINT_ICONS = ['📍', '🏃', '🍽️', '📸', '🚿', '🏔️', '⚠️', '⛺', '🅿️', '💧', '🔍'];
 
 const fixLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
@@ -45,7 +47,50 @@ const createCustomIcon = (color, scale = 1) => {
   });
 };
 
-const MapBounds = ({ tracks, pictures }) => {
+const createWaypointIcon = (icon, scale = 1) => {
+  const size = 21 * scale; // 25% smaller (28 * 0.75)
+  return L.divIcon({
+    className: 'waypoint-marker',
+    html: `<div style="
+      position: relative;
+      width: ${size}px;
+      height: ${size * 1.4}px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    ">
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background: #FF6B6B;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      ">
+        <span style="
+          transform: rotate(45deg);
+          font-size: ${size * 0.55}px;
+          line-height: 1;
+        ">${icon}</span>
+      </div>
+      <div style="
+        width: 0;
+        height: 0;
+        border-left: ${size * 0.2}px solid transparent;
+        border-right: ${size * 0.2}px solid transparent;
+        border-top: ${size * 0.3}px solid #FF6B6B;
+      "></div>
+    </div>`,
+    iconSize: [size, size * 1.4],
+    iconAnchor: [size/2, size * 1.4],
+    popupAnchor: [0, -size * 1.2]
+  });
+};
+
+const MapBounds = ({ tracks, pictures, waypoints }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -65,12 +110,26 @@ const MapBounds = ({ tracks, pictures }) => {
       allPoints.push(...picturePoints);
     }
 
+    if (waypoints && waypoints.length > 0) {
+      const waypointPoints = waypoints.map(w => [w.latitude, w.longitude]);
+      allPoints.push(...waypointPoints);
+    }
+
     if (allPoints.length > 0) {
       const bounds = L.latLngBounds(allPoints);
       map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [tracks, pictures, map]);
+  }, [tracks, pictures, waypoints, map]);
 
+  return null;
+};
+
+const MapClickHandler = ({ onMapClick }) => {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng);
+    }
+  });
   return null;
 };
 
@@ -101,6 +160,10 @@ const AdventureEdit = () => {
   const [shareUsername, setShareUsername] = useState('');
   const [sharePermission, setSharePermission] = useState('view');
   const [loadingShares, setLoadingShares] = useState(false);
+  const [newWaypoint, setNewWaypoint] = useState(null);
+  const [editingWaypoint, setEditingWaypoint] = useState(null);
+  const [waypointName, setWaypointName] = useState('');
+  const [waypointIcon, setWaypointIcon] = useState('📍');
 
   useEffect(() => {
     fixLeafletIcons();
@@ -239,6 +302,65 @@ const AdventureEdit = () => {
     }
   };
 
+  const addWaypoint = async (e) => {
+    e.preventDefault();
+    if (!newWaypoint) return;
+    
+    try {
+      const res = await api.post(`/adventures/${id}/waypoints`, {
+        name: waypointName,
+        icon: waypointIcon,
+        latitude: newWaypoint.lat,
+        longitude: newWaypoint.lng
+      });
+      setAdventure({
+        ...adventure,
+        Waypoints: [...(adventure.Waypoints || []), res.data.waypoint]
+      });
+      setNewWaypoint(null);
+      setWaypointName('');
+      setWaypointIcon('📍');
+    } catch (err) {
+      console.error('Failed to add waypoint:', err);
+    }
+  };
+
+  const updateWaypoint = async (e) => {
+    e.preventDefault();
+    if (!editingWaypoint) return;
+    
+    try {
+      const res = await api.put(`/adventures/${id}/waypoints/${editingWaypoint.id}`, {
+        name: waypointName,
+        icon: waypointIcon
+      });
+      setAdventure({
+        ...adventure,
+        Waypoints: adventure.Waypoints.map(w => w.id === editingWaypoint.id ? res.data.waypoint : w)
+      });
+      setEditingWaypoint(null);
+      setWaypointName('');
+      setWaypointIcon('📍');
+    } catch (err) {
+      console.error('Failed to update waypoint:', err);
+    }
+  };
+
+  const deleteWaypoint = async (waypointId) => {
+    if (!window.confirm('Delete this waypoint?')) return;
+    
+    try {
+      await api.delete(`/adventures/${id}/waypoints/${waypointId}`);
+      setAdventure({
+        ...adventure,
+        Waypoints: adventure.Waypoints.filter(w => w.id !== waypointId)
+      });
+      setEditingWaypoint(null);
+    } catch (err) {
+      console.error('Failed to delete waypoint:', err);
+    }
+  };
+
   const loadImmichAssets = async (albumId = null) => {
     setLoadingAssets(true);
     try {
@@ -357,6 +479,7 @@ const AdventureEdit = () => {
 
   const gpxTracks = adventure.GpxTracks || [];
   const pictures = adventure.Pictures || [];
+  const waypoints = adventure.Waypoints || [];
   
   const defaultCenter = [parseFloat(adventure.center_lat) || 46.2276, parseFloat(adventure.center_lng) || 2.2137];
   const defaultZoom = adventure.zoom || 10;
@@ -397,6 +520,9 @@ const AdventureEdit = () => {
       <div className="container">
         <div className="adventure-detail">
           <div className="adventure-map-container">
+            <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
+              Click on map to add waypoint
+            </div>
             <MapContainer 
               key={mapKey}
               center={defaultCenter} 
@@ -444,9 +570,137 @@ const AdventureEdit = () => {
                 )
               ))}
 
-              <MapBounds tracks={gpxTracks} pictures={pictures} />
+              {waypoints.map(waypoint => (
+                <Marker
+                  key={waypoint.id}
+                  position={[waypoint.latitude, waypoint.longitude]}
+                  icon={createWaypointIcon(waypoint.icon)}
+                  eventHandlers={{
+                    click: () => {
+                      setEditingWaypoint(waypoint);
+                      setWaypointName(waypoint.name || '');
+                      setWaypointIcon(waypoint.icon || '📍');
+                    }
+                  }}
+                >
+                  <Popup>
+                    <div style={{ minWidth: '150px' }}>
+                      <strong>{waypoint.name || 'Waypoint'}</strong>
+                      <div style={{ fontSize: '1.5rem', marginTop: '4px' }}>{waypoint.icon}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              <MapClickHandler onMapClick={(latlng) => {
+                setNewWaypoint(latlng);
+                setWaypointName('');
+                setWaypointIcon('📍');
+              }} />
+
+              <MapBounds tracks={gpxTracks} pictures={pictures} waypoints={waypoints} />
             </MapContainer>
           </div>
+
+          {newWaypoint && (
+            <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h3>Add Waypoint</h3>
+                <form onSubmit={addWaypoint}>
+                  <div className="form-group">
+                    <label>Name</label>
+                    <input
+                      type="text"
+                      value={waypointName}
+                      onChange={(e) => setWaypointName(e.target.value)}
+                      placeholder="Enter waypoint name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Icon</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {WAYPOINT_ICONS.map(icon => (
+                        <button
+                          key={icon}
+                          type="button"
+                          onClick={() => setWaypointIcon(icon)}
+                          style={{
+                            fontSize: '1.5rem',
+                            padding: '8px',
+                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
+                            borderRadius: '4px',
+                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn" onClick={() => setNewWaypoint(null)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">Add Waypoint</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {editingWaypoint && (
+            <div className="modal-overlay" onClick={() => setEditingWaypoint(null)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h3>Edit Waypoint</h3>
+                <form onSubmit={updateWaypoint}>
+                  <div className="form-group">
+                    <label>Name</label>
+                    <input
+                      type="text"
+                      value={waypointName}
+                      onChange={(e) => setWaypointName(e.target.value)}
+                      placeholder="Enter waypoint name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Icon</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {WAYPOINT_ICONS.map(icon => (
+                        <button
+                          key={icon}
+                          type="button"
+                          onClick={() => setWaypointIcon(icon)}
+                          style={{
+                            fontSize: '1.5rem',
+                            padding: '8px',
+                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
+                            borderRadius: '4px',
+                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ background: '#f44336', color: 'white' }}
+                      onClick={() => deleteWaypoint(editingWaypoint.id)}
+                    >
+                      Delete
+                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
+                      <button type="submit" className="btn btn-primary">Save</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           <div className="adventure-sidebar">
             <div className="sidebar-section">

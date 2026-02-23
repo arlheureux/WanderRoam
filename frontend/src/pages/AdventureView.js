@@ -45,7 +45,50 @@ const createCustomIcon = (color, scale = 1) => {
   });
 };
 
-const MapBounds = ({ tracks, pictures }) => {
+const createWaypointIcon = (icon, scale = 1) => {
+  const size = 21 * scale; // 25% smaller (28 * 0.75)
+  return L.divIcon({
+    className: 'waypoint-marker',
+    html: `<div style="
+      position: relative;
+      width: ${size}px;
+      height: ${size * 1.4}px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    ">
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background: #FF6B6B;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      ">
+        <span style="
+          transform: rotate(45deg);
+          font-size: ${size * 0.55}px;
+          line-height: 1;
+        ">${icon}</span>
+      </div>
+      <div style="
+        width: 0;
+        height: 0;
+        border-left: ${size * 0.2}px solid transparent;
+        border-right: ${size * 0.2}px solid transparent;
+        border-top: ${size * 0.3}px solid #FF6B6B;
+      "></div>
+    </div>`,
+    iconSize: [size, size * 1.4],
+    iconAnchor: [size/2, size * 1.4],
+    popupAnchor: [0, -size * 1.2]
+  });
+};
+
+const MapBounds = ({ tracks, pictures, waypoints }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -63,6 +106,11 @@ const MapBounds = ({ tracks, pictures }) => {
         .filter(p => p.latitude && p.longitude)
         .map(p => [p.latitude, p.longitude]);
       allPoints.push(...picturePoints);
+    }
+
+    if (waypoints && waypoints.length > 0) {
+      const waypointPoints = waypoints.map(w => [w.latitude, w.longitude]);
+      allPoints.push(...waypointPoints);
     }
 
     if (allPoints.length > 0) {
@@ -152,6 +200,7 @@ const AdventureView = () => {
 
   const gpxTracks = adventure.GpxTracks || [];
   const pictures = adventure.Pictures || [];
+  const waypoints = adventure.Waypoints || [];
   
   const defaultCenter = [parseFloat(adventure.center_lat) || 46.2276, parseFloat(adventure.center_lng) || 2.2137];
   const defaultZoom = adventure.zoom || 10;
@@ -307,7 +356,22 @@ const AdventureView = () => {
                 )
               ))}
 
-              <MapBounds tracks={gpxTracks} pictures={pictures} />
+              {waypoints.map(waypoint => (
+                <Marker
+                  key={waypoint.id}
+                  position={[waypoint.latitude, waypoint.longitude]}
+                  icon={createWaypointIcon(waypoint.icon)}
+                >
+                  <Popup>
+                    <div style={{ minWidth: '100px', textAlign: 'center' }}>
+                      <strong>{waypoint.name || 'Waypoint'}</strong>
+                      <div style={{ fontSize: '1.5rem', marginTop: '4px' }}>{waypoint.icon}</div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              <MapBounds tracks={gpxTracks} pictures={pictures} waypoints={waypoints} />
             </MapContainer>
             </div>
           </div>

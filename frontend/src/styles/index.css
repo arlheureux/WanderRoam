@@ -304,6 +304,14 @@ body {
   flex-direction: column;
   gap: 24px;
   margin-top: 24px;
+  min-height: 500px;
+}
+
+.adventure-sidebar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .adventure-info-row {
@@ -347,7 +355,11 @@ body {
 .adventure-map-container {
   height: 500px;
   width: 100%;
+  min-height: 400px;
   flex: 1;
+  display: block;
+  visibility: visible;
+  position: relative;
 }
 
 .adventure-picture-section {
@@ -982,3 +994,28 @@ body {
     min-width: 300px;
   }
 }
+<<<<<<< dev
+
+/* Desktop - ensure map is visible */
+@media (min-width: 1025px) {
+  .adventure-detail {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .adventure-map-container {
+    height: 500px !important;
+    min-height: 400px !important;
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+  }
+  
+  .adventure-map-container .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+  }
+}
+=======
+>>>>>>> master

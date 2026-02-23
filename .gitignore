@@ -11,7 +11,8 @@ dist/
 *.tar
 
 # Environment
-.env
+# Note: .env is tracked for development convenience
+!.env
 .env.local
 .env.*.local
 
