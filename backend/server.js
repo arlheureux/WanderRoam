@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 const { sequelize, Tag } = require('./models');
 
 const authRoutes = require('./routes/auth');
@@ -14,7 +15,7 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.3.3';
+const VERSION = 'v0.3.4';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -67,7 +68,15 @@ const upload = multer({
 
 app.use('/uploads', express.static(uploadDir));
 
-app.use('/api/auth', authRoutes);
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
 app.use('/api/immich', immichRoutes);
