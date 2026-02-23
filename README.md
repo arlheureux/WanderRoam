@@ -27,6 +27,7 @@
 - **Adventure Management** - Create and organize your outdoor trips
 - **GPX Tracking** - Upload and visualize GPX tracks on OpenStreetMap
 - **Waypoints** - Add custom markers with icons on the map
+- **Tags** - Categorize adventures by activity (hiking, cycling, swimming...) and location (mountain, sea, forest, city)
 - **Photo Integration** - Connect to Immich for photo management
 - **Sharing** - Share adventures with other users
 - **Multiple Transport Types** - Hiking, cycling, running, climbing
