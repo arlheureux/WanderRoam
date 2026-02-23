@@ -26,10 +26,11 @@
 
 - **Adventure Management** - Create and organize your outdoor trips
 - **GPX Tracking** - Upload and visualize GPX tracks on OpenStreetMap
+- **Waypoints** - Add custom markers with icons on the map
 - **Photo Integration** - Connect to Immich for photo management
 - **Sharing** - Share adventures with other users
 - **Multiple Transport Types** - Hiking, cycling, running, climbing
-- **Admin Panel** - User management and administration
+- **Admin Panel** - User management on port 4000
 
 ## Tech Stack
 
@@ -50,7 +51,7 @@
 
 | Branch | Docker Tag | Description |
 |--------|------------|-------------|
-| `master` | `:stable`, `:v0.1` | Stable production version |
+| `master` | `:stable` | Stable production version |
 | `dev` | `:latest` | Development version for testing |
 
 ### Stable Version (recommended)
@@ -74,7 +75,7 @@ docker compose up -d
 ```
 
 Docker Hub images:
-- **Stable**: `arlheureux/wanderroam-{service}:stable` or `:v0.1`
+- **Stable**: `arlheureux/wanderroam-{service}:stable`
 - **Development**: `arlheureux/wanderroam-{service}:latest`
 
 Services:
@@ -118,6 +119,6 @@ docker-app/
 
 ## License
 
-MIT License (non-commercial use only) - see [LICENSE](LICENSE) for details.
+GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 Built with [OpenCode](https://opencode.ai) AI assistant (big-pickle model).

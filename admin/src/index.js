@@ -79,6 +79,7 @@ const AdminDashboard = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '' });
+  const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -88,6 +89,7 @@ const AdminDashboard = () => {
       return;
     }
     loadUsers();
+    api.get('/version').then(v => setAppVersion(v)).catch(() => {});
   }, []);
 
   const loadUsers = async () => {
@@ -168,7 +170,12 @@ const AdminDashboard = () => {
   return (
     <div>
       <header className="header">
-        <h1>WanderRoam - User Management</h1>
+        <h1>WanderRoam Admin</h1>
+        {appVersion.version && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
+            {appVersion.version} ({appVersion.tag})
+          </span>
+        )}
         <button onClick={handleLogout} className="btn btn-outline btn-sm">Logout</button>
       </header>
       <div className="container">

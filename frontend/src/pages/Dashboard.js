@@ -6,9 +6,6 @@ import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../services/AuthContext';
 import api from '../services/api';
 
-const VERSION = process.env.REACT_APP_VERSION || 'v0.1';
-const CHANNEL = process.env.REACT_APP_CHANNEL || 'stable';
-
 const Logo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '12px' }}>
     <g transform="rotate(45 16 16)">
@@ -60,11 +57,13 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('adventures');
   const [allTracks, setAllTracks] = useState([]);
   const [visibleAdventures, setVisibleAdventures] = useState({});
+  const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAdventures();
+    api.getVersion().then(v => setAppVersion(v)).catch(() => {});
   }, [sortBy, sortOrder]);
 
   useEffect(() => {
@@ -157,9 +156,11 @@ const Dashboard = () => {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Logo />
           <h1>WanderRoam</h1>
-          <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
-            {VERSION} ({CHANNEL})
-          </span>
+          {appVersion.version && (
+            <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
+              {appVersion.version} ({appVersion.tag})
+            </span>
+          )}
         </div>
         <div className="header-actions">
           <Link to="/settings" className="btn btn-outline btn-sm">Settings</Link>
