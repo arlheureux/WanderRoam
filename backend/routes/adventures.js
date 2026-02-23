@@ -618,6 +618,16 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'GPX track not found' });
     }
 
+    if (gpxTrack.file_path) {
+      try {
+        if (fs.existsSync(gpxTrack.file_path)) {
+          fs.unlinkSync(gpxTrack.file_path);
+        }
+      } catch (err) {
+        console.error('Failed to delete GPX file:', err);
+      }
+    }
+
     await gpxTrack.destroy();
 
     res.json({ message: 'GPX track deleted' });
@@ -803,6 +813,13 @@ router.post('/:id/waypoints', authMiddleware, async (req, res) => {
 
     if (!latitude || !longitude) {
       return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
     }
 
     const waypoint = await Waypoint.create({
