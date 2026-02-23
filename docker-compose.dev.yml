@@ -26,6 +26,8 @@ services:
     container_name: wanderroam-backend
     env_file:
       - .env
+    environment:
+      - TAG=latest
     volumes:
       - upload_data:/app/uploads
     ports:
