@@ -994,6 +994,7 @@ body {
     min-width: 300px;
   }
 }
+<<<<<<< dev
 
 /* Desktop - ensure map is visible */
 @media (min-width: 1025px) {
@@ -1016,3 +1017,5 @@ body {
     position: absolute !important;
   }
 }
+=======
+>>>>>>> master
