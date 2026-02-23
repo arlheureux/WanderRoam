@@ -164,6 +164,8 @@ const AdventureEdit = () => {
   const [editingWaypoint, setEditingWaypoint] = useState(null);
   const [waypointName, setWaypointName] = useState('');
   const [waypointIcon, setWaypointIcon] = useState('📍');
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -184,8 +186,13 @@ const AdventureEdit = () => {
 
   const loadAdventure = async () => {
     try {
-      const res = await api.get(`/adventures/${id}`);
-      setAdventure(res.data.adventure);
+      const [adventureRes, tagsRes] = await Promise.all([
+        api.get(`/adventures/${id}`),
+        api.getTags()
+      ]);
+      setAdventure(adventureRes.data.adventure);
+      setAllTags(tagsRes.data.tags || []);
+      setSelectedTags(adventureRes.data.adventure.tags || []);
     } catch (err) {
       console.error('Failed to load adventure:', err);
       navigate('/');
@@ -256,6 +263,27 @@ const AdventureEdit = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveTags = async (tagIds) => {
+    setSaving(true);
+    try {
+      const res = await api.updateAdventureTags(id, tagIds);
+      setSelectedTags(res.data.tags || []);
+      setAdventure({ ...adventure, tags: res.data.tags || [] });
+    } catch (err) {
+      console.error('Failed to save tags:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTag = (tagId) => {
+    const newSelected = selectedTags.some(t => t.id === tagId)
+      ? selectedTags.filter(t => t.id !== tagId)
+      : [...selectedTags, allTags.find(t => t.id === tagId)];
+    setSelectedTags(newSelected);
+    saveTags(newSelected.map(t => t.id));
   };
 
   const handleGpxUpload = async (e) => {
@@ -763,6 +791,34 @@ const AdventureEdit = () => {
                   fontSize: '0.9rem'
                 }}
               />
+            </div>
+
+            <div className="sidebar-section">
+              <h3>Tags</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                {allTags.map(tag => {
+                  const isSelected = selectedTags.some(t => t.id === tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.8rem',
+                        borderRadius: '12px',
+                        border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                        background: isSelected ? tag.color + '20' : 'transparent',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        opacity: saving ? 0.5 : 1
+                      }}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="sidebar-section">

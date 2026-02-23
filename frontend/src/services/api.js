@@ -72,6 +72,14 @@ class ApiService {
   delete(endpoint) {
     return this.request('DELETE', endpoint);
   }
+
+  getTags() {
+    return this.get('/adventures/tags');
+  }
+
+  updateAdventureTags(adventureId, tagIds) {
+    return this.put(`/adventures/${adventureId}/tags`, { tagIds });
+  }
 }
 
 export default new ApiService();

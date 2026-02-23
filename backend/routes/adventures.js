@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const xml2js = require('xml2js');
-const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare } = require('../models');
+const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
@@ -109,10 +109,12 @@ const TYPE_COLORS = {
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { sort = 'adventure_date', order = 'DESC' } = req.query;
+    const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const nullsOrder = sortOrder === 'DESC' ? 'NULLS LAST' : 'NULLS FIRST';
+
+    const tagFilter = tags ? tags.split(',').filter(t => t) : [];
 
     const myAdventures = await Adventure.findAll({
       where: { user_id: req.user.id },
@@ -128,6 +130,12 @@ router.get('/', authMiddleware, async (req, res) => {
         {
           model: Waypoint,
           attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
+        },
+        {
+          model: Tag,
+          as: 'tags',
+          attributes: ['id', 'name', 'color', 'type'],
+          through: { attributes: [] }
         }
       ],
       order: [[sequelize.literal(`"Adventure"."${sortField}" ${nullsOrder}`)]]
@@ -157,6 +165,12 @@ router.get('/', authMiddleware, async (req, res) => {
             attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
           },
           {
+            model: Tag,
+            as: 'tags',
+            attributes: ['id', 'name', 'color', 'type'],
+            through: { attributes: [] }
+          },
+          {
             model: User,
             as: 'owner',
             attributes: ['id', 'username']
@@ -166,7 +180,18 @@ router.get('/', authMiddleware, async (req, res) => {
       });
     }
 
-    const allAdventures = [...myAdventures, ...sharedAdventures].sort((a, b) => {
+    const allAdventures = [...myAdventures, ...sharedAdventures];
+
+    if (tagFilter.length > 0) {
+      const filtered = allAdventures.filter(adventure => {
+        const adventureTags = adventure.tags || [];
+        return tagFilter.some(tagId => adventureTags.some(t => t.id === tagId));
+      });
+      allAdventures.length = 0;
+      allAdventures.push(...filtered);
+    }
+
+    allAdventures.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
       
@@ -249,6 +274,7 @@ router.get('/', authMiddleware, async (req, res) => {
             : pictures[0]
           ).thumbnail_url
         } : null,
+        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, type: t.type })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
@@ -370,6 +396,12 @@ router.get('/:id', authMiddleware, async (req, res) => {
         {
           model: Waypoint,
           attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
+        },
+        {
+          model: Tag,
+          as: 'tags',
+          attributes: ['id', 'name', 'color', 'type'],
+          through: { attributes: [] }
         }
       ]
     });
@@ -400,6 +432,12 @@ router.get('/:id', authMiddleware, async (req, res) => {
           {
             model: Waypoint,
             attributes: ['id', 'name', 'icon', 'latitude', 'longitude']
+          },
+          {
+            model: Tag,
+            as: 'tags',
+            attributes: ['id', 'name', 'color', 'type'],
+            through: { attributes: [] }
           },
           {
             model: User,
@@ -468,6 +506,12 @@ router.get('/:id', authMiddleware, async (req, res) => {
       thumbnail_base64: thumbnails[p.immich_asset_id] || null,
       full_url: p.immich_asset_id ? `/api/immich/full/${p.immich_asset_id}` : null,
       thumbnail_url: p.thumbnail_url || null
+    }));
+    adventureData.tags = (adventureData.tags || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      type: t.type
     }));
 
     res.json({ adventure: adventureData });
@@ -887,6 +931,50 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
   } catch (error) {
     console.error('Delete waypoint error:', error);
     res.status(500).json({ error: 'Failed to delete waypoint' });
+  }
+});
+
+router.get('/tags', authMiddleware, async (req, res) => {
+  try {
+    const tags = await Tag.findAll({
+      order: [['type', 'ASC'], ['name', 'ASC']]
+    });
+    res.json({ tags });
+  } catch (error) {
+    console.error('Get tags error:', error);
+    res.status(500).json({ error: 'Failed to get tags' });
+  }
+});
+
+router.put('/:id/tags', authMiddleware, async (req, res) => {
+  try {
+    const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const { tagIds } = req.body;
+    
+    if (!Array.isArray(tagIds)) {
+      return res.status(400).json({ error: 'tagIds must be an array' });
+    }
+
+    const tags = await Tag.findAll({
+      where: { id: tagIds }
+    });
+
+    await adventure.setTags(tags);
+
+    const updatedTags = await adventure.getTags();
+    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, type: t.type })) });
+  } catch (error) {
+    console.error('Update tags error:', error);
+    res.status(500).json({ error: 'Failed to update tags' });
   }
 });
 
