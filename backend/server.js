@@ -14,14 +14,18 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.2';
+const VERSION = 'v0.2.1';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
   res.json({ version: VERSION, tag: TAG });
 });
 
-app.use(cors());
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://frontend:3000'
+};
+
+app.use(cors(corsOptions));
 
 app.use((req, res, next) => {
   if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
@@ -50,6 +54,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/gpx+xml' || 
         file.originalname.endsWith('.gpx')) {
