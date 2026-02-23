@@ -66,7 +66,7 @@ docker compose up -d
 ### Development Version (testing new features)
 ```bash
 # Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.yml
+wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.dev.yml
 wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
 
 # Start services
