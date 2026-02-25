@@ -274,7 +274,7 @@ router.get('/', authMiddleware, async (req, res) => {
             : pictures[0]
           ).thumbnail_url
         } : null,
-        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category })),
+        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category || t.type || 'Custom' })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
@@ -382,7 +382,13 @@ router.get('/tags', authMiddleware, async (req, res) => {
     const tags = await Tag.findAll({
       order: [['category', 'ASC'], ['name', 'ASC']]
     });
-    res.json({ tags });
+    const tagsWithCategory = tags.map(t => ({
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      category: t.category || t.type || 'Custom'
+    }));
+    res.json({ tags: tagsWithCategory });
   } catch (error) {
     console.error('Get tags error:', error);
     res.status(500).json({ error: 'Failed to get tags' });
@@ -568,7 +574,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       id: t.id,
       name: t.name,
       color: t.color,
-      category: t.category
+      category: t.category || t.type || 'Custom'
     }));
 
     res.json({ adventure: adventureData });
@@ -1032,7 +1038,7 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     await adventure.setTags(tags);
 
     const updatedTags = await adventure.getTags();
-    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category })) });
+    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category || t.type || 'Custom' })) });
   } catch (error) {
     console.error('Update tags error:', error);
     res.status(500).json({ error: 'Failed to update tags' });
