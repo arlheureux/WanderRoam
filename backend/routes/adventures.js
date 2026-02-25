@@ -412,11 +412,11 @@ router.post('/tags', authMiddleware, async (req, res) => {
 
     const tag = await Tag.create({
       name,
-      category: category || 'custom',
+      type: category || 'custom',
       color: randomColor
     });
 
-    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.category } });
+    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.type } });
   } catch (error) {
     console.error('Create tag error:', error);
     res.status(500).json({ error: 'Failed to create tag' });
