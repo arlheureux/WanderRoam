@@ -274,7 +274,7 @@ router.get('/', authMiddleware, async (req, res) => {
             : pictures[0]
           ).thumbnail_url
         } : null,
-        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, type: t.type })),
+        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
@@ -380,7 +380,7 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
 router.get('/tags', authMiddleware, async (req, res) => {
   try {
     const tags = await Tag.findAll({
-      order: [['type', 'ASC'], ['name', 'ASC']]
+      order: [['category', 'ASC'], ['name', 'ASC']]
     });
     res.json({ tags });
   } catch (error) {
@@ -391,14 +391,10 @@ router.get('/tags', authMiddleware, async (req, res) => {
 
 router.post('/tags', authMiddleware, async (req, res) => {
   try {
-    const { name, type } = req.body;
+    const { name, category } = req.body;
 
-    if (!name || !type) {
-      return res.status(400).json({ error: 'Name and type are required' });
-    }
-
-    if (!['activity', 'location'].includes(type)) {
-      return res.status(400).json({ error: 'Type must be activity or location' });
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
     }
 
     const existingTag = await Tag.findOne({ where: { name } });
@@ -410,14 +406,31 @@ router.post('/tags', authMiddleware, async (req, res) => {
 
     const tag = await Tag.create({
       name,
-      type,
+      category: category || 'custom',
       color: randomColor
     });
 
-    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, type: tag.type } });
+    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.category } });
   } catch (error) {
     console.error('Create tag error:', error);
     res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
+router.delete('/tags/:id', authMiddleware, async (req, res) => {
+  try {
+    const tag = await Tag.findByPk(req.params.id);
+    
+    if (!tag) {
+      return res.status(404).json({ error: 'Tag not found' });
+    }
+
+    await tag.destroy();
+    
+    res.json({ message: 'Tag deleted successfully' });
+  } catch (error) {
+    console.error('Delete tag error:', error);
+    res.status(500).json({ error: 'Failed to delete tag' });
   }
 });
 
@@ -555,7 +568,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       id: t.id,
       name: t.name,
       color: t.color,
-      type: t.type
+      category: t.category
     }));
 
     res.json({ adventure: adventureData });
@@ -1019,7 +1032,7 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     await adventure.setTags(tags);
 
     const updatedTags = await adventure.getTags();
-    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, type: t.type })) });
+    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category })) });
   } catch (error) {
     console.error('Update tags error:', error);
     res.status(500).json({ error: 'Failed to update tags' });

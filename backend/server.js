@@ -15,7 +15,7 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.3.6';
+const VERSION = 'v0.3.7';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -92,17 +92,17 @@ const startServer = async () => {
     console.log('Database synchronized.');
     
     const PREDEFINED_TAGS = [
-      { name: 'Hiking', color: '#FF9F43', type: 'activity' },
-      { name: 'Cycling', color: '#4ECDC4', type: 'activity' },
-      { name: 'Walking', color: '#FF6B6B', type: 'activity' },
-      { name: 'Running', color: '#26DE81', type: 'activity' },
-      { name: 'Swimming', color: '#45B7D1', type: 'activity' },
-      { name: 'Skiing', color: '#A55EEA', type: 'activity' },
-      { name: 'Kayaking', color: '#2D98DA', type: 'activity' },
-      { name: 'Mountain', color: '#9B59B6', type: 'location' },
-      { name: 'Sea', color: '#45B7D1', type: 'location' },
-      { name: 'Forest', color: '#26DE81', type: 'location' },
-      { name: 'City', color: '#FC5C65', type: 'location' }
+      { name: 'Hiking', color: '#FF9F43', category: 'Activities' },
+      { name: 'Cycling', color: '#4ECDC4', category: 'Activities' },
+      { name: 'Walking', color: '#FF6B6B', category: 'Activities' },
+      { name: 'Running', color: '#26DE81', category: 'Activities' },
+      { name: 'Swimming', color: '#45B7D1', category: 'Activities' },
+      { name: 'Skiing', color: '#A55EEA', category: 'Activities' },
+      { name: 'Kayaking', color: '#2D98DA', category: 'Activities' },
+      { name: 'Mountain', color: '#9B59B6', category: 'Locations' },
+      { name: 'Sea', color: '#45B7D1', category: 'Locations' },
+      { name: 'Forest', color: '#26DE81', category: 'Locations' },
+      { name: 'City', color: '#FC5C65', category: 'Locations' }
     ];
 
     for (const tag of PREDEFINED_TAGS) {

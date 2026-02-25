@@ -171,9 +171,10 @@ const Tag = sequelize.define('Tag', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  type: {
-    type: DataTypes.ENUM('activity', 'location'),
-    allowNull: false
+  category: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'custom'
   }
 });
 

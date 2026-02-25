@@ -168,7 +168,7 @@ const AdventureEdit = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [showTagModal, setShowTagModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [newTagType, setNewTagType] = useState('activity');
+  const [newTagCategory, setNewTagCategory] = useState('');
   const [creatingTag, setCreatingTag] = useState(false);
 
   useEffect(() => {
@@ -294,23 +294,38 @@ const AdventureEdit = () => {
     saveTags(newSelected.map(t => t.id));
   };
 
+  const handleDeleteTag = async (tagId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this tag from all adventures?')) return;
+    
+    try {
+      await api.deleteTag(tagId);
+      setAllTags(allTags.filter(t => t.id !== tagId));
+      setSelectedTags(selectedTags.filter(t => t.id !== tagId));
+      await saveTags(selectedTags.filter(t => t.id !== tagId).map(t => t.id));
+    } catch (err) {
+      console.error('Failed to delete tag:', err);
+      alert(err.response?.data?.error || 'Failed to delete tag');
+    }
+  };
+
   const handleCreateTag = async (e) => {
     e.preventDefault();
     if (!newTagName.trim()) return;
     
     setCreatingTag(true);
     try {
-      const res = await api.createTag(newTagName.trim(), newTagType);
+      const res = await api.createTag(newTagName.trim(), newTagCategory.trim() || 'Custom');
       const newTag = res.data.tag;
       setAllTags([...allTags, newTag].sort((a, b) => {
-        if (a.type !== b.type) return a.type.localeCompare(b.type);
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
         return a.name.localeCompare(b.name);
       }));
       setSelectedTags([...selectedTags, newTag]);
       await saveTags([...selectedTags.map(t => t.id), newTag.id]);
       setShowTagModal(false);
       setNewTagName('');
-      setNewTagType('activity');
+      setNewTagCategory('');
     } catch (err) {
       console.error('Failed to create tag:', err);
       alert(err.response?.data?.error || 'Failed to create tag');
@@ -828,35 +843,56 @@ const AdventureEdit = () => {
 
             <div className="sidebar-section">
               <h3>Tags</h3>
-              {['activity', 'location'].map(type => {
-                const typeTags = allTags.filter(t => t.type === type);
-                if (typeTags.length === 0) return null;
+              {Object.keys(allTags.reduce((acc, tag) => {
+                acc[tag.category] = true;
+                return acc;
+              }, {})).map(category => {
+                const categoryTags = allTags.filter(t => t.category === category);
+                if (categoryTags.length === 0) return null;
                 return (
-                  <div key={type} style={{ marginBottom: '12px' }}>
+                  <div key={category} style={{ marginBottom: '12px' }}>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', marginBottom: '6px' }}>
-                      {type === 'activity' ? 'Activities' : 'Locations'}
+                      {category}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {typeTags.map(tag => {
+                      {categoryTags.map(tag => {
                         const isSelected = selectedTags.some(t => t.id === tag.id);
                         return (
-                          <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() => toggleTag(tag.id)}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: '0.8rem',
-                              borderRadius: '12px',
-                              border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
-                              background: isSelected ? tag.color + '20' : 'transparent',
-                              color: 'var(--text)',
-                              cursor: 'pointer',
-                              opacity: saving ? 0.5 : 1
-                            }}
-                          >
-                            {tag.name}
-                          </button>
+                          <div key={tag.id} style={{ display: 'flex', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => toggleTag(tag.id)}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.8rem',
+                                borderRadius: '12px 0 0 12px',
+                                border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                                background: isSelected ? tag.color + '20' : 'transparent',
+                                color: 'var(--text)',
+                                cursor: 'pointer',
+                                opacity: saving ? 0.5 : 1
+                              }}
+                            >
+                              {tag.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteTag(tag.id, e)}
+                              style={{
+                                padding: '4px 6px',
+                                fontSize: '0.7rem',
+                                borderRadius: '0 12px 12px 0',
+                                border: `1px solid ${isSelected ? tag.color : 'var(--border)'}`,
+                                borderLeft: 'none',
+                                background: isSelected ? tag.color + '20' : 'transparent',
+                                color: 'var(--text-light)',
+                                cursor: 'pointer',
+                                opacity: saving ? 0.5 : 1
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1339,29 +1375,13 @@ const AdventureEdit = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Type</label>
-                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="tagType"
-                      value="activity"
-                      checked={newTagType === 'activity'}
-                      onChange={(e) => setNewTagType(e.target.value)}
-                    />
-                    Activity
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="tagType"
-                      value="location"
-                      checked={newTagType === 'location'}
-                      onChange={(e) => setNewTagType(e.target.value)}
-                    />
-                    Location
-                  </label>
-                </div>
+                <label>Category (optional)</label>
+                <input
+                  type="text"
+                  value={newTagCategory}
+                  onChange={(e) => setNewTagCategory(e.target.value)}
+                  placeholder="e.g., Activities, Locations, My Tags"
+                />
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn" onClick={() => setShowTagModal(false)}>Cancel</button>
