@@ -81,8 +81,12 @@ class ApiService {
     return this.put(`/adventures/${adventureId}/tags`, { tagIds });
   }
 
-  createTag(name, type) {
-    return this.post('/adventures/tags', { name, type });
+  createTag(name, category) {
+    return this.post('/adventures/tags', { name, category });
+  }
+
+  deleteTag(tagId) {
+    return this.delete(`/adventures/tags/${tagId}`);
   }
 }
 
