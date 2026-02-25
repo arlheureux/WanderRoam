@@ -90,27 +90,6 @@ const startServer = async () => {
     
     await sequelize.sync({ alter: true });
     console.log('Database synchronized.');
-    
-    const PREDEFINED_TAGS = [
-      { name: 'Hiking', color: '#FF9F43', category: 'Activities' },
-      { name: 'Cycling', color: '#4ECDC4', category: 'Activities' },
-      { name: 'Walking', color: '#FF6B6B', category: 'Activities' },
-      { name: 'Running', color: '#26DE81', category: 'Activities' },
-      { name: 'Swimming', color: '#45B7D1', category: 'Activities' },
-      { name: 'Skiing', color: '#A55EEA', category: 'Activities' },
-      { name: 'Kayaking', color: '#2D98DA', category: 'Activities' },
-      { name: 'Mountain', color: '#9B59B6', category: 'Locations' },
-      { name: 'Sea', color: '#45B7D1', category: 'Locations' },
-      { name: 'Forest', color: '#26DE81', category: 'Locations' },
-      { name: 'City', color: '#FC5C65', category: 'Locations' }
-    ];
-
-    for (const tag of PREDEFINED_TAGS) {
-      await Tag.findOrCreate({
-        where: { name: tag.name },
-        defaults: tag
-      });
-    }
     console.log('Tags seeded.');
     
     app.listen(PORT, '0.0.0.0', () => {
