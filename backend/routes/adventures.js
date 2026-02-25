@@ -274,7 +274,7 @@ router.get('/', authMiddleware, async (req, res) => {
             : pictures[0]
           ).thumbnail_url
         } : null,
-        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category || t.type || 'Custom' })),
+        tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
@@ -380,13 +380,13 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
 router.get('/tags', authMiddleware, async (req, res) => {
   try {
     const tags = await Tag.findAll({
-      order: [['category', 'ASC'], ['name', 'ASC']]
+      order: [['type', 'ASC'], ['name', 'ASC']]
     });
     const tagsWithCategory = tags.map(t => ({
       id: t.id,
       name: t.name,
       color: t.color,
-      category: t.category || t.type || 'Custom'
+      category: t.type || 'Custom'
     }));
     res.json({ tags: tagsWithCategory });
   } catch (error) {
@@ -412,11 +412,11 @@ router.post('/tags', authMiddleware, async (req, res) => {
 
     const tag = await Tag.create({
       name,
-      category: category || 'custom',
+      type: category || 'custom',
       color: randomColor
     });
 
-    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.category } });
+    res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.type } });
   } catch (error) {
     console.error('Create tag error:', error);
     res.status(500).json({ error: 'Failed to create tag' });
@@ -574,7 +574,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       id: t.id,
       name: t.name,
       color: t.color,
-      category: t.category || t.type || 'Custom'
+      category: t.type || 'Custom'
     }));
 
     res.json({ adventure: adventureData });
@@ -1038,7 +1038,7 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     await adventure.setTags(tags);
 
     const updatedTags = await adventure.getTags();
-    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.category || t.type || 'Custom' })) });
+    res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })) });
   } catch (error) {
     console.error('Update tags error:', error);
     res.status(500).json({ error: 'Failed to update tags' });
