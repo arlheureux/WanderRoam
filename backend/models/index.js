@@ -174,14 +174,7 @@ const Tag = sequelize.define('Tag', {
   type: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'Custom',
-    field: 'type'
-  },
-  get category() {
-    return this.getDataValue('type');
-  },
-  set category(value) {
-    this.setDataValue('type', value);
+    defaultValue: 'Custom'
   }
 });
 
