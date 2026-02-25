@@ -161,7 +161,8 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Tags
 - `GET /api/adventures/tags` - List all available tags
-- `POST /api/adventures/tags` - Create a new tag (name, type: activity|location)
+- `POST /api/adventures/tags` - Create a new tag (name, category)
+- `DELETE /api/adventures/tags/:id` - Delete a tag (removes from all adventures)
 - `PUT /api/adventures/:id/tags` - Update adventure tags (replace all)
 
 ### Immich Integration

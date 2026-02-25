@@ -258,16 +258,19 @@ const Dashboard = () => {
               >
                 All
               </button>
-              {['activity', 'location'].map(type => {
-                const typeTags = allTags.filter(t => t.type === type);
-                if (typeTags.length === 0) return null;
+              {Object.keys(allTags.reduce((acc, tag) => {
+                acc[tag.category] = true;
+                return acc;
+              }, {})).map(category => {
+                const categoryTags = allTags.filter(t => t.category === category);
+                if (categoryTags.length === 0) return null;
                 return (
-                  <div key={type} style={{ marginTop: '8px' }}>
+                  <div key={category} style={{ marginTop: '8px' }}>
                     <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      {type === 'activity' ? 'Activities' : 'Locations'}
+                      {category}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {typeTags.map(tag => {
+                      {categoryTags.map(tag => {
                         const isSelected = selectedTags.includes(tag.id);
                         return (
                           <button
