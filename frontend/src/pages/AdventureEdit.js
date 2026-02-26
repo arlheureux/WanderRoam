@@ -530,6 +530,25 @@ const AdventureEdit = () => {
     }
   };
 
+  const togglePicture = async (asset) => {
+    const existingPicture = pictures.find(p => p.immich_asset_id === asset.id);
+    
+    if (existingPicture) {
+      try {
+        await api.delete(`/adventures/${id}/pictures/${existingPicture.id}`);
+        setAdventure({
+          ...adventure,
+          Pictures: adventure.Pictures.filter(p => p.id !== existingPicture.id)
+        });
+        setMapKey(mapKey + 1);
+      } catch (err) {
+        console.error('Failed to remove picture:', err);
+      }
+    } else {
+      addPicture(asset);
+    }
+  };
+
   const deletePicture = async (pictureId) => {
     if (!window.confirm('Delete this picture?')) return;
     
@@ -1339,7 +1358,7 @@ const AdventureEdit = () => {
                     <div 
                       key={asset.id} 
                       className={`immich-asset ${isSelected ? 'selected' : ''}`}
-                      onClick={() => { addPicture(asset); }}
+                      onClick={() => { togglePicture(asset); }}
                     >
                       <img src={asset.thumbnailUrl} alt={asset.filename} />
                       <div className="immich-asset-info">
