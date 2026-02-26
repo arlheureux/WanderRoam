@@ -132,16 +132,7 @@ const AdventureView = () => {
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.log('Fullscreen not supported:', err);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -320,13 +311,13 @@ const AdventureView = () => {
             <div className="adventure-card-header">
               <h3>Map</h3>
             </div>
-            <div className="adventure-map-container">
+            <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
               <button 
                 className="fullscreen-btn" 
-                onClick={toggleFullscreen}
-                title="Fullscreen"
+                onClick={() => setMapFullscreen(!mapFullscreen)}
+                title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
               >
-                ⛶
+                {mapFullscreen ? '⛶' : '⛶'}
               </button>
               <MapContainer 
               center={defaultCenter} 
