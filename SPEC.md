@@ -148,7 +148,10 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### GPX Tracks
 - `POST /api/adventures/:id/gpx` - Upload GPX file
+- `PUT /api/gpx/:id` - Update GPX track (name, type, color, data)
 - `DELETE /api/adventures/:id/gpx/:gpxId` - Delete GPX track
+- `GET /api/gpx/:id` - Get GPX track
+- `GET /api/gpx/:id/data` - Get GPX track data points
 
 ### Pictures
 - `POST /api/adventures/:id/pictures` - Add picture (from Immich)

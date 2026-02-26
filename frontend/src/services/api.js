@@ -88,6 +88,10 @@ class ApiService {
   deleteTag(tagId) {
     return this.delete(`/adventures/tags/${tagId}`);
   }
+
+  updateGpx(gpxId, data) {
+    return this.put(`/gpx/${gpxId}`, data);
+  }
 }
 
 export default new ApiService();

@@ -450,6 +450,7 @@ body {
   border-left: 4px solid;
   transition: all 0.2s ease;
   min-width: 200px;
+  cursor: pointer;
 }
 
 .gpx-item:hover {
@@ -560,6 +561,137 @@ body {
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
+}
+
+.gpx-editor-modal {
+  max-width: 700px;
+  width: 95%;
+}
+
+.gpx-editor-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.gpx-editor-tabs .tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.gpx-editor-tabs .tab-btn:hover {
+  background: var(--card);
+}
+
+.gpx-editor-tabs .tab-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.gpx-editor-map {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.gpx-editor-map .map-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.9);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  text-align: center;
+  z-index: 500;
+}
+
+.gpx-editor-form {
+  margin-bottom: 16px;
+}
+
+.gpx-editor-form .form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.gpx-editor-form .form-group {
+  flex: 1;
+}
+
+.gpx-editor-form .form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.gpx-editor-form .form-group input,
+.gpx-editor-form .form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--text);
+}
+
+.gpx-editor-form .form-group input[type="color"] {
+  height: 40px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.points-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--background);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.import-section {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--background);
+  border-radius: var(--radius-md);
+}
+
+.file-input {
+  width: 100%;
+  padding: 8px;
+}
+
+.import-info {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: var(--text-light);
 }
 
 .upload-zone {
