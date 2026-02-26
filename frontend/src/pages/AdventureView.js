@@ -27,7 +27,7 @@ const fixLeafletIcons = () => {
 };
 
 const createCustomIcon = (color, scale = 1) => {
-  const size = 24 * scale;
+  const size = 26 * scale;
   const half = size / 2;
   return L.divIcon({
     className: 'custom-marker',
@@ -46,7 +46,7 @@ const createCustomIcon = (color, scale = 1) => {
 };
 
 const createWaypointIcon = (icon, scale = 1) => {
-  const size = 21 * scale; // 25% smaller (28 * 0.75)
+  const size = 23 * scale; // 25% smaller (28 * 0.75)
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<div style="
