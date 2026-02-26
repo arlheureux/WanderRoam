@@ -623,11 +623,34 @@ body {
   margin-bottom: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .immich-asset:hover {
   background: var(--background);
   border-color: var(--accent);
+}
+
+.immich-asset.selected {
+  border-color: var(--accent);
+  background: var(--background);
+  opacity: 0.7;
+}
+
+.immich-asset.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
 }
 
 .immich-asset img {
