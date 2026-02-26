@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
+import GpxEditorModal from '../components/GpxEditorModal';
 
 const TYPE_COLORS = {
   walking: '#FF6B6B',
@@ -171,6 +172,8 @@ const AdventureEdit = () => {
   const [newTagCategory, setNewTagCategory] = useState('');
   const [creatingTag, setCreatingTag] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [showGpxEditor, setShowGpxEditor] = useState(false);
+  const [editingGpxTrack, setEditingGpxTrack] = useState(null);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -563,6 +566,28 @@ const AdventureEdit = () => {
     } catch (err) {
       console.error('Failed to delete picture:', err);
     }
+  };
+
+  const openGpxEditor = (track = null) => {
+    setEditingGpxTrack(track);
+    setShowGpxEditor(true);
+  };
+
+  const handleGpxSaved = (savedTrack) => {
+    if (editingGpxTrack) {
+      setAdventure({
+        ...adventure,
+        GpxTracks: adventure.GpxTracks.map(t => t.id === savedTrack.id ? savedTrack : t)
+      });
+    } else {
+      setAdventure({
+        ...adventure,
+        GpxTracks: [...(adventure.GpxTracks || []), savedTrack]
+      });
+    }
+    setMapKey(mapKey + 1);
+    setShowGpxEditor(false);
+    setEditingGpxTrack(null);
   };
 
   if (loading) {
@@ -966,7 +991,15 @@ const AdventureEdit = () => {
             </div>
 
             <div className="sidebar-section">
-              <h3>Transportation ({gpxTracks.length})</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3>Transportation ({gpxTracks.length})</h3>
+                <button 
+                  onClick={() => openGpxEditor(null)}
+                  className="btn btn-primary btn-sm"
+                >
+                  + Draw Track
+                </button>
+              </div>
               {gpxTracks.length === 0 ? (
                 <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
               ) : (
@@ -976,6 +1009,7 @@ const AdventureEdit = () => {
                       key={track.id} 
                       className="gpx-item"
                       style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
+                      onClick={() => openGpxEditor(track)}
                     >
                       <div>
                         <div className="gpx-item-name">{track.name}</div>
@@ -987,7 +1021,7 @@ const AdventureEdit = () => {
                         )}
                       </div>
                       <button 
-                        onClick={() => deleteGpx(track.id)}
+                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
                         className="btn btn-danger btn-sm"
                       >
                         ×
@@ -1423,6 +1457,14 @@ const AdventureEdit = () => {
           </div>
         </div>
       )}
+
+      <GpxEditorModal
+        isOpen={showGpxEditor}
+        onClose={() => { setShowGpxEditor(false); setEditingGpxTrack(null); }}
+        adventureId={id}
+        existingTrack={editingGpxTrack}
+        onSave={handleGpxSaved}
+      />
     </div>
   );
 };
