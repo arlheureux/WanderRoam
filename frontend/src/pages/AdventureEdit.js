@@ -171,9 +171,18 @@ const AdventureEdit = () => {
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState('');
   const [creatingTag, setCreatingTag] = useState(false);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log('Fullscreen not supported:', err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   useEffect(() => {
     fixLeafletIcons();
@@ -640,13 +649,13 @@ const AdventureEdit = () => {
 
       <div className="container">
         <div className="adventure-detail">
-          <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
+          <div className="adventure-map-container">
             <button 
               className="fullscreen-btn" 
-              onClick={() => setMapFullscreen(!mapFullscreen)}
-              title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              onClick={toggleFullscreen}
+              title="Fullscreen"
             >
-              {mapFullscreen ? '⛶' : '⛶'}
+              ⛶
             </button>
             <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
               Click on map to add waypoint
