@@ -132,6 +132,7 @@ const AdventureView = () => {
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -310,7 +311,14 @@ const AdventureView = () => {
             <div className="adventure-card-header">
               <h3>Map</h3>
             </div>
-            <div className="adventure-map-container">
+            <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
+              <button 
+                className="fullscreen-btn" 
+                onClick={() => setMapFullscreen(!mapFullscreen)}
+                title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              >
+                {mapFullscreen ? '⛶' : '⛶'}
+              </button>
               <MapContainer 
               center={defaultCenter} 
               zoom={defaultZoom} 
