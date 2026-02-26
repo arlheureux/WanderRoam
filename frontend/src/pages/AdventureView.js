@@ -134,28 +134,12 @@ const AdventureView = () => {
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
 
   const toggleFullscreen = () => {
-    const elem = document.documentElement;
-    
     if (!document.fullscreenElement) {
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(err => {
-          console.log('Fullscreen error:', err);
-        });
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log('Fullscreen not supported:', err);
+      });
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(err => {
-          console.log('Exit fullscreen error:', err);
-        });
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-      }
+      document.exitFullscreen();
     }
   };
 
