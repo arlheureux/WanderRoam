@@ -29,7 +29,7 @@ const fixLeafletIcons = () => {
 };
 
 const createCustomIcon = (color, scale = 1) => {
-  const size = 24 * scale;
+  const size = 26 * scale;
   const half = size / 2;
   return L.divIcon({
     className: 'custom-marker',
@@ -48,7 +48,7 @@ const createCustomIcon = (color, scale = 1) => {
 };
 
 const createWaypointIcon = (icon, scale = 1) => {
-  const size = 21 * scale; // 25% smaller (28 * 0.75)
+  const size = 23 * scale; // 25% smaller (28 * 0.75)
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<div style="
@@ -527,6 +527,25 @@ const AdventureEdit = () => {
       setMapKey(mapKey + 1);
     } catch (err) {
       console.error('Failed to add picture:', err);
+    }
+  };
+
+  const togglePicture = async (asset) => {
+    const existingPicture = pictures.find(p => p.immich_asset_id === asset.id);
+    
+    if (existingPicture) {
+      try {
+        await api.delete(`/adventures/${id}/pictures/${existingPicture.id}`);
+        setAdventure({
+          ...adventure,
+          Pictures: adventure.Pictures.filter(p => p.id !== existingPicture.id)
+        });
+        setMapKey(mapKey + 1);
+      } catch (err) {
+        console.error('Failed to remove picture:', err);
+      }
+    } else {
+      addPicture(asset);
     }
   };
 
@@ -1333,21 +1352,24 @@ const AdventureEdit = () => {
               </div>
             ) : (
               <div className="immich-browser">
-                {immichAssets.map(asset => (
-                  <div 
-                    key={asset.id} 
-                    className="immich-asset"
-                    onClick={() => { addPicture(asset); }}
-                  >
-                    <img src={asset.thumbnailUrl} alt={asset.filename} />
-                    <div className="immich-asset-info">
-                      <strong>{asset.filename}</strong>
-                      <p>
-                        📍 {asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}
-                      </p>
+                {immichAssets.map(asset => {
+                  const isSelected = pictures.some(p => p.immich_asset_id === asset.id);
+                  return (
+                    <div 
+                      key={asset.id} 
+                      className={`immich-asset ${isSelected ? 'selected' : ''}`}
+                      onClick={() => { togglePicture(asset); }}
+                    >
+                      <img src={asset.thumbnailUrl} alt={asset.filename} />
+                      <div className="immich-asset-info">
+                        <strong>{asset.filename}</strong>
+                        <p>
+                          📍 {asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <div className="modal-actions">
