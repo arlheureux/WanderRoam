@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import api from '../services/api';
 
@@ -23,6 +23,24 @@ const fixLeafletIcons = () => {
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   });
+};
+
+const MapBoundsFitter = ({ points }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (points.length > 0) {
+      const lats = points.map(p => p.lat);
+      const lngs = points.map(p => p.lng);
+      const bounds = [
+        [Math.min(...lats), Math.min(...lngs)],
+        [Math.max(...lats), Math.max(...lngs)]
+      ];
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [points, map]);
+  
+  return null;
 };
 
 const createPointIcon = () => {
@@ -283,6 +301,7 @@ const GpxEditorModal = ({
                 }}
               />
             ))}
+            <MapBoundsFitter points={points} />
             <MapClickHandler onMapClick={handleMapClick} drawing={activeTab === 'draw' && drawing} />
           </MapContainer>
           {activeTab === 'draw' && (
