@@ -1333,21 +1333,24 @@ const AdventureEdit = () => {
               </div>
             ) : (
               <div className="immich-browser">
-                {immichAssets.map(asset => (
-                  <div 
-                    key={asset.id} 
-                    className="immich-asset"
-                    onClick={() => { addPicture(asset); }}
-                  >
-                    <img src={asset.thumbnailUrl} alt={asset.filename} />
-                    <div className="immich-asset-info">
-                      <strong>{asset.filename}</strong>
-                      <p>
-                        📍 {asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}
-                      </p>
+                {immichAssets.map(asset => {
+                  const isSelected = pictures.some(p => p.immich_asset_id === asset.id);
+                  return (
+                    <div 
+                      key={asset.id} 
+                      className={`immich-asset ${isSelected ? 'selected' : ''}`}
+                      onClick={() => { addPicture(asset); }}
+                    >
+                      <img src={asset.thumbnailUrl} alt={asset.filename} />
+                      <div className="immich-asset-info">
+                        <strong>{asset.filename}</strong>
+                        <p>
+                          📍 {asset.latitude.toFixed(4)}, {asset.longitude.toFixed(4)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <div className="modal-actions">
