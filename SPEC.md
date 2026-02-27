@@ -26,6 +26,7 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 2. **Backend** - Express API on port 5000
 3. **PostgreSQL** - Database on port 5432
 4. **Admin** - Admin panel on port 4000 (nginx)
+5. **BRouter** - Routing engine on port 17777
 
 ## 3. Data Model
 
@@ -178,6 +179,9 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 ### Users
 - `GET /api/adventures/users` - List other users (for sharing)
 
+### Routing
+- `POST /api/routing/route` - Calculate route using BRouter (requires waypoints and mode)
+
 ## 5. UI/UX Specification
 
 ### Pages
@@ -291,6 +295,7 @@ docker-app/
 ├── docker-compose.dev.yml      # Development version
 ├── SPEC.md
 ├── .gitignore
+├── README.md
 ├── backend/
 │   ├── Dockerfile
 │   ├── package.json
@@ -303,21 +308,27 @@ docker-app/
 │   │   ├── auth.js
 │   │   ├── adventures.js
 │   │   ├── gpx.js
+│   │   ├── routing.js
 │   │   └── immich.js
 │   └── models/
 │       └── index.js
-└── frontend/
+├── frontend/
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── nginx.conf
+│   ├── public/
+│   └── src/
+│       ├── index.js
+│       ├── App.js
+│       ├── components/
+│       ├── pages/
+│       ├── services/
+│       └── styles/
+├── admin/
+│   └── (admin panel files)
+└── brouter/
     ├── Dockerfile
-    ├── package.json
-    ├── nginx.conf
-    ├── public/
-    └── src/
-        ├── index.js
-        ├── App.js
-        ├── components/
-        ├── pages/
-        ├── services/
-        └── styles/
+    └── download_segments.sh
 ```
 
 ## 9. Environment Variables
@@ -333,6 +344,7 @@ docker-app/
 - `JWT_SECRET` - JWT signing secret
 - `UPLOAD_DIR` - Upload directory
 - `ENABLE_REGISTRATION` - Enable/disable registration (default true)
+- `BROUTER_URL` - BRouter service URL (default http://brouter:17777/brouter)
 
 ### Frontend
 - `REACT_APP_API_URL` - Backend API URL (default /api via nginx proxy)
@@ -381,3 +393,7 @@ docker-app/
 - [x] Docker Compose starts all services
 - [x] Application is accessible via browser
 - [x] Pre-built images can be used for deployment
+- [x] BRouter service runs and accepts routing requests
+- [x] Route tab in GPX editor calculates routes for car, bike, foot, boat, train, metro
+- [x] Route waypoints can be added by clicking on map
+- [x] Calculated routes display on map

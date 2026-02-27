@@ -91,6 +91,7 @@ Services:
 - Main App: http://localhost:3000
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
+- BRouter: http://localhost:17777
 
 ## Configuration
 
@@ -139,7 +140,7 @@ The segment files are downloaded from `https://brouter.de/brouter/segments4/` an
 | Foot / Walking | hiking | #FF9F43 |
 | Boat | river | #2D98DA |
 | Train | rail | #45B7D1 |
-| Metro | shortest | #A55EEA |
+| Metro | rail | #26DE81 |
 
 #### Reproduce the BRouter Setup
 
