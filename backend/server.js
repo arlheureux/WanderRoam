@@ -12,6 +12,7 @@ const adventuresRoutes = require('./routes/adventures');
 const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
+const routingRoutes = require('./routes/routing');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -71,6 +72,7 @@ app.use('/uploads', express.static(uploadDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
+app.use('/api/routing', routingRoutes);
 app.use('/api/immich', immichRoutes);
 app.use('/api/admin', adminRoutes);
 

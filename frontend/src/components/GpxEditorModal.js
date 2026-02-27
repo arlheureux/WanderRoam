@@ -17,6 +17,15 @@ const TYPE_COLORS = {
 
 const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'];
 
+const ROUTING_MODES = [
+  { value: 'car', label: 'Car', color: '#FC5C65' },
+  { value: 'bike', label: 'Bike', color: '#4ECDC4' },
+  { value: 'foot', label: 'Foot / Walking', color: '#FF9F43' },
+  { value: 'boat', label: 'Boat', color: '#2D98DA' },
+  { value: 'train', label: 'Train', color: '#45B7D1' },
+  { value: 'metro', label: 'Metro', color: '#A55EEA' }
+];
+
 const fixLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
   L.Icon.Default.mergeOptions({
@@ -43,12 +52,33 @@ const MapBoundsFitter = ({ points }) => {
   return null;
 };
 
-const createPointIcon = () => {
+const createPointIcon = (color = '#2196F3', isWaypoint = false) => {
+  if (isWaypoint) {
+    return L.divIcon({
+      className: 'waypoint-marker',
+      html: `<div style="
+        background-color: ${color};
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: white;
+      "></div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  }
   const size = 12;
   return L.divIcon({
     className: 'point-marker',
     html: `<div style="
-      background-color: #2196F3;
+      background-color: ${color};
       width: ${size}px;
       height: ${size}px;
       border-radius: 50%;
@@ -60,10 +90,10 @@ const createPointIcon = () => {
   });
 };
 
-const MapClickHandler = ({ onMapClick, drawing }) => {
+const MapClickHandler = ({ onMapClick, enabled }) => {
   useMapEvents({
     click: (e) => {
-      if (drawing) {
+      if (enabled) {
         onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng, ele: null, time: null });
       }
     },
@@ -87,6 +117,11 @@ const GpxEditorModal = ({
   const [saving, setSaving] = useState(false);
   const [drawing, setDrawing] = useState(true);
   
+  const [routingMode, setRoutingMode] = useState('car');
+  const [routingWaypoints, setRoutingWaypoints] = useState([]);
+  const [routingLoading, setRoutingLoading] = useState(false);
+  const [routingError, setRoutingError] = useState('');
+  
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -106,24 +141,81 @@ const GpxEditorModal = ({
       setTrackType('hiking');
       setColor(TYPE_COLORS.hiking);
       setPoints([]);
+      setRoutingWaypoints([]);
     }
   }, [isOpen, existingTrack]);
 
   const handleMapClick = (point) => {
-    setPoints([...points, point]);
+    if (activeTab === 'route') {
+      setRoutingWaypoints([...routingWaypoints, point]);
+    } else {
+      setPoints([...points, point]);
+    }
   };
 
   const handleRemovePoint = (index) => {
-    setPoints(points.filter((_, i) => i !== index));
+    if (activeTab === 'route') {
+      setRoutingWaypoints(routingWaypoints.filter((_, i) => i !== index));
+    } else {
+      setPoints(points.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleRemoveRoutingWaypoint = (index) => {
+    setRoutingWaypoints(routingWaypoints.filter((_, i) => i !== index));
   };
 
   const handleReverse = () => {
-    setPoints([...points].reverse());
+    if (activeTab === 'route') {
+      setRoutingWaypoints([...routingWaypoints].reverse());
+    } else {
+      setPoints([...points].reverse());
+    }
   };
 
   const handleClearAll = () => {
-    if (window.confirm('Clear all points?')) {
-      setPoints([]);
+    if (activeTab === 'route') {
+      if (window.confirm('Clear all waypoints?')) {
+        setRoutingWaypoints([]);
+      }
+    } else {
+      if (window.confirm('Clear all points?')) {
+        setPoints([]);
+      }
+    }
+  };
+
+  const handleCalculateRoute = async () => {
+    if (routingWaypoints.length < 2) {
+      setRoutingError('At least 2 waypoints required (start and end)');
+      return;
+    }
+
+    setRoutingError('');
+    setRoutingLoading(true);
+
+    try {
+      const response = await api.post('/routing/route', {
+        waypoints: routingWaypoints,
+        mode: routingMode
+      });
+
+      if (response.data && response.data.points) {
+        setPoints(response.data.points);
+        setColor(response.data.color || TYPE_COLORS[routingMode] || TYPE_COLORS.hiking);
+        
+        const modeLabel = ROUTING_MODES.find(m => m.value === routingMode)?.label || routingMode;
+        if (!name) {
+          setName(`${modeLabel} Route`);
+        }
+        
+        setActiveTab('edit');
+      }
+    } catch (err) {
+      console.error('Routing error:', err);
+      setRoutingError(err.response?.data?.error || err.message || 'Failed to calculate route');
+    } finally {
+      setRoutingLoading(false);
     }
   };
 
@@ -231,9 +323,10 @@ const GpxEditorModal = ({
   };
 
   const getMapCenter = () => {
-    if (points.length > 0) {
-      const avgLat = points.reduce((sum, p) => sum + p.lat, 0) / points.length;
-      const avgLng = points.reduce((sum, p) => sum + p.lng, 0) / points.length;
+    const currentPoints = activeTab === 'route' ? routingWaypoints : points;
+    if (currentPoints.length > 0) {
+      const avgLat = currentPoints.reduce((sum, p) => sum + p.lat, 0) / currentPoints.length;
+      const avgLng = currentPoints.reduce((sum, p) => sum + p.lng, 0) / currentPoints.length;
       return [avgLat, avgLng];
     }
     return [46.2276, 2.2137];
@@ -244,7 +337,13 @@ const GpxEditorModal = ({
     setColor(TYPE_COLORS[newType] || TYPE_COLORS.other);
   };
 
+  const getRoutingModeColor = () => {
+    return ROUTING_MODES.find(m => m.value === routingMode)?.color || '#FC5C65';
+  };
+
   if (!isOpen) return null;
+
+  const currentPoints = activeTab === 'route' ? routingWaypoints : points;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -257,6 +356,12 @@ const GpxEditorModal = ({
             onClick={() => { setActiveTab('draw'); setDrawing(true); }}
           >
             Draw
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'route' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('route'); setDrawing(false); }}
+          >
+            Route
           </button>
           <button 
             className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
@@ -278,7 +383,7 @@ const GpxEditorModal = ({
           <MapContainer
             ref={mapRef}
             center={getMapCenter()}
-            zoom={points.length > 0 ? 12 : 5}
+            zoom={currentPoints.length > 0 ? 12 : 5}
             style={{ height: '300px', width: '100%' }}
           >
             <TileLayer
@@ -291,25 +396,89 @@ const GpxEditorModal = ({
                 pathOptions={{ color: color, weight: 4 }}
               />
             )}
-            {points.map((point, index) => (
+            {routingWaypoints.length > 0 && (
+              <Polyline
+                positions={routingWaypoints.map(p => [p.lat, p.lng])}
+                pathOptions={{ color: getRoutingModeColor(), weight: 3, dashArray: '5, 10' }}
+              />
+            )}
+            {(activeTab === 'route' ? routingWaypoints : points).map((point, index) => (
               <Marker
                 key={index}
                 position={[point.lat, point.lng]}
-                icon={createPointIcon()}
+                icon={activeTab === 'route' ? createPointIcon(getRoutingModeColor(), true) : createPointIcon()}
                 eventHandlers={{
                   click: () => handleRemovePoint(index)
                 }}
               />
             ))}
-            <MapBoundsFitter points={points} />
-            <MapClickHandler onMapClick={handleMapClick} drawing={activeTab === 'draw' && drawing} />
+            <MapBoundsFitter points={currentPoints} />
+            <MapClickHandler onMapClick={handleMapClick} enabled={activeTab === 'draw' || activeTab === 'route'} />
           </MapContainer>
           {activeTab === 'draw' && (
             <div className="map-hint">
               Click on the map to add points. Click a point to remove it.
             </div>
           )}
+          {activeTab === 'route' && (
+            <div className="map-hint">
+              Click on the map to add waypoints ({routingWaypoints.length} added). Click a marker to remove it.
+            </div>
+          )}
         </div>
+
+        {activeTab === 'route' && (
+          <div className="routing-section">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Transportation Mode</label>
+                <select value={routingMode} onChange={(e) => setRoutingMode(e.target.value)}>
+                  {ROUTING_MODES.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="waypoints-info">
+              <span>{routingWaypoints.length} waypoint{routingWaypoints.length !== 1 ? 's' : ''}</span>
+              {routingWaypoints.length > 2 && (
+                <button type="button" className="btn-link" onClick={handleReverse}>
+                  Reverse
+                </button>
+              )}
+              {routingWaypoints.length > 0 && (
+                <button type="button" className="btn-link" onClick={handleClearAll}>
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {routingWaypoints.length >= 2 && (
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={handleCalculateRoute}
+                disabled={routingLoading}
+                style={{ width: '100%', marginTop: '10px' }}
+              >
+                {routingLoading ? 'Calculating...' : 'Calculate Route'}
+              </button>
+            )}
+
+            {routingError && (
+              <div className="error-message" style={{ color: 'red', marginTop: '10px', fontSize: '14px' }}>
+                {routingError}
+              </div>
+            )}
+
+            {routingWaypoints.length < 2 && (
+              <p className="map-hint" style={{ marginTop: '10px' }}>
+                Add at least 2 waypoints to calculate a route
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="gpx-editor-form">
           <div className="form-row">
@@ -350,7 +519,7 @@ const GpxEditorModal = ({
                 Reverse
               </button>
             )}
-            {points.length > 0 && (
+            {points.length > 0 && activeTab !== 'route' && (
               <button type="button" className="btn-link" onClick={handleClearAll}>
                 Clear All
               </button>
