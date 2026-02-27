@@ -10,7 +10,7 @@ const ROUTING_PROFILES = {
   foot: 'hiking',
   boat: 'river',
   train: 'rail',
-  metro: 'shortest'
+  metro: 'rail'
 };
 
 const TYPE_COLORS = {
