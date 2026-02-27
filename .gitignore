@@ -9,6 +9,7 @@ dist/
 
 # Docker
 *.tar
+brouter/
 
 # Environment
 # Note: .env is tracked for development convenience
