@@ -384,7 +384,7 @@ const GpxEditorModal = ({
             ref={mapRef}
             center={getMapCenter()}
             zoom={currentPoints.length > 0 ? 12 : 5}
-            style={{ height: '300px', width: '100%' }}
+            style={{ height: '400px', width: '100%' }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
