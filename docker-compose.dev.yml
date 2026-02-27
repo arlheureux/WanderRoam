@@ -59,9 +59,7 @@ services:
     restart: unless-stopped
 
   brouter:
-    build:
-      context: ./brouter
-      dockerfile: Dockerfile
+    image: arlheureux/wanderroam-brouter:latest
     container_name: wanderroam-brouter
     ports:
       - "17777:17777"

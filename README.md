@@ -143,6 +143,8 @@ The segment files are downloaded from `https://brouter.de/brouter/segments4/` an
 
 #### Reproduce the BRouter Setup
 
+The BRouter image is pre-built and available on Docker Hub. When you start the services, it will automatically download the segment files for the configured countries.
+
 ```bash
 # Clone the repository
 git clone -b dev https://github.com/arlheureux/WanderRoam.git
@@ -150,13 +152,13 @@ cd WanderRoam
 
 # Start services (brouter will download segments automatically)
 docker compose -f docker-compose.dev.yml up -d
-
-# Or build from source
-docker compose -f docker-compose.dev.yml build
-docker compose -f docker-compose.dev.yml up -d
 ```
 
 The BRouter service will be available at `http://localhost:17777`
+
+#### Disabling BRouter
+
+If you don't need routing functionality, you can disable BRouter by removing or commenting out the `brouter` service in `docker-compose.dev.yml`. The GPX editor will still work for manual drawing and GPX file imports.
 
 ### Default Credentials
 
@@ -176,5 +178,9 @@ docker-app/
 ## License
 
 GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- **BRouter** - Open-source routing engine. See [https://github.com/abrensch/brouter](https://github.com/abrensch/brouter)
 
 Built with [OpenCode](https://opencode.ai) AI assistant (big-pickle model).
