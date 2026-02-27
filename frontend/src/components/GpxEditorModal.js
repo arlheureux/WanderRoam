@@ -121,6 +121,7 @@ const GpxEditorModal = ({
   const [routingWaypoints, setRoutingWaypoints] = useState([]);
   const [routingLoading, setRoutingLoading] = useState(false);
   const [routingError, setRoutingError] = useState('');
+  const [mapFullscreen, setMapFullscreen] = useState(false);
   
   const mapRef = useRef(null);
 
@@ -379,12 +380,19 @@ const GpxEditorModal = ({
           )}
         </div>
 
-        <div className="gpx-editor-map">
+        <div className={`gpx-editor-map ${mapFullscreen ? 'fullscreen' : ''}`}>
+          <button 
+            className="fullscreen-btn" 
+            onClick={() => setMapFullscreen(!mapFullscreen)}
+            title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {mapFullscreen ? '⛶' : '⛶'}
+          </button>
           <MapContainer
             ref={mapRef}
             center={getMapCenter()}
             zoom={currentPoints.length > 0 ? 12 : 5}
-            style={{ height: '400px', width: '100%' }}
+            style={{ height: mapFullscreen ? '100vh' : '400px', width: '100%' }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
