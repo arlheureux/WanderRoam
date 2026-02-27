@@ -347,8 +347,8 @@ const GpxEditorModal = ({
   const currentPoints = activeTab === 'route' ? routingWaypoints : points;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content gpx-editor-modal" onClick={e => e.stopPropagation()}>
+    <div className={`modal-overlay ${mapFullscreen ? 'hidden' : ''}`} onClick={onClose}>
+      <div className={`modal-content gpx-editor-modal ${mapFullscreen ? 'fullscreen-modal' : ''}`} onClick={e => e.stopPropagation()}>
         <h3>{existingTrack ? 'Edit Track' : 'Create Track'}</h3>
         
         <div className="gpx-editor-tabs">
