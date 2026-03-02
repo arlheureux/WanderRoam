@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
+import GpxEditorModal from '../components/GpxEditorModal';
 
 const TYPE_COLORS = {
   walking: '#FF6B6B',
@@ -170,6 +171,9 @@ const AdventureEdit = () => {
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState('');
   const [creatingTag, setCreatingTag] = useState(false);
+  const [showGpxEditor, setShowGpxEditor] = useState(false);
+  const [editingGpxTrack, setEditingGpxTrack] = useState(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -564,6 +568,28 @@ const AdventureEdit = () => {
     }
   };
 
+  const openGpxEditor = (track = null) => {
+    setEditingGpxTrack(track);
+    setShowGpxEditor(true);
+  };
+
+  const handleGpxSaved = (savedTrack) => {
+    if (editingGpxTrack) {
+      setAdventure({
+        ...adventure,
+        GpxTracks: adventure.GpxTracks.map(t => t.id === savedTrack.id ? savedTrack : t)
+      });
+    } else {
+      setAdventure({
+        ...adventure,
+        GpxTracks: [...(adventure.GpxTracks || []), savedTrack]
+      });
+    }
+    setMapKey(mapKey + 1);
+    setShowGpxEditor(false);
+    setEditingGpxTrack(null);
+  };
+
   if (loading) {
     return <div className="loading-screen">Loading adventure...</div>;
   }
@@ -614,8 +640,15 @@ const AdventureEdit = () => {
 
       <div className="container">
         <div className="adventure-detail">
-          <div className="adventure-map-container">
-            <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
+          <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
+            <button 
+              className="fullscreen-btn" 
+              onClick={() => setMapFullscreen(!mapFullscreen)}
+              title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {mapFullscreen ? '⛶' : '⛶'}
+            </button>
+            <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
               Click on map to add waypoint
             </div>
             <MapContainer 
@@ -958,7 +991,15 @@ const AdventureEdit = () => {
             </div>
 
             <div className="sidebar-section">
-              <h3>Transportation ({gpxTracks.length})</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3>Transportation ({gpxTracks.length})</h3>
+                <button 
+                  onClick={() => openGpxEditor(null)}
+                  className="btn btn-primary btn-sm"
+                >
+                  + Draw Track
+                </button>
+              </div>
               {gpxTracks.length === 0 ? (
                 <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
               ) : (
@@ -968,6 +1009,7 @@ const AdventureEdit = () => {
                       key={track.id} 
                       className="gpx-item"
                       style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
+                      onClick={() => openGpxEditor(track)}
                     >
                       <div>
                         <div className="gpx-item-name">{track.name}</div>
@@ -979,7 +1021,7 @@ const AdventureEdit = () => {
                         )}
                       </div>
                       <button 
-                        onClick={() => deleteGpx(track.id)}
+                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
                         className="btn btn-danger btn-sm"
                       >
                         ×
@@ -1415,6 +1457,14 @@ const AdventureEdit = () => {
           </div>
         </div>
       )}
+
+      <GpxEditorModal
+        isOpen={showGpxEditor}
+        onClose={() => { setShowGpxEditor(false); setEditingGpxTrack(null); }}
+        adventureId={id}
+        existingTrack={editingGpxTrack}
+        onSave={handleGpxSaved}
+      />
     </div>
   );
 };
