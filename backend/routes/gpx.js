@@ -191,6 +191,44 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const gpxTrack = await GpxTrack.findByPk(req.params.id);
+
+    if (!gpxTrack) {
+      return res.status(404).json({ error: 'GPX track not found' });
+    }
+
+    const { name, type, color, data } = req.body;
+
+    if (name) gpxTrack.name = name;
+    if (type) gpxTrack.type = type;
+    if (color) gpxTrack.color = color;
+    if (data) {
+      gpxTrack.data = data;
+      if (data.length >= 2) {
+        let totalDistance = 0;
+        for (let i = 1; i < data.length; i++) {
+          const prev = data[i - 1];
+          const curr = data[i];
+          if (prev.lat && prev.lng && curr.lat && curr.lng) {
+            const dist = haversine(prev.lat, prev.lng, curr.lat, curr.lng);
+            totalDistance += dist;
+          }
+        }
+        gpxTrack.distance = Math.round(totalDistance / 10) / 100;
+      }
+    }
+
+    await gpxTrack.save();
+
+    res.json({ gpxTrack });
+  } catch (error) {
+    console.error('Update GPX error:', error);
+    res.status(500).json({ error: 'Failed to update GPX' });
+  }
+});
+
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);

@@ -26,6 +26,7 @@
 
 - **Adventure Management** - Create and organize your outdoor trips
 - **GPX Tracking** - Upload and visualize GPX tracks on OpenStreetMap
+- **GPX Routing** - Calculate routes using BRouter for car, bike, foot, boat, train, metro
 - **Waypoints** - Add custom markers with icons on the map
 - **Tags** - Categorize adventures with custom tags and categories. Create any tag with your own category name.
 - **Photo Integration** - Connect to Immich for photo management
@@ -45,6 +46,7 @@
 - **Backend**: Node.js, Express, Sequelize
 - **Database**: PostgreSQL
 - **Maps**: OpenStreetMap / Leaflet
+- **Routing**: BRouter (self-hosted)
 
 ## Quick Start
 
@@ -89,6 +91,7 @@ Services:
 - Main App: http://localhost:3000
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
+- BRouter: http://localhost:17777
 
 ## Configuration
 
@@ -108,6 +111,55 @@ Copy `.env.example` to `.env` and update the values before deploying.
 | `JWT_SECRET` | wanderroam_secret_key_change_in_production | JWT signing secret (change!) |
 | `ENABLE_REGISTRATION` | true | Allow new user registration |
 | `UPLOAD_DIR` | /app/uploads | Upload directory |
+| `BROUTER_URL` | http://brouter:17777/brouter | BRouter routing service URL |
+
+### BRouter Configuration
+
+BRouter is a self-hosted routing engine that calculates routes between waypoints. It's integrated into the GPX editor modal for calculating routes.
+
+#### Segment Files
+
+BRouter requires segment files (`.rd5`) which contain the routing data. These are downloaded automatically based on the `COUNTRIES` environment variable.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COUNTRIES` | france,denmark | Comma-separated list of countries to download segments for |
+
+Available segments:
+- **France**: E0_N40 to W10_N55 (17 segments)
+- **Denmark**: E0_N55, E5_N55, W5_N55, W10_N55 (4 segments)
+
+The segment files are downloaded from `https://brouter.de/brouter/segments4/` and stored in a Docker volume.
+
+#### Supported Transportation Modes
+
+| Mode | BRouter Profile | Color |
+|------|-----------------|-------|
+| Car | car-vario | #FC5C65 |
+| Bike | trekking | #4ECDC4 |
+| Foot / Walking | hiking | #FF9F43 |
+| Boat | river | #2D98DA |
+| Train | rail | #45B7D1 |
+| Metro | rail | #26DE81 |
+
+#### Reproduce the BRouter Setup
+
+The BRouter image is pre-built and available on Docker Hub. When you start the services, it will automatically download the segment files for the configured countries.
+
+```bash
+# Clone the repository
+git clone -b dev https://github.com/arlheureux/WanderRoam.git
+cd WanderRoam
+
+# Start services (brouter will download segments automatically)
+docker compose -f docker-compose.dev.yml up -d
+```
+
+The BRouter service will be available at `http://localhost:17777`
+
+#### Disabling BRouter
+
+If you don't need routing functionality, you can disable BRouter by removing or commenting out the `brouter` service in `docker-compose.dev.yml`. The GPX editor will still work for manual drawing and GPX file imports.
 
 ### Default Credentials
 
@@ -127,5 +179,9 @@ docker-app/
 ## License
 
 GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- **BRouter** - Open-source routing engine. See [https://github.com/abrensch/brouter](https://github.com/abrensch/brouter)
 
 Built with [OpenCode](https://opencode.ai) AI assistant (big-pickle model).
