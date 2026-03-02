@@ -570,6 +570,7 @@ body {
   max-width: 1100px;
   width: 95%;
   background: var(--card);
+  padding: 20px;
 }
 
 .gpx-editor-map.fullscreen .leaflet-container {
