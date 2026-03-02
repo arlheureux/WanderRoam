@@ -26,6 +26,8 @@ services:
     container_name: wanderroam-backend
     env_file:
       - .env
+    environment:
+      - BROUTER_URL=http://wanderroam-brouter:17777/brouter
     volumes:
       - upload_data:/app/uploads
     ports:
@@ -53,9 +55,21 @@ services:
       - backend
     restart: unless-stopped
 
+  brouter:
+    image: arlheureux/wanderroam-brouter:stable
+    container_name: wanderroam-brouter
+    ports:
+      - "17777:17777"
+    environment:
+      - COUNTRIES=france,denmark
+    volumes:
+      - brouter_data:/segments4
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   upload_data:
+  brouter_data:
 
 networks:
   default:
