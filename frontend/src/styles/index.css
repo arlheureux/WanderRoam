@@ -376,6 +376,11 @@ body {
   background: #fff;
 }
 
+.adventure-map-container.fullscreen .leaflet-container {
+  height: 100vh !important;
+  width: 100vw !important;
+}
+
 .fullscreen-btn {
   position: absolute;
   top: 10px;
