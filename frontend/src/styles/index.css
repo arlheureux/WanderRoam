@@ -377,15 +377,43 @@ body {
 }
 
 .adventure-map-container.fullscreen .leaflet-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   height: 100vh !important;
   width: 100vw !important;
+}
+
+.adventure-map-container.fullscreen .leaflet-pane,
+.adventure-map-container.fullscreen .leaflet-tile-pane,
+.adventure-map-container.fullscreen .leaflet-overlay-pane {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.adventure-map-container.fullscreen .leaflet-control-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.adventure-map-container.fullscreen .leaflet-control {
+  z-index: 100002 !important;
 }
 
 .fullscreen-btn {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 1001;
+  z-index: 500;
   width: 36px;
   height: 36px;
   background: rgba(255, 255, 255, 0.9);

@@ -133,6 +133,7 @@ const AdventureView = () => {
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -314,16 +315,24 @@ const AdventureView = () => {
             <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
               <button 
                 className="fullscreen-btn" 
-                onClick={() => setMapFullscreen(!mapFullscreen)}
+                onClick={() => {
+                  setMapFullscreen(!mapFullscreen);
+                  setTimeout(() => {
+                    if (mapRef.current) {
+                      mapRef.current.invalidateSize();
+                    }
+                  }, 100);
+                }}
                 title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
               >
                 {mapFullscreen ? '⛶' : '⛶'}
               </button>
               <MapContainer 
-              center={defaultCenter} 
-              zoom={defaultZoom} 
-              style={{ height: '100%', width: '100%' }}
-            >
+                ref={mapRef}
+                center={defaultCenter} 
+                zoom={defaultZoom} 
+                style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+              >
               <TileLayer
                 attribution='&copy; <a href="httpsmap.org/copyright://www.openstreet">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
