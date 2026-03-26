@@ -174,6 +174,7 @@ const AdventureEdit = () => {
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     fixLeafletIcons();
@@ -643,7 +644,14 @@ const AdventureEdit = () => {
           <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
             <button 
               className="fullscreen-btn" 
-              onClick={() => setMapFullscreen(!mapFullscreen)}
+              onClick={() => {
+                setMapFullscreen(!mapFullscreen);
+                setTimeout(() => {
+                  if (mapRef.current) {
+                    mapRef.current.invalidateSize();
+                  }
+                }, 100);
+              }}
               title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             >
               {mapFullscreen ? '⛶' : '⛶'}
@@ -652,10 +660,11 @@ const AdventureEdit = () => {
               Click on map to add waypoint
             </div>
             <MapContainer 
+              ref={mapRef}
               key={mapKey}
               center={defaultCenter} 
               zoom={defaultZoom} 
-              style={{ height: '100%', width: '100%' }}
+              style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

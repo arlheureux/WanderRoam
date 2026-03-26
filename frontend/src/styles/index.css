@@ -413,7 +413,7 @@ body {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 100001;
+  z-index: 500;
   width: 36px;
   height: 36px;
   background: rgba(255, 255, 255, 0.9);
