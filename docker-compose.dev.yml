@@ -20,6 +20,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: on-failure
 
   backend:
     image: arlheureux/wanderroam-backend:latest
@@ -36,6 +37,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      brouter:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -65,7 +68,12 @@ services:
       - COUNTRIES=france,denmark
     volumes:
       - brouter_data:/segments4
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:17777/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: on-failure
 
 volumes:
   postgres_data:
