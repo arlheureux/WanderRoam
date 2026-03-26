@@ -386,16 +386,27 @@ body {
   width: 100vw !important;
 }
 
+.adventure-map-container.fullscreen .leaflet-pane,
+.adventure-map-container.fullscreen .leaflet-tile-pane,
+.adventure-map-container.fullscreen .leaflet-overlay-pane {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .adventure-map-container.fullscreen .leaflet-control-container {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  height: 100% !important;
-  width: 100% !important;
+  height: 100vh !important;
+  width: 100vw !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+.adventure-map-container.fullscreen .leaflet-control {
+  z-index: 100002 !important;
 }
 
 .fullscreen-btn {
