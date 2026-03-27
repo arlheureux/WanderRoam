@@ -61,7 +61,7 @@ const createWaypointIcon = (icon, scale = 1) => {
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
-      background: white;
+      background: #FFFDD0;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -335,12 +335,20 @@ const AdventureEdit = () => {
     setUploadingGpx(true);
     try {
       const formData = new FormData();
-      formData.append('gpx', gpxFile);
-      formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
+      const isFitFile = gpxFile.name.toLowerCase().endsWith('.fit');
+      
+      if (isFitFile) {
+        formData.append('fit', gpxFile);
+        formData.append('name', gpxName || gpxFile.name.replace('.fit', ''));
+      } else {
+        formData.append('gpx', gpxFile);
+        formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
+      }
       formData.append('type', gpxType);
       formData.append('adventure_id', id);
 
-      const res = await api.post(`/gpx/upload`, formData, true);
+      const endpoint = isFitFile ? '/fit/upload' : '/gpx/upload';
+      const res = await api.post(endpoint, formData, true);
       
       setAdventure({
         ...adventure,
@@ -351,7 +359,7 @@ const AdventureEdit = () => {
       setGpxFile(null);
       setGpxName('');
     } catch (err) {
-      console.error('Failed to upload GPX:', err);
+      console.error('Failed to upload track:', err);
     } finally {
       setUploadingGpx(false);
     }
@@ -731,6 +739,7 @@ const AdventureEdit = () => {
           {newWaypoint && (
             <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <button className="close-btn" onClick={() => setNewWaypoint(null)}>&times;</button>
                 <h3>Add Waypoint</h3>
                 <form onSubmit={addWaypoint}>
                   <div className="form-group">
@@ -744,27 +753,20 @@ const AdventureEdit = () => {
                   </div>
                   <div className="form-group">
                     <label>Icon</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div className="icon-grid">
                       {WAYPOINT_ICONS.map(icon => (
                         <button
                           key={icon}
                           type="button"
                           onClick={() => setWaypointIcon(icon)}
-                          style={{
-                            fontSize: '1.5rem',
-                            padding: '8px',
-                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
-                            borderRadius: '4px',
-                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
-                            cursor: 'pointer'
-                          }}
+                          className={waypointIcon === icon ? 'selected' : ''}
                         >
                           {icon}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <div className="modal-actions">
                     <button type="button" className="btn" onClick={() => setNewWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Add Waypoint</button>
                   </div>
@@ -776,6 +778,7 @@ const AdventureEdit = () => {
           {editingWaypoint && (
             <div className="modal-overlay" onClick={() => setEditingWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <button className="close-btn" onClick={() => setEditingWaypoint(null)}>&times;</button>
                 <h3>Edit Waypoint</h3>
                 <form onSubmit={updateWaypoint}>
                   <div className="form-group">
@@ -789,39 +792,30 @@ const AdventureEdit = () => {
                   </div>
                   <div className="form-group">
                     <label>Icon</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div className="icon-grid">
                       {WAYPOINT_ICONS.map(icon => (
                         <button
                           key={icon}
                           type="button"
                           onClick={() => setWaypointIcon(icon)}
-                          style={{
-                            fontSize: '1.5rem',
-                            padding: '8px',
-                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
-                            borderRadius: '4px',
-                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
-                            cursor: 'pointer'
-                          }}
+                          className={waypointIcon === icon ? 'selected' : ''}
                         >
                           {icon}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                  <div className="modal-actions">
                     <button
                       type="button"
                       className="btn"
-                      style={{ background: '#f44336', color: 'white' }}
+                      style={{ background: '#f44336', color: 'white', marginRight: 'auto' }}
                       onClick={() => deleteWaypoint(editingWaypoint.id)}
                     >
                       Delete
                     </button>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
-                      <button type="submit" className="btn btn-primary">Save</button>
-                    </div>
+                    <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">Save</button>
                   </div>
                 </form>
               </div>
@@ -835,7 +829,7 @@ const AdventureEdit = () => {
                 <div className="form-group">
                   <input
                     type="file"
-                    accept=".gpx"
+                    accept=".gpx,.fit"
                     onChange={(e) => setGpxFile(e.target.files[0])}
                     required
                   />
@@ -867,7 +861,7 @@ const AdventureEdit = () => {
                   style={{ width: '100%' }}
                   disabled={uploadingGpx || !gpxFile}
                 >
-                  {uploadingGpx ? 'Uploading...' : 'Upload GPX'}
+                  {uploadingGpx ? 'Uploading...' : 'Upload Track'}
                 </button>
               </form>
             </div>
