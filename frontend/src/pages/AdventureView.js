@@ -53,7 +53,7 @@ const createWaypointIcon = (icon, scale = 1) => {
     html: `<div style="
       width: ${size}px;
       height: ${size}px;
-      background: white;
+      background: #FFFDD0;
       border-radius: 50%;
       display: flex;
       align-items: center;
