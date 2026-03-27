@@ -282,7 +282,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     res.json({ adventures: adventuresWithStats });
   } catch (error) {
-    console.error('Get adventures error:', error);
+    console.error('Get adventures error:', error.message);
     res.status(500).json({ error: 'Failed to get adventures' });
   }
 });
