@@ -183,7 +183,7 @@ router.get('/assets', authMiddleware, async (req, res) => {
 
     res.json({ assets: processedAssets });
   } catch (error) {
-    console.error('Get Immich assets error:', error);
+    console.error('Get Immich assets error:', error.message);
     res.status(500).json({ error: 'Failed to get Immich assets' });
   }
 });

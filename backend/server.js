@@ -10,13 +10,14 @@ const { sequelize, Tag } = require('./models');
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
 const gpxRoutes = require('./routes/gpx');
+const fitRoutes = require('./routes/fit');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.1';
+const VERSION = 'v0.4.3';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -28,6 +29,16 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/', globalLimiter);
 
 app.use((req, res, next) => {
   if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
@@ -72,6 +83,7 @@ app.use('/uploads', express.static(uploadDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
+app.use('/api/fit', fitRoutes);
 app.use('/api/routing', routingRoutes);
 app.use('/api/immich', immichRoutes);
 app.use('/api/admin', adminRoutes);

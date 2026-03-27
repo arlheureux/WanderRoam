@@ -93,7 +93,7 @@ router.post('/register', async (req, res) => {
       user: { id: user.id, username: user.username, isAdmin: user.isAdmin }
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Register error:', error.message);
     res.status(500).json({ error: 'Failed to register' });
   }
 });
@@ -147,7 +147,7 @@ router.post('/login', async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', error.message);
     res.status(500).json({ error: 'Failed to login' });
   }
 });

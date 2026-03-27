@@ -224,6 +224,15 @@ const GpxEditorModal = ({
     if (!file) return;
 
     setImportedFile(file);
+    
+    const isFitFile = file.name.toLowerCase().endsWith('.fit');
+    if (isFitFile) {
+      setName(file.name.replace('.fit', ''));
+      alert('FIT files are uploaded directly. Please use the "Upload Track" button in the sidebar instead of importing.');
+      setPoints([]);
+      return;
+    }
+
     setName(file.name.replace('.gpx', ''));
 
     const reader = new FileReader();
@@ -530,7 +539,7 @@ const GpxEditorModal = ({
             <div className="import-section">
               <input
                 type="file"
-                accept=".gpx"
+                accept=".gpx,.fit"
                 onChange={handleFileUpload}
                 className="file-input"
               />
