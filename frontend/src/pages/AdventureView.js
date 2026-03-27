@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -70,6 +70,16 @@ const createWaypointIcon = (icon, scale = 1) => {
     iconAnchor: [half, half],
     popupAnchor: [0, -half]
   });
+};
+
+const waypointIconCache = {};
+
+const getWaypointIcon = (icon, scale = 1) => {
+  const key = `${icon}-${scale}`;
+  if (!waypointIconCache[key]) {
+    waypointIconCache[key] = createWaypointIcon(icon, scale);
+  }
+  return waypointIconCache[key];
 };
 
 const MapBounds = ({ tracks, pictures, waypoints }) => {
@@ -361,7 +371,7 @@ const AdventureView = () => {
                 <Marker
                   key={waypoint.id}
                   position={[waypoint.latitude, waypoint.longitude]}
-                  icon={createWaypointIcon(waypoint.icon)}
+                  icon={getWaypointIcon(waypoint.icon)}
                 >
                   <Popup>
                     <div style={{ minWidth: '100px', textAlign: 'center' }}>
