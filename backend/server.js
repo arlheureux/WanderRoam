@@ -16,7 +16,7 @@ const routingRoutes = require('./routes/routing');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.1';
+const VERSION = 'v0.4.2';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {

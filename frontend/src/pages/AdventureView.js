@@ -46,45 +46,29 @@ const createCustomIcon = (color, scale = 1) => {
 };
 
 const createWaypointIcon = (icon, scale = 1) => {
-  const size = 23 * scale; // 25% smaller (28 * 0.75)
+  const size = 32 * scale;
+  const half = size / 2;
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<div style="
-      position: relative;
       width: ${size}px;
-      height: ${size * 1.4}px;
+      height: ${size}px;
+      background: white;
+      border-radius: 50%;
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      border: 2px solid #ddd;
     ">
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        background: #FF6B6B;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-      ">
-        <span style="
-          transform: rotate(45deg);
-          font-size: ${size * 0.55}px;
-          line-height: 1;
-        ">${icon}</span>
-      </div>
-      <div style="
-        width: 0;
-        height: 0;
-        border-left: ${size * 0.2}px solid transparent;
-        border-right: ${size * 0.2}px solid transparent;
-        border-top: ${size * 0.3}px solid #FF6B6B;
-      "></div>
+      <span style="
+        font-size: ${size * 0.5}px;
+        line-height: 1;
+      ">${icon}</span>
     </div>`,
-    iconSize: [size, size * 1.4],
-    iconAnchor: [size/2, size * 1.4],
-    popupAnchor: [0, -size * 1.2]
+    iconSize: [size, size],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half]
   });
 };
 
