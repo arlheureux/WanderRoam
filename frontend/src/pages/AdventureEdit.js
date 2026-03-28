@@ -345,20 +345,12 @@ const AdventureEdit = () => {
     setUploadingGpx(true);
     try {
       const formData = new FormData();
-      const isFitFile = gpxFile.name.toLowerCase().endsWith('.fit');
-      
-      if (isFitFile) {
-        formData.append('fit', gpxFile);
-        formData.append('name', gpxName || gpxFile.name.replace('.fit', ''));
-      } else {
-        formData.append('gpx', gpxFile);
-        formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
-      }
+      formData.append('gpx', gpxFile);
+      formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
       formData.append('type', gpxType);
       formData.append('adventure_id', id);
 
-      const endpoint = isFitFile ? '/fit/upload' : '/gpx/upload';
-      const res = await api.post(endpoint, formData, true);
+      const res = await api.post('/gpx/upload', formData, true);
       
       setAdventure({
         ...adventure,
@@ -369,7 +361,7 @@ const AdventureEdit = () => {
       setGpxFile(null);
       setGpxName('');
     } catch (err) {
-      console.error('Failed to upload track:', err);
+      console.error('Failed to upload GPX:', err);
     } finally {
       setUploadingGpx(false);
     }
@@ -839,7 +831,7 @@ const AdventureEdit = () => {
                 <div className="form-group">
                   <input
                     type="file"
-                    accept=".gpx,.fit"
+                    accept=".gpx"
                     onChange={(e) => setGpxFile(e.target.files[0])}
                     required
                   />
@@ -871,7 +863,7 @@ const AdventureEdit = () => {
                   style={{ width: '100%' }}
                   disabled={uploadingGpx || !gpxFile}
                 >
-                  {uploadingGpx ? 'Uploading...' : 'Upload Track'}
+                  {uploadingGpx ? 'Uploading...' : 'Upload GPX'}
                 </button>
               </form>
             </div>
