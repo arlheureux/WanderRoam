@@ -118,14 +118,11 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const myAdventures = await Adventure.findAll({
       where: { user_id: req.user.id },
+      attributes: { include: [[sequelize.col('preview_picture_id'), 'preview_picture_id']] },
       include: [
         {
           model: GpxTrack,
           attributes: ['id', 'name', 'type', 'color']
-        },
-        {
-          model: Picture,
-          attributes: ['id', 'filename', 'thumbnail_url']
         },
         {
           model: Waypoint,
@@ -151,14 +148,11 @@ router.get('/', authMiddleware, async (req, res) => {
     if (sharedIds.length > 0) {
       sharedAdventures = await Adventure.findAll({
         where: { id: sharedIds },
+        attributes: { include: [[sequelize.col('preview_picture_id'), 'preview_picture_id']] },
         include: [
           {
             model: GpxTrack,
             attributes: ['id', 'name', 'type', 'color']
-          },
-          {
-            model: Picture,
-            attributes: ['id', 'filename', 'thumbnail_url']
           },
           {
             model: Waypoint,
@@ -212,9 +206,24 @@ router.get('/', authMiddleware, async (req, res) => {
       return aVal < bVal ? 1 : -1;
     });
 
+    const previewPictureIds = allAdventures
+      .map(a => a.preview_picture_id)
+      .filter(id => id);
+
+    let previewPictures = {};
+    if (previewPictureIds.length > 0) {
+      const pictures = await Picture.findAll({
+        where: { id: previewPictureIds },
+        attributes: ['id', 'thumbnail_url']
+      });
+      pictures.forEach(p => {
+        previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+      });
+    }
+
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
-      const pictures = adventure.Pictures || [];
+      const previewPic = previewPictures[adventure.preview_picture_id] || null;
 
       const gpxByType = gpxTracks.reduce((acc, track) => {
         acc[track.type] = (acc[track.type] || 0) + 1;
@@ -257,23 +266,11 @@ router.get('/', authMiddleware, async (req, res) => {
         center_lng,
         zoom,
         gpxCount: gpxTracks.length,
-        pictureCount: pictures.length,
+        pictureCount: previewPic ? 1 : 0,
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,
-        preview_picture: (adventure.preview_picture_id 
-          ? pictures.find(p => p.id === adventure.preview_picture_id)
-          : (pictures.length > 0 ? pictures[0] : null)
-        ) ? {
-          id: (adventure.preview_picture_id 
-            ? pictures.find(p => p.id === adventure.preview_picture_id)
-            : pictures[0]
-          ).id,
-          thumbnail_url: (adventure.preview_picture_id 
-            ? pictures.find(p => p.id === adventure.preview_picture_id)
-            : pictures[0]
-          ).thumbnail_url
-        } : null,
+        preview_picture: previewPic,
         tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
