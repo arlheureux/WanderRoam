@@ -1,10 +1,10 @@
 {
   "name": "wanderroam-backend",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Backend API for WanderRoam",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node -e \"const net = require('net'); const check = () => { const client = net.connect(5432, 'postgres', () => { console.log('Postgres ready'); client.end(); process.exit(0); }); client.on('error', () => { console.log('Waiting for postgres...'); setTimeout(check, 2000); }); }; check();\" && node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
