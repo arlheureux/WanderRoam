@@ -61,6 +61,7 @@ const Dashboard = () => {
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedMapTag, setSelectedMapTag] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -140,11 +141,12 @@ const Dashboard = () => {
   };
 
   const toggleAll = (show) => {
-    const adventures = {};
-    Object.keys(visibleAdventures).forEach(id => {
-      adventures[id] = show;
+    const currentAdventureIds = uniqueAdventures.map(a => a.id);
+    const newVisible = { ...visibleAdventures };
+    currentAdventureIds.forEach(id => {
+      newVisible[id] = show;
     });
-    setVisibleAdventures(adventures);
+    setVisibleAdventures(newVisible);
   };
 
   const getTypeColor = (type) => {
@@ -158,7 +160,16 @@ const Dashboard = () => {
     return colors[type] || colors.other;
   };
 
-  const uniqueAdventures = [...new Set(allTracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
+  const getAdventureTags = (adventureId) => {
+    const adventure = adventures.find(a => a.id === adventureId);
+    return adventure?.tags?.map(t => t.name) || [];
+  };
+
+  const allUniqueAdventures = [...new Set(allTracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
+  
+  const uniqueAdventures = selectedMapTag 
+    ? allUniqueAdventures.filter(adv => getAdventureTags(adv.id).includes(selectedMapTag))
+    : allUniqueAdventures;
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
@@ -426,6 +437,59 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
+              {(() => {
+                const adventureIdsWithTracks = [...new Set(allTracks.map(t => t.adventureId))];
+                const tagsFromAdventures = adventures.filter(a => adventureIdsWithTracks.includes(a.id));
+                const uniqueTags = [...new Set(tagsFromAdventures.flatMap(a => (a.tags || []).map(t => t.name)))];
+                
+                return uniqueTags.length > 0 ? (
+                  <div style={{ 
+                    marginTop: '16px', 
+                    marginBottom: '8px', 
+                    padding: '12px', 
+                    background: 'var(--surface)', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontWeight: 600, marginRight: '8px' }}>Filter by tag:</span>
+                    <button 
+                      onClick={() => setSelectedMapTag(null)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        borderRadius: '16px',
+                        border: selectedMapTag === null ? '1px solid #2196F3' : '1px solid var(--border)',
+                        background: selectedMapTag === null ? '#E3F2FD' : 'transparent',
+                        color: 'var(--text)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      All
+                    </button>
+                    {uniqueTags.map(tag => (
+                      <button 
+                        key={tag}
+                        onClick={() => setSelectedMapTag(tag)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.8rem',
+                          borderRadius: '16px',
+                          border: selectedMapTag === tag ? '1px solid #2196F3' : '1px solid var(--border)',
+                          background: selectedMapTag === tag ? '#E3F2FD' : 'transparent',
+                          color: 'var(--text)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+
               <div style={{ 
                 marginTop: '16px', 
                 marginBottom: '16px', 
