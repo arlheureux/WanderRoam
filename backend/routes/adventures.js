@@ -1,8 +1,10 @@
 const express = require('express');
 const fs = require('fs');
 const xml2js = require('xml2js');
+const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { validate } = require('../middleware/validation');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -107,8 +109,18 @@ const TYPE_COLORS = {
   other: '#9B59B6'
 };
 
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('sort').optional().isIn(['adventure_date', 'createdAt', 'name']).withMessage('Invalid sort field'),
+  query('order').optional().isIn(['ASC', 'DESC']).withMessage('Order must be ASC or DESC'),
+  validate
+], async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    
     const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -235,7 +247,8 @@ router.get('/', authMiddleware, async (req, res) => {
       });
 
       allPictures.forEach(p => {
-        if (p.adventure_id === allAdventures.find(a => a.preview_picture_id === p.id)?.preview_picture_id) {
+        const adventure = allAdventures.find(a => a.id === p.adventure_id);
+        if (adventure && p.id === adventure.preview_picture_id) {
           previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
         }
       });
@@ -298,21 +311,50 @@ router.get('/', authMiddleware, async (req, res) => {
       };
     });
 
-    res.json({ adventures: adventuresWithStats });
+    const total = adventuresWithStats.length;
+    const paginatedAdventures = adventuresWithStats.slice(offset, offset + limit);
+    
+    res.json({ 
+      adventures: paginatedAdventures,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Get adventures error:', error.message);
     res.status(500).json({ error: 'Failed to get adventures' });
   }
 });
 
-router.get('/users', authMiddleware, async (req, res) => {
+router.get('/users', authMiddleware, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  validate
+], async (req, res) => {
   try {
-    const users = await User.findAll({
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    
+    const { count, rows } = await User.findAndCountAll({
       where: { id: { [Op.ne]: req.user.id } },
-      attributes: ['id', 'username']
+      attributes: ['id', 'username'],
+      limit,
+      offset
     });
 
-    res.json({ users });
+    res.json({ 
+      users: rows,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to get users' });
@@ -413,13 +455,13 @@ router.get('/tags', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/tags', authMiddleware, async (req, res) => {
+router.post('/tags', authMiddleware, [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 50 }).withMessage('Name must be 50 characters or less'),
+  body('category').optional().trim().isLength({ max: 30 }).withMessage('Category must be 30 characters or less'),
+  validate
+], async (req, res) => {
   try {
     const { name, category } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
 
     const existingTag = await Tag.findOne({ where: { name } });
     if (existingTag) {
@@ -602,21 +644,17 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('description').optional().isLength({ max: 5000 }).withMessage('Description must be 5000 characters or less'),
+  body('adventure_date').optional().isISO8601().withMessage('Invalid date format'),
+  body('center_lat').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('center_lng').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('zoom').optional().isInt({ min: 1, max: 18 }).withMessage('Zoom must be between 1 and 18'),
+  validate
+], async (req, res) => {
   try {
     const { name, description, adventure_date, center_lat, center_lng, zoom } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
-
-    if (name.length > 100) {
-      return res.status(400).json({ error: 'Name must be 100 characters or less' });
-    }
-
-    if (description && description.length > 5000) {
-      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
-    }
 
     const adventure = await Adventure.create({
       name,
@@ -635,7 +673,17 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('description').optional().isLength({ max: 5000 }).withMessage('Description must be 5000 characters or less'),
+  body('adventure_date').optional().isISO8601().withMessage('Invalid date format'),
+  body('center_lat').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('center_lng').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('zoom').optional().isInt({ min: 1, max: 18 }).withMessage('Zoom must be between 1 and 18'),
+  body('preview_picture_id').optional().isUUID().withMessage('Invalid picture ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -648,14 +696,6 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     const { name, description, adventure_date, center_lat, center_lng, zoom, preview_picture_id } = req.body;
-
-    if (name !== undefined && name.length > 100) {
-      return res.status(400).json({ error: 'Name must be 100 characters or less' });
-    }
-
-    if (description !== undefined && description.length > 5000) {
-      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
-    }
 
     if (name !== undefined) adventure.name = name;
     if (description !== undefined) adventure.description = description;
@@ -868,7 +908,12 @@ router.get('/:id/share', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/:id/share', authMiddleware, async (req, res) => {
+router.post('/:id/share', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('username').notEmpty().withMessage('Username is required').trim(),
+  body('permission').optional().isIn(['view', 'edit']).withMessage('Permission must be view or edit'),
+  validate
+], async (req, res) => {
   try {
     const adventure = await Adventure.findOne({
       where: { id: req.params.id, user_id: req.user.id }
@@ -879,10 +924,6 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
     }
 
     const { username, permission } = req.body;
-
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
-    }
 
     const user = await User.findOne({ where: { username } });
 
@@ -943,7 +984,14 @@ router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/:id/waypoints', authMiddleware, async (req, res) => {
+router.post('/:id/waypoints', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('latitude').notEmpty().withMessage('Latitude is required').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('longitude').notEmpty().withMessage('Longitude is required').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('icon').optional().trim().isLength({ max: 10 }).withMessage('Icon must be 10 characters or less'),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -951,17 +999,6 @@ router.post('/:id/waypoints', authMiddleware, async (req, res) => {
     }
 
     const { name, icon, latitude, longitude } = req.body;
-
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: 'Latitude and longitude are required' });
-    }
-
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ error: 'Invalid coordinates' });
-    }
 
     const waypoint = await Waypoint.create({
       name: name || '',
@@ -1031,7 +1068,11 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
   }
 });
 
-router.put('/:id/tags', authMiddleware, async (req, res) => {
+router.put('/:id/tags', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('tagIds').isArray().withMessage('tagIds must be an array').custom(val => val.every(id => typeof id === 'string' && id.match(/^[0-9a-f-]+$/))).withMessage('Invalid tag IDs'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -1044,10 +1085,6 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     }
 
     const { tagIds } = req.body;
-    
-    if (!Array.isArray(tagIds)) {
-      return res.status(400).json({ error: 'tagIds must be an array' });
-    }
 
     const tags = await Tag.findAll({
       where: { id: tagIds }

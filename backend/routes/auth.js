@@ -1,7 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { body } = require('express-validator');
 const { User } = require('../models');
 const { generateToken, authMiddleware } = require('../middleware/auth');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -47,25 +49,17 @@ function resetFailedAttempts(ip) {
   failedAttempts.delete(ip);
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', [
+  body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
+  body('password').notEmpty().withMessage('Password is required').isLength({ min: 4 }).withMessage('Password must be at least 4 characters'),
+  validate
+], async (req, res) => {
   if (!ENABLE_REGISTRATION) {
     return res.status(403).json({ error: 'Registration is disabled' });
   }
 
   try {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-
-    if (username.length < 3 || username.length > 30) {
-      return res.status(400).json({ error: 'Username must be between 3 and 30 characters' });
-    }
-
-    if (password.length < 4) {
-      return res.status(400).json({ error: 'Password must be at least 4 characters' });
-    }
 
     const existingUsername = await User.findOne({
       where: { username: username.toLowerCase() }
@@ -102,7 +96,11 @@ router.get('/config', (req, res) => {
   res.json({ registrationEnabled: ENABLE_REGISTRATION });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', [
+  body('username').trim().notEmpty().withMessage('Username is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+  validate
+], async (req, res) => {
   const clientIp = getClientIp(req);
   
   if (!checkRateLimit(clientIp)) {
@@ -111,10 +109,6 @@ router.post('/login', async (req, res) => {
 
   try {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
 
     const user = await User.findOne({
       where: { username: username.toLowerCase() }
@@ -169,7 +163,11 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/settings', authMiddleware, async (req, res) => {
+router.put('/settings', authMiddleware, [
+  body('immich_url').optional().trim().isURL().withMessage('Invalid URL format'),
+  body('immich_api_key').optional().trim(),
+  validate
+], async (req, res) => {
   try {
     const { immich_url, immich_api_key } = req.body;
 

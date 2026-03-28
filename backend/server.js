@@ -5,7 +5,24 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const winston = require('winston');
 const { sequelize, Tag } = require('./models');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
@@ -13,12 +30,13 @@ const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
+const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.11';
+const VERSION = 'v0.5.0';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -81,19 +99,24 @@ const upload = multer({
 
 app.use('/uploads', express.static(uploadDir));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/adventures', adventuresRoutes);
-app.use('/api/gpx', gpxRoutes);
-app.use('/api/routing', routingRoutes);
-app.use('/api/immich', immichRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth', sanitizeInput, authRoutes);
+app.use('/api/adventures', sanitizeInput, adventuresRoutes);
+app.use('/api/gpx', sanitizeInput, gpxRoutes);
+app.use('/api/routing', sanitizeInput, routingRoutes);
+app.use('/api/immich', sanitizeInput, immichRoutes);
+app.use('/api/admin', sanitizeInput, adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error('Unhandled error', { 
+    error: err.message, 
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
   res.status(500).json({ error: 'Something went wrong!' });
 });
 

@@ -82,6 +82,31 @@ const Dashboard = () => {
     localStorage.setItem('sortOrder', sortOrder);
   }, [sortBy, sortOrder]);
 
+  const getAdventureTags = (adventureId) => {
+    const adventure = adventures.find(a => a.id === adventureId);
+    return adventure?.tags?.map(t => t.name) || [];
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'map' || allTracks.length === 0) return;
+    
+    const adventureIds = [...new Set(allTracks.map(t => t.adventureId))];
+    
+    if (selectedMapTag) {
+      const newVisible = {};
+      adventureIds.forEach(id => {
+        newVisible[id] = getAdventureTags(id).includes(selectedMapTag);
+      });
+      setVisibleAdventures(newVisible);
+    } else {
+      const newVisible = {};
+      adventureIds.forEach(id => {
+        newVisible[id] = true;
+      });
+      setVisibleAdventures(newVisible);
+    }
+  }, [selectedMapTag, activeTab, allTracks.length]);
+
   const loadTags = async () => {
     try {
       const res = await api.getTags();
@@ -158,11 +183,6 @@ const Dashboard = () => {
       other: 'var(--gpx-other)'
     };
     return colors[type] || colors.other;
-  };
-
-  const getAdventureTags = (adventureId) => {
-    const adventure = adventures.find(a => a.id === adventureId);
-    return adventure?.tags?.map(t => t.name) || [];
   };
 
   const allUniqueAdventures = [...new Set(allTracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
@@ -531,7 +551,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div style={{ height: 'calc(100vh - 280px)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }} role="application" aria-label="Adventure map showing GPX tracks">
                 <MapContainer 
                   center={[46.2276, 2.2137]} 
                   zoom={5} 
