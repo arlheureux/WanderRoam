@@ -5,8 +5,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
-const Redis = require('ioredis');
 const { sequelize, Tag } = require('./models');
 
 const authRoutes = require('./routes/auth');
@@ -33,30 +31,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const redisClient = new Redis(redisUrl, {
-  enableReadyCheck: true,
-  maxRetriesPerRequest: 3
-});
-
-redisClient.on('error', (err) => {
-  console.error('Redis connection error:', err.message);
-});
-
-redisClient.on('connect', () => {
-  console.log('Connected to Redis for rate limiting');
-});
-
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-    prefix: 'rl:'
-  })
 });
 
 app.use('/api/', globalLimiter);
