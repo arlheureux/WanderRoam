@@ -206,24 +206,59 @@ router.get('/', authMiddleware, async (req, res) => {
       return aVal < bVal ? 1 : -1;
     });
 
-    const previewPictureIds = allAdventures
-      .map(a => a.preview_picture_id)
-      .filter(id => id);
+    const allAdventureIds = allAdventures.map(a => a.id);
 
     let previewPictures = {};
-    if (previewPictureIds.length > 0) {
-      const pictures = await Picture.findAll({
-        where: { id: previewPictureIds },
-        attributes: ['id', 'thumbnail_url']
+    let pictureCounts = {};
+    let firstPictures = {};
+
+    if (allAdventureIds.length > 0) {
+      const pictureData = await Promise.all([
+        Picture.findAll({
+          where: { adventure_id: allAdventureIds },
+          attributes: ['id', 'adventure_id', 'thumbnail_url']
+        }),
+        Picture.findAll({
+          where: { adventure_id: allAdventureIds },
+          attributes: ['adventure_id', [sequelize.fn('MIN', sequelize.col('id')), 'first_picture_id']],
+          group: ['adventure_id']
+        }),
+        Picture.findAll({
+          where: { adventure_id: allAdventureIds },
+          attributes: ['adventure_id', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+          group: ['adventure_id']
+        })
+      ]);
+
+      const allPictures = pictureData[0];
+      const firstPictureIds = pictureData[1];
+      const pictureCountData = pictureData[2];
+
+      allPictures.forEach(p => {
+        if (p.adventure_id === allAdventures.find(a => a.preview_picture_id === p.id)?.preview_picture_id) {
+          previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+        }
+        if (!previewPictures[p.id]) {
+          firstPictures[p.adventure_id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+        }
       });
-      pictures.forEach(p => {
-        previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+
+      firstPictureIds.forEach(f => {
+        const pic = allPictures.find(p => p.adventure_id === f.adventure_id && p.id === f.first_picture_id);
+        if (pic && !firstPictures[f.adventure_id]) {
+          firstPictures[f.adventure_id] = { id: pic.id, thumbnail_url: pic.thumbnail_url };
+        }
+      });
+
+      pictureCountData.forEach(c => {
+        pictureCounts[c.adventure_id] = parseInt(c.dataValues.count);
       });
     }
 
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
-      const previewPic = previewPictures[adventure.preview_picture_id] || null;
+      const previewPic = previewPictures[adventure.preview_picture_id] || firstPictures[adventure.id] || null;
+      const pictureCount = pictureCounts[adventure.id] || 0;
 
       const gpxByType = gpxTracks.reduce((acc, track) => {
         acc[track.type] = (acc[track.type] || 0) + 1;
@@ -266,7 +301,7 @@ router.get('/', authMiddleware, async (req, res) => {
         center_lng,
         zoom,
         gpxCount: gpxTracks.length,
-        pictureCount: previewPic ? 1 : 0,
+        pictureCount: pictureCount,
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,
