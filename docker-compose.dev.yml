@@ -2,6 +2,18 @@
 # Run with: docker-compose -f docker-compose.dev.yml up -d
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: wanderroam-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: on-failure
+
   postgres:
     image: postgres:15-alpine
     container_name: wanderroam-db
@@ -30,6 +42,7 @@ services:
     environment:
       - TAG=latest
       - BROUTER_URL=http://wanderroam-brouter:17777/brouter
+      - REDIS_URL=redis://wanderroam-redis:6379
     volumes:
       - upload_data:/app/uploads
     ports:
@@ -39,6 +52,8 @@ services:
         condition: service_healthy
       brouter:
         condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
