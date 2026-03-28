@@ -60,6 +60,7 @@ const Dashboard = () => {
   const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -234,14 +235,28 @@ const Dashboard = () => {
               >
                 {sortOrder === 'ASC' ? '↑' : '↓'}
               </button>
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className="btn btn-outline btn-sm"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border)',
+                  background: showFilters ? 'var(--primary)' : 'var(--background)',
+                  color: showFilters ? 'white' : 'var(--text)',
+                  cursor: 'pointer'
+                }}
+              >
+                {showFilters ? '▼' : '▶'} Filters{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
+              </button>
               <button onClick={() => setShowModal(true)} className="btn btn-primary" style={{ marginLeft: '8px' }}>
                 + New Adventure
               </button>
             </div>
           </div>
 
-          {allTags.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
+          {allTags.length > 0 && showFilters && (
+            <div style={{ marginTop: '16px', padding: '12px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '8px' }}>Filter:</span>
               <button
                 onClick={() => setSelectedTags([])}

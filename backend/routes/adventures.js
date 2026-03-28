@@ -206,24 +206,45 @@ router.get('/', authMiddleware, async (req, res) => {
       return aVal < bVal ? 1 : -1;
     });
 
-    const previewPictureIds = allAdventures
-      .map(a => a.preview_picture_id)
-      .filter(id => id);
+    const allAdventureIds = allAdventures.map(a => a.id);
 
     let previewPictures = {};
-    if (previewPictureIds.length > 0) {
-      const pictures = await Picture.findAll({
-        where: { id: previewPictureIds },
-        attributes: ['id', 'thumbnail_url']
+    let pictureCounts = {};
+    let firstPictures = {};
+
+    if (allAdventureIds.length > 0) {
+      const allPictures = await Picture.findAll({
+        where: { adventure_id: allAdventureIds },
+        attributes: ['id', 'adventure_id', 'thumbnail_url'],
+        order: [['id', 'ASC']]
       });
-      pictures.forEach(p => {
-        previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+
+      const picByAdventure = {};
+      allPictures.forEach(p => {
+        if (!picByAdventure[p.adventure_id]) {
+          picByAdventure[p.adventure_id] = [];
+        }
+        picByAdventure[p.adventure_id].push(p);
+      });
+
+      Object.keys(picByAdventure).forEach(advId => {
+        pictureCounts[advId] = picByAdventure[advId].length;
+        if (picByAdventure[advId].length > 0) {
+          firstPictures[advId] = { id: picByAdventure[advId][0].id, thumbnail_url: picByAdventure[advId][0].thumbnail_url };
+        }
+      });
+
+      allPictures.forEach(p => {
+        if (p.adventure_id === allAdventures.find(a => a.preview_picture_id === p.id)?.preview_picture_id) {
+          previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+        }
       });
     }
 
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
-      const previewPic = previewPictures[adventure.preview_picture_id] || null;
+      const previewPic = previewPictures[adventure.preview_picture_id] || firstPictures[adventure.id] || null;
+      const pictureCount = pictureCounts[adventure.id] || 0;
 
       const gpxByType = gpxTracks.reduce((acc, track) => {
         acc[track.type] = (acc[track.type] || 0) + 1;
@@ -266,7 +287,7 @@ router.get('/', authMiddleware, async (req, res) => {
         center_lng,
         zoom,
         gpxCount: gpxTracks.length,
-        pictureCount: previewPic ? 1 : 0,
+        pictureCount: pictureCount,
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,

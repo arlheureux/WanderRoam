@@ -10,14 +10,15 @@ const { sequelize, Tag } = require('./models');
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
 const gpxRoutes = require('./routes/gpx');
-const fitRoutes = require('./routes/fit');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
 
 const app = express();
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.7';
+const VERSION = 'v0.4.11';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -83,7 +84,6 @@ app.use('/uploads', express.static(uploadDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/adventures', adventuresRoutes);
 app.use('/api/gpx', gpxRoutes);
-app.use('/api/fit', fitRoutes);
 app.use('/api/routing', routingRoutes);
 app.use('/api/immich', immichRoutes);
 app.use('/api/admin', adminRoutes);
