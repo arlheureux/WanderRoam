@@ -235,7 +235,8 @@ router.get('/', authMiddleware, async (req, res) => {
       });
 
       allPictures.forEach(p => {
-        if (p.adventure_id === allAdventures.find(a => a.preview_picture_id === p.id)?.preview_picture_id) {
+        const adventure = allAdventures.find(a => a.id === p.adventure_id);
+        if (adventure && p.id === adventure.preview_picture_id) {
           previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
         }
       });
