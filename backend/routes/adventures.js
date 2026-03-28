@@ -213,45 +213,31 @@ router.get('/', authMiddleware, async (req, res) => {
     let firstPictures = {};
 
     if (allAdventureIds.length > 0) {
-      const pictureData = await Promise.all([
-        Picture.findAll({
-          where: { adventure_id: allAdventureIds },
-          attributes: ['id', 'adventure_id', 'thumbnail_url']
-        }),
-        Picture.findAll({
-          where: { adventure_id: allAdventureIds },
-          attributes: ['adventure_id', [sequelize.fn('MIN', sequelize.col('id')), 'first_picture_id']],
-          group: ['adventure_id']
-        }),
-        Picture.findAll({
-          where: { adventure_id: allAdventureIds },
-          attributes: ['adventure_id', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-          group: ['adventure_id']
-        })
-      ]);
+      const allPictures = await Picture.findAll({
+        where: { adventure_id: allAdventureIds },
+        attributes: ['id', 'adventure_id', 'thumbnail_url'],
+        order: [['id', 'ASC']]
+      });
 
-      const allPictures = pictureData[0];
-      const firstPictureIds = pictureData[1];
-      const pictureCountData = pictureData[2];
+      const picByAdventure = {};
+      allPictures.forEach(p => {
+        if (!picByAdventure[p.adventure_id]) {
+          picByAdventure[p.adventure_id] = [];
+        }
+        picByAdventure[p.adventure_id].push(p);
+      });
+
+      Object.keys(picByAdventure).forEach(advId => {
+        pictureCounts[advId] = picByAdventure[advId].length;
+        if (picByAdventure[advId].length > 0) {
+          firstPictures[advId] = { id: picByAdventure[advId][0].id, thumbnail_url: picByAdventure[advId][0].thumbnail_url };
+        }
+      });
 
       allPictures.forEach(p => {
         if (p.adventure_id === allAdventures.find(a => a.preview_picture_id === p.id)?.preview_picture_id) {
           previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
         }
-        if (!previewPictures[p.id]) {
-          firstPictures[p.adventure_id] = { id: p.id, thumbnail_url: p.thumbnail_url };
-        }
-      });
-
-      firstPictureIds.forEach(f => {
-        const pic = allPictures.find(p => p.adventure_id === f.adventure_id && p.id === f.first_picture_id);
-        if (pic && !firstPictures[f.adventure_id]) {
-          firstPictures[f.adventure_id] = { id: pic.id, thumbnail_url: pic.thumbnail_url };
-        }
-      });
-
-      pictureCountData.forEach(c => {
-        pictureCounts[c.adventure_id] = parseInt(c.dataValues.count);
       });
     }
 
