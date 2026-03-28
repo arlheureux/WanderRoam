@@ -97,6 +97,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
       - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.routers.admin.middlewares=admin-stripprefix"
+      - "traefik.http.middlewares.admin-stripprefix.stripprefix.prefixes=/admin"
       - "traefik.http.services.admin.loadbalancer.server.port=80"
     depends_on:
       - backend
@@ -116,6 +118,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.brouter.rule=PathPrefix(`/brouter`)"
       - "traefik.http.routers.brouter.entrypoints=web"
+      - "traefik.http.routers.brouter.middlewares=brouter-stripprefix"
+      - "traefik.http.middlewares.brouter-stripprefix.stripprefix.prefixes=/brouter"
       - "traefik.http.services.brouter.loadbalancer.server.port=17777"
     environment:
       - COUNTRIES=france,denmark
