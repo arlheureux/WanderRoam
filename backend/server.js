@@ -19,7 +19,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.10';
+const VERSION = 'v0.4.11';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
