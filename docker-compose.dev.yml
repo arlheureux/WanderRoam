@@ -1,24 +1,7 @@
-# docker-compose.dev.yml - Development with Traefik (HTTP)
+# docker-compose.dev.yml - Development version (direct ports)
 # Run with: docker-compose -f docker-compose.dev.yml up -d
 
 services:
-  traefik:
-    image: traefik:v3.6
-    container_name: wanderroam-traefik
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"
-      - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - wanderroam-internal
-    restart: on-failure
-
   postgres:
     image: postgres:15-alpine
     container_name: wanderroam-db
@@ -51,18 +34,15 @@ services:
       - upload_data:/app/uploads
     networks:
       - wanderroam-internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.services.backend.loadbalancer.server.port=5000"
+    ports:
+      - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
       brouter:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://wanderroam-backend:5000/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -74,16 +54,12 @@ services:
     container_name: wanderroam-frontend
     networks:
       - wanderroam-internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`) && !PathPrefix(`/api`) && !PathPrefix(`/admin`) && !PathPrefix(`/brouter`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    ports:
+      - "3000:80"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://wanderroam-frontend:80/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -94,16 +70,12 @@ services:
     container_name: wanderroam-admin
     networks:
       - wanderroam-internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
-      - "traefik.http.routers.admin.entrypoints=web"
-      - "traefik.http.routers.admin.priority=100"
-      - "traefik.http.services.admin.loadbalancer.server.port=80"
+    ports:
+      - "4000:80"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://wanderroam-admin:80/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -114,19 +86,14 @@ services:
     container_name: wanderroam-brouter
     networks:
       - wanderroam-internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.brouter.rule=PathPrefix(`/brouter`)"
-      - "traefik.http.routers.brouter.entrypoints=web"
-      - "traefik.http.routers.brouter.middlewares=brouter-stripprefix"
-      - "traefik.http.middlewares.brouter-stripprefix.stripprefix.prefixes=/brouter"
-      - "traefik.http.services.brouter.loadbalancer.server.port=17777"
+    ports:
+      - "17777:17777"
     environment:
       - COUNTRIES=france,denmark
     volumes:
       - brouter_data:/segments4
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://wanderroam-brouter:17777/"]
+      test: ["CMD", "curl", "-f", "http://localhost:17777/"]
       interval: 10s
       timeout: 5s
       retries: 3
