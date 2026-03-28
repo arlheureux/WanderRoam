@@ -1,18 +1,37 @@
-# docker-compose.dev.yml - Development (pulls latest from Docker Hub)
+# docker-compose.dev.yml - Development with Traefik (HTTP)
 # Run with: docker-compose -f docker-compose.dev.yml up -d
 
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: wanderroam-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: on-failure
+
   redis:
     image: redis:7-alpine
     container_name: wanderroam-redis
-    ports:
-      - "6379:6379"
+    networks:
+      - wanderroam-internal
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 3
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   postgres:
     image: postgres:15-alpine
@@ -25,8 +44,8 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - wanderroam-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
@@ -45,8 +64,13 @@ services:
       - REDIS_URL=redis://wanderroam-redis:6379
     volumes:
       - upload_data:/app/uploads
-    ports:
-      - "5000:5000"
+    networks:
+      - wanderroam-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=5000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,8 +89,13 @@ services:
   frontend:
     image: arlheureux/wanderroam-frontend:latest
     container_name: wanderroam-frontend
-    ports:
-      - "3000:80"
+    networks:
+      - wanderroam-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
     depends_on:
       - backend
     healthcheck:
@@ -79,8 +108,13 @@ services:
   admin:
     image: arlheureux/wanderroam-admin:latest
     container_name: wanderroam-admin
-    ports:
-      - "4000:80"
+    networks:
+      - wanderroam-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=PathPrefix(`/admin`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.services.admin.loadbalancer.server.port=80"
     depends_on:
       - backend
     healthcheck:
@@ -93,8 +127,13 @@ services:
   brouter:
     image: arlheureux/wanderroam-brouter:latest
     container_name: wanderroam-brouter
-    ports:
-      - "17777:17777"
+    networks:
+      - wanderroam-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.brouter.rule=PathPrefix(`/brouter`)"
+      - "traefik.http.routers.brouter.entrypoints=web"
+      - "traefik.http.services.brouter.loadbalancer.server.port=17777"
     environment:
       - COUNTRIES=france,denmark
     volumes:
@@ -110,7 +149,8 @@ volumes:
   postgres_data:
   upload_data:
   brouter_data:
+  redis_data:
 
 networks:
-  default:
-    name: wanderroam-network
+  wanderroam-internal:
+    name: wanderroam-internal
