@@ -198,6 +198,30 @@ const AdventureShare = sequelize.define('AdventureShare', {
   }
 });
 
+const AuditLog = sequelize.define('AuditLog', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  action: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  targetUserId: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  details: {
+    type: DataTypes.JSONB,
+    allowNull: true
+  },
+  ipAddress: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
+});
+
 User.hasMany(Adventure, { foreignKey: 'user_id' });
 Adventure.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
 
@@ -219,6 +243,9 @@ User.belongsToMany(Adventure, { through: AdventureShare, as: 'sharedAdventures' 
 AdventureShare.belongsTo(User, { foreignKey: 'UserId', as: 'User' });
 AdventureShare.belongsTo(Adventure, { foreignKey: 'AdventureId', as: 'Adventure' });
 
+User.hasMany(AuditLog, { foreignKey: 'adminUserId' });
+AuditLog.belongsTo(User, { foreignKey: 'adminUserId', as: 'admin' });
+
 module.exports = {
   sequelize,
   User,
@@ -227,5 +254,6 @@ module.exports = {
   Picture,
   Waypoint,
   Tag,
-  AdventureShare
+  AdventureShare,
+  AuditLog
 };

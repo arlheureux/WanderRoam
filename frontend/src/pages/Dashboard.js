@@ -551,7 +551,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div style={{ height: 'calc(100vh - 280px)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }} role="application" aria-label="Adventure map showing GPX tracks">
                 <MapContainer 
                   center={[46.2276, 2.2137]} 
                   zoom={5} 

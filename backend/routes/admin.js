@@ -1,11 +1,25 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, param, query } = require('express-validator');
-const { User, Adventure, GpxTrack, Picture, AdventureShare } = require('../models');
+const { User, Adventure, GpxTrack, Picture, AdventureShare, AuditLog } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 
 const router = express.Router();
+
+const logAudit = async (adminUserId, action, targetUserId, details, req) => {
+  try {
+    await AuditLog.create({
+      action,
+      targetUserId,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress,
+      adminUserId
+    });
+  } catch (err) {
+    console.error('Failed to create audit log:', err);
+  }
+};
 
 const adminMiddleware = async (req, res, next) => {
   const user = await User.findByPk(req.user.id);
@@ -79,6 +93,8 @@ router.post('/users', authMiddleware, adminMiddleware, [
       isAdmin: false
     });
 
+    await logAudit(req.user.id, 'CREATE_USER', user.id, { username: user.username }, req);
+
     res.status(201).json({ 
       user: {
         id: user.id,
@@ -122,6 +138,8 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) =>
     await AdventureShare.destroy({ where: { UserId: userId } });
     await user.destroy();
 
+    await logAudit(req.user.id, 'DELETE_USER', userId, { username: user.username, adventureCount: adventures.length }, req);
+
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -147,6 +165,8 @@ router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, async (
     user.password_hash = hashedPassword;
     await user.save();
 
+    await logAudit(req.user.id, 'RESET_PASSWORD', userId, { username: user.username }, req);
+
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
@@ -169,6 +189,8 @@ router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, async (re
 
     user.isAdmin = !user.isAdmin;
     await user.save();
+
+    await logAudit(req.user.id, 'TOGGLE_ADMIN', userId, { username: user.username, isAdmin: user.isAdmin }, req);
 
     res.json({ 
       message: `User is now ${user.isAdmin ? 'admin' : 'regular user'}`,
