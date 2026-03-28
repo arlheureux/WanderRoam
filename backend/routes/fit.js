@@ -27,8 +27,7 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/x-tcx' ||
-        file.originalname.endsWith('.fit')) {
+    if (file.originalname.endsWith('.fit')) {
       cb(null, true);
     } else {
       cb(new Error('Only FIT files are allowed'));
@@ -37,26 +36,24 @@ const upload = multer({
 });
 
 const parseFit = async (filePath) => {
-  const FITParser = require('fit-file-parser').default;
+  const { FitFile } = await import('@garmin/fitsdk');
   
-  const fitParser = new FITParser({
-    force: true,
-    speedUnit: 'km/h',
-    distanceUnit: 'km',
-    temperatureUnit: 'celsius',
-    elapsedRecordField: true,
-    mode: 'cascade'
-  });
-
-  return new Promise((resolve, reject) => {
-    fitParser.parse(filePath, (error, data) => {
-      if (error) {
-        reject(error);
-        return;
+  const fitFile = new FitFile();
+  fitFile.parse(filePath);
+  
+  const records = [];
+  
+  for (const msg of fitFile.messages) {
+    if (msg.name === 'record') {
+      const record = {};
+      for (const field of msg.fields) {
+        record[field.name] = field.value;
       }
-      resolve(data);
-    });
-  });
+      records.push(record);
+    }
+  }
+  
+  return { records };
 };
 
 const convertFitToPoints = (fitData) => {
@@ -66,12 +63,16 @@ const convertFitToPoints = (fitData) => {
   
   for (const record of records) {
     if (record.position_lat !== undefined && record.position_long !== undefined) {
-      const lat = record.position_lat;
-      const lng = record.position_long;
-      const ele = record.altitude || null;
-      const time = record.timestamp || null;
+      let lat = record.position_lat;
+      let lng = record.position_long;
       
-      if (lat !== null && lng !== null) {
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        lat = lat * (180 / Math.pow(2, 31));
+        lng = lng * (180 / Math.pow(2, 31));
+        
+        const ele = record.altitude || null;
+        const time = record.timestamp || null;
+        
         points.push({ lat, lng, ele, time });
       }
     }
@@ -159,7 +160,7 @@ router.post('/upload', authMiddleware, upload.single('fit'), async (req, res) =>
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload FIT error:', error);
+    console.error('Upload FIT error:', error.message);
     res.status(500).json({ error: 'Failed to upload FIT file' });
   }
 });

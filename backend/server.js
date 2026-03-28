@@ -16,8 +16,10 @@ const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
 
 const app = express();
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.8';
+const VERSION = 'v0.4.9';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
