@@ -30,12 +30,13 @@ const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
+const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.11';
+const VERSION = 'v0.5.0';
 const TAG = process.env.TAG || 'stable';
 
 app.get('/api/version', (req, res) => {
@@ -98,12 +99,12 @@ const upload = multer({
 
 app.use('/uploads', express.static(uploadDir));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/adventures', adventuresRoutes);
-app.use('/api/gpx', gpxRoutes);
-app.use('/api/routing', routingRoutes);
-app.use('/api/immich', immichRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth', sanitizeInput, authRoutes);
+app.use('/api/adventures', sanitizeInput, adventuresRoutes);
+app.use('/api/gpx', sanitizeInput, gpxRoutes);
+app.use('/api/routing', sanitizeInput, routingRoutes);
+app.use('/api/immich', sanitizeInput, immichRoutes);
+app.use('/api/admin', sanitizeInput, adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

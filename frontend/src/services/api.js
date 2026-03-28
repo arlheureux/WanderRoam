@@ -1,3 +1,5 @@
+import toast from 'react-hot-toast';
+
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 class ApiService {
@@ -51,7 +53,9 @@ class ApiService {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.error || 'Request failed');
+      const errorMsg = result.error || 'Request failed';
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     return { data: result };

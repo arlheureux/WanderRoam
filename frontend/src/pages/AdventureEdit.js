@@ -685,13 +685,16 @@ const AdventureEdit = () => {
                 />
               ))}
 
-              {pictures.map(picture => (
+              {pictures.map((picture, index) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
                     icon={createCustomIcon('#FFD700', hoveredPictureId === picture.id ? 1.3 : 1)}
                     opacity={hoveredPictureId && hoveredPictureId !== picture.id ? 0.5 : 1}
+                    eventHandlers={{
+                      click: () => openPicture(picture, index)
+                    }}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (

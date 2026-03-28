@@ -77,9 +77,13 @@ const AdminDashboard = () => {
   const [newPassword, setNewPassword] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '' });
   const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,13 +96,20 @@ const AdminDashboard = () => {
     api.get('/version').then(v => setAppVersion(v)).catch(() => {});
   }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = async (page = 1) => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const res = await api.get('/admin/users', {
+      const res = await api.get(`/admin/users?page=${page}&limit=20`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(res.users);
+      setPagination({
+        page: res.pagination.page,
+        limit: res.pagination.limit,
+        total: res.pagination.total,
+        totalPages: res.pagination.totalPages
+      });
     } catch (err) {
       if (err.response?.status === 401) {
         localStorage.removeItem('adminToken');
@@ -109,6 +120,11 @@ const AdminDashboard = () => {
     }
   };
 
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setActionLoading(true);
@@ -117,12 +133,12 @@ const AdminDashboard = () => {
       await api.put(`/admin/users/${selectedUser.id}/reset-password`, { newPassword }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Password reset successfully');
+      showNotification('Password reset successfully');
       setShowPasswordModal(false);
       setNewPassword('');
       setSelectedUser(null);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to reset password');
+      showNotification(err.response?.data?.error || 'Failed to reset password', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -136,27 +152,35 @@ const AdminDashboard = () => {
       await api.post('/admin/users', newUser, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('User created successfully');
+      showNotification('User created successfully');
       setShowCreateModal(false);
       setNewUser({ username: '', password: '' });
-      loadUsers();
+      loadUsers(pagination.page);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to create user');
+      showNotification(err.response?.data?.error || 'Failed to create user', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!confirm('Are you sure? All their adventures will be deleted.')) return;
+  const confirmDeleteUser = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
     try {
       const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/users/${userId}`, {
+      await api.delete(`/admin/users/${userToDelete.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      loadUsers();
+      showNotification('User deleted successfully');
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      loadUsers(pagination.page);
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete user');
+      showNotification(err.response?.data?.error || 'Failed to delete user', 'error');
     }
   };
 
@@ -169,6 +193,16 @@ const AdminDashboard = () => {
 
   return (
     <div>
+      {notification && (
+        <div style={{
+          position: 'fixed', top: '20px', right: '20px', zIndex: 1000,
+          padding: '12px 20px', borderRadius: '8px',
+          background: notification.type === 'error' ? '#FF6B6B' : '#00B894',
+          color: 'white', fontWeight: 500, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+        }}>
+          {notification.message}
+        </div>
+      )}
       <header className="header">
         <h1>WanderRoam Admin</h1>
         {appVersion.version && (
@@ -201,12 +235,19 @@ const AdminDashboard = () => {
                 </td>
                 <td style={{ padding: '12px', textAlign: 'right' }}>
                   <button onClick={() => { setSelectedUser(user); setShowPasswordModal(true); }} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Reset</button>
-                  <button onClick={() => handleDeleteUser(user.id)} className="btn btn-danger btn-sm">Delete</button>
+                  <button onClick={() => confirmDeleteUser(user)} className="btn btn-danger btn-sm">Delete</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {pagination.totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
+            <button className="btn btn-outline btn-sm" disabled={pagination.page <= 1} onClick={() => loadUsers(pagination.page - 1)}>Previous</button>
+            <span style={{ padding: '8px 16px', color: 'var(--text-light)' }}>Page {pagination.page} of {pagination.totalPages}</span>
+            <button className="btn btn-outline btn-sm" disabled={pagination.page >= pagination.totalPages} onClick={() => loadUsers(pagination.page + 1)}>Next</button>
+          </div>
+        )}
       </div>
 
       {showPasswordModal && selectedUser && (
@@ -239,6 +280,22 @@ const AdminDashboard = () => {
                 <button type="submit" className="btn btn-primary" disabled={actionLoading}>Create</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && userToDelete && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Delete User</h2>
+            <p style={{ marginBottom: '16px', color: 'var(--text-light)' }}>
+              Are you sure you want to delete user <strong>{userToDelete.username}</strong>? 
+              All their adventures will be permanently deleted.
+            </p>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowDeleteModal(false)} className="btn btn-outline">Cancel</button>
+              <button onClick={handleDeleteUser} className="btn btn-danger" disabled={actionLoading}>Delete</button>
+            </div>
           </div>
         </div>
       )}
