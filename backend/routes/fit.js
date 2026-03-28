@@ -36,18 +36,26 @@ const upload = multer({
 });
 
 const parseFit = async (filePath) => {
-  const { FitFile } = await import('@garmin/fitsdk');
+  const { Decoder, Stream } = await import('@garmin/fitsdk');
   
-  const fitFile = new FitFile();
-  fitFile.parse(filePath);
+  const buffer = fs.readFileSync(filePath);
+  const stream = Stream.fromBuffer(buffer);
+  const decoder = new Decoder(stream);
+  const { messages, errors } = decoder.read();
+  
+  if (errors && errors.length > 0) {
+    console.log('FIT decode warnings:', errors);
+  }
   
   const records = [];
   
-  for (const msg of fitFile.messages) {
-    if (msg.name === 'record') {
+  for (const [mesgNum, msg] of Object.entries(messages)) {
+    if (msg && msg.mesgType === 'record') {
       const record = {};
-      for (const field of msg.fields) {
-        record[field.name] = field.value;
+      for (const [key, value] of Object.entries(msg)) {
+        if (key !== 'mesgType') {
+          record[key] = value;
+        }
       }
       records.push(record);
     }
