@@ -1,7 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { body, param, query } = require('express-validator');
 const { User, Adventure, GpxTrack, Picture, AdventureShare } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -13,14 +15,24 @@ const adminMiddleware = async (req, res, next) => {
   next();
 };
 
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/users', authMiddleware, adminMiddleware, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  validate
+], async (req, res) => {
   try {
-    const users = await User.findAll({
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    
+    const { count, rows } = await User.findAndCountAll({
       attributes: ['id', 'username', 'isAdmin', 'createdAt'],
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
     });
 
-    const usersWithStats = await Promise.all(users.map(async (user) => {
+    const usersWithStats = await Promise.all(rows.map(async (user) => {
       const adventureCount = await Adventure.count({ where: { user_id: user.id } });
       return {
         id: user.id,
@@ -31,24 +43,28 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
       };
     }));
 
-    res.json({ users: usersWithStats });
+    res.json({ 
+      users: usersWithStats,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to get users' });
   }
 });
 
-router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/users', authMiddleware, adminMiddleware, [
+  body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
+  body('password').notEmpty().withMessage('Password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  validate
+], async (req, res) => {
   try {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
 
     const existingUsername = await User.findOne({ where: { username } });
     if (existingUsername) {

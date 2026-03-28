@@ -5,7 +5,24 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const winston = require('winston');
 const { sequelize, Tag } = require('./models');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
@@ -93,7 +110,12 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error('Unhandled error', { 
+    error: err.message, 
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
