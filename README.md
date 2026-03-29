@@ -32,13 +32,17 @@
 - **Photo Integration** - Connect to Immich for photo management
 - **Sharing** - Share adventures with other users
 - **Multiple Transport Types** - Hiking, cycling, running, climbing
+- **Statistics** - View stats by year and transport mode (owned/shared/all)
 - **Admin Panel** - User management on port 4000
 
 ## Security
 
 - **Rate Limiting** - Auth endpoints limited to 5 attempts per 60 minutes per IP
-- **JWT Authentication** - Token-based authentication (24h expiry)
+- **JWT Authentication** - Token-based authentication (1h expiry, configurable via JWT_EXPIRY)
 - **CORS configurable** - Restrict access by origin
+- **Input Validation** - All API endpoints validated with express-validator
+- **XSS Protection** - All user input sanitized with sanitize-html
+- **Admin Audit Logging** - All admin actions logged to database
 
 ## Tech Stack
 
@@ -109,6 +113,7 @@ Copy `.env.example` to `.env` and update the values before deploying.
 | `PORT` | 5000 | Server port |
 | `TZ` | Europe/Paris | Timezone for date formatting |
 | `JWT_SECRET` | wanderroam_secret_key_change_in_production | JWT signing secret (change!) |
+| `JWT_EXPIRY` | 1h | JWT token expiry (e.g., 1h, 24h) |
 | `ENABLE_REGISTRATION` | true | Allow new user registration |
 | `UPLOAD_DIR` | /app/uploads | Upload directory |
 | `BROUTER_URL` | http://brouter:17777/brouter | BRouter routing service URL |
