@@ -409,6 +409,14 @@ body {
   z-index: 100002 !important;
 }
 
+.adventure-map-container.fullscreen .leaflet-marker-pane {
+  z-index: 1002 !important;
+}
+
+.adventure-map-container.fullscreen .leaflet-popup-pane {
+  z-index: 1001 !important;
+}
+
 .fullscreen-btn {
   position: absolute;
   top: 10px;
