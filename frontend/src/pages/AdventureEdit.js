@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import 'react-leaflet-fullscreen/styles.css';
 import api from '../services/api';
 import GpxEditorModal from '../components/GpxEditorModal';
 
@@ -172,7 +175,6 @@ const AdventureEdit = () => {
   const [creatingTag, setCreatingTag] = useState(false);
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -640,21 +642,7 @@ const AdventureEdit = () => {
 
       <div className="container">
         <div className="adventure-detail">
-          <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
-            <button 
-              className="fullscreen-btn" 
-              onClick={() => {
-                setMapFullscreen(!mapFullscreen);
-                setTimeout(() => {
-                  if (mapRef.current) {
-                    mapRef.current.invalidateSize();
-                  }
-                }, 100);
-              }}
-              title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              {mapFullscreen ? '⛶' : '⛶'}
-            </button>
+          <div className="adventure-map-container">
             <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
               Click on map to add waypoint
             </div>
@@ -663,8 +651,9 @@ const AdventureEdit = () => {
               key={mapKey}
               center={defaultCenter} 
               zoom={defaultZoom} 
-              style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+              style={{ height: '100%', width: '100%' }}
             >
+              <FullscreenControl position="topright" />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
