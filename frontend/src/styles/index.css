@@ -414,7 +414,7 @@ body {
 }
 
 .adventure-map-container.fullscreen .leaflet-popup-pane {
-  z-index: 1001 !important;
+  z-index: 1003 !important;
 }
 
 .fullscreen-btn {
