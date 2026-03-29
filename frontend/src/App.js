@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import AdventureView from './pages/AdventureView';
 import AdventureEdit from './pages/AdventureEdit';
 import Settings from './pages/Settings';
+import Stats from './pages/Stats';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -45,6 +46,11 @@ function App() {
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/stats" element={
+            <ProtectedRoute>
+              <Stats />
             </ProtectedRoute>
           } />
         </Routes>

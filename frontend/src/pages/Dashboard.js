@@ -208,6 +208,7 @@ const Dashboard = () => {
           )}
         </div>
         <div className="header-actions">
+          <Link to="/stats" className="btn btn-outline btn-sm">Stats</Link>
           <Link to="/settings" className="btn btn-outline btn-sm">Settings</Link>
           <span>Welcome, {user?.username}</span>
           <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>

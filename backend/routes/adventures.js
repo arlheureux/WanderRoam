@@ -361,6 +361,100 @@ router.get('/users', authMiddleware, [
   }
 });
 
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const { view = 'all' } = req.query;
+    
+    let adventureIds;
+    let ownedIds;
+    
+    if (view === 'owned') {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      adventureIds = owned.map(a => a.id);
+    } else if (view === 'shared') {
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      adventureIds = shared.map(s => s.AdventureId);
+      ownedIds = [];
+    } else {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      ownedIds = owned.map(a => a.id);
+      adventureIds = [...ownedIds, ...shared.map(s => s.AdventureId)];
+    }
+
+    if (adventureIds.length === 0) {
+      return res.json({
+        overview: { adventures: 0, photos: 0, waypoints: 0, tracks: 0, distance: 0 },
+        byYear: [],
+        byTransport: []
+      });
+    }
+
+    const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance] = await Promise.all([
+      Adventure.count({ where: { id: { [Op.in]: adventureIds } } }),
+      Picture.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      Waypoint.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: adventureIds } } })
+    ]);
+
+    const tracksByType = await GpxTrack.findAll({
+      where: { adventure_id: { [Op.in]: adventureIds } },
+      attributes: ['type', [sequelize.fn('SUM', sequelize.col('distance')), 'totalDistance'], [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['type'],
+      raw: true
+    });
+
+    const adventuresWithDates = await Adventure.findAll({
+      where: { id: { [Op.in]: adventureIds }, adventure_date: { [Op.ne]: null } },
+      attributes: ['id', 'adventure_date']
+    });
+
+    const byYear = {};
+    for (const adv of adventuresWithDates) {
+      const year = new Date(adv.adventure_date).getFullYear();
+      byYear[year] = (byYear[year] || 0) + 1;
+    }
+
+    const yearStats = Object.entries(byYear)
+      .map(([year, count]) => ({ year: parseInt(year), count }))
+      .sort((a, b) => b.year - a.year);
+
+    const transportStats = tracksByType.map(t => ({
+      type: t.type,
+      count: parseInt(t.count),
+      distance: parseFloat(t.totalDistance) || 0
+    }));
+
+    res.json({
+      overview: {
+        adventures: totalAdventures || 0,
+        photos: totalPhotos || 0,
+        waypoints: totalWaypoints || 0,
+        tracks: totalTracks || 0,
+        distance: totalDistance || 0
+      },
+      byYear: yearStats,
+      byTransport: transportStats
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
 router.get('/all-gpx', authMiddleware, async (req, res) => {
   try {
     const myAdventures = await Adventure.findAll({

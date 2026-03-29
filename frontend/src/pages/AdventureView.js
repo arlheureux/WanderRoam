@@ -347,15 +347,12 @@ const AdventureView = () => {
                 />
               ))}
 
-              {pictures.map((picture, index) => (
+              {pictures.map((picture) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
                     icon={createCustomIcon(hoveredPictureId === picture.id ? '#10B981' : '#FFD700', hoveredPictureId === picture.id ? 1.5 : 1)}
-                    eventHandlers={{
-                      click: () => openPicture(picture, index)
-                    }}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (
