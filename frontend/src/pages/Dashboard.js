@@ -62,14 +62,20 @@ const Dashboard = () => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedMapTag, setSelectedMapTag] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortBy, sortOrder, selectedTags]);
 
   useEffect(() => {
     loadAdventures();
     loadTags();
     api.getVersion().then(v => setAppVersion(v)).catch(() => {});
-  }, [sortBy, sortOrder, selectedTags]);
+  }, [sortBy, sortOrder, selectedTags, currentPage]);
 
   useEffect(() => {
     if (activeTab === 'map') {
@@ -119,8 +125,11 @@ const Dashboard = () => {
   const loadAdventures = async () => {
     try {
       const tagsParam = selectedTags.length > 0 ? `&tags=${selectedTags.join(',')}` : '';
-      const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}${tagsParam}`);
+      const res = await api.get(`/adventures?page=${currentPage}&sort=${sortBy}&order=${sortOrder}${tagsParam}`);
       setAdventures(res.data.adventures);
+      if (res.data.pagination) {
+        setTotalPages(res.data.pagination.totalPages);
+      }
     } catch (err) {
       console.error('Failed to load adventures:', err);
     } finally {
@@ -438,9 +447,32 @@ const Dashboard = () => {
                               {tag.name}
                             </span>
                           ))}
-                        </div>
-                      )}
-                    </div>
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px', paddingBottom: '24px' }}>
+                <button 
+                  className="btn btn-outline"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button 
+                  className="btn btn-outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          )}
+        </div>
                   </div>
                 </div>
               ))}
