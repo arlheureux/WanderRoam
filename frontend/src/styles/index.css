@@ -601,7 +601,7 @@ body {
   border-radius: var(--radius-xl);
   padding: 24px;
   width: 90%;
-  max-width: 400px;
+  max-width: 85vw;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
