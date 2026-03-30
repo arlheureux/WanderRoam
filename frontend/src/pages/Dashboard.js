@@ -438,10 +438,9 @@ const Dashboard = () => {
                               {tag.name}
                             </span>
                           ))}
-              </div>
-            )}
-          )}
-        </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
