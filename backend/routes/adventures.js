@@ -117,10 +117,6 @@ router.get('/', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    
     const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -311,17 +307,8 @@ router.get('/', authMiddleware, [
       };
     });
 
-    const total = adventuresWithStats.length;
-    const paginatedAdventures = adventuresWithStats.slice(offset, offset + limit);
-    
     res.json({ 
-      adventures: paginatedAdventures,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
+      adventures: adventuresWithStats
     });
   } catch (error) {
     console.error('Get adventures error:', error.message);
