@@ -2,9 +2,11 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { body, param } = require('express-validator');
 const { GpxTrack } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -137,7 +139,12 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-router.post('/upload', authMiddleware, upload.single('gpx'), async (req, res) => {
+router.post('/upload', authMiddleware, [
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('adventure_id').optional().isUUID().withMessage('Invalid adventure ID'),
+  validate
+], upload.single('gpx'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'GPX file is required' });
@@ -193,7 +200,13 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid GPX track ID'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('color').optional().isHexColor().withMessage('Invalid color'),
+  validate
+], async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
 
@@ -230,7 +243,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid GPX track ID'),
+  validate
+], async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
 
