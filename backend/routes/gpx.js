@@ -2,8 +2,11 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { body, param } = require('express-validator');
 const { GpxTrack } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -136,7 +139,12 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-router.post('/upload', authMiddleware, upload.single('gpx'), async (req, res) => {
+router.post('/upload', authMiddleware, [
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('adventure_id').optional().isUUID().withMessage('Invalid adventure ID'),
+  validate
+], upload.single('gpx'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'GPX file is required' });
@@ -174,8 +182,7 @@ router.post('/upload', authMiddleware, upload.single('gpx'), async (req, res) =>
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload GPX error:', error);
-    res.status(500).json({ error: 'Failed to upload GPX' });
+    return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
 
@@ -189,12 +196,17 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     res.json({ gpxTrack });
   } catch (error) {
-    console.error('Get GPX error:', error);
-    res.status(500).json({ error: 'Failed to get GPX' });
+    return handleError(error, res, { operation: 'getGpx' });
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid GPX track ID'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('color').optional().isHexColor().withMessage('Invalid color'),
+  validate
+], async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
 
@@ -227,12 +239,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     res.json({ gpxTrack });
   } catch (error) {
-    console.error('Update GPX error:', error);
-    res.status(500).json({ error: 'Failed to update GPX' });
+    return handleError(error, res, { operation: 'updateGpx' });
   }
 });
 
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid GPX track ID'),
+  validate
+], async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
 
@@ -248,8 +262,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     res.json({ message: 'GPX track deleted' });
   } catch (error) {
-    console.error('Delete GPX error:', error);
-    res.status(500).json({ error: 'Failed to delete GPX' });
+    return handleError(error, res, { operation: 'deleteGpx' });
   }
 });
 
@@ -269,8 +282,7 @@ router.get('/:id/data', authMiddleware, async (req, res) => {
       data: gpxTrack.data
     });
   } catch (error) {
-    console.error('Get GPX data error:', error);
-    res.status(500).json({ error: 'Failed to get GPX data' });
+    return handleError(error, res, { operation: 'getGpxData' });
   }
 });
 

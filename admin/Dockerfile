@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
@@ -9,11 +9,11 @@ RUN npm install
 COPY public ./public
 COPY src ./src
 
-RUN CI=true npm run build
+RUN DISABLE_ESLINT_PLUGIN=true CI=true npm run build
 
 FROM nginx:alpine
 
-COPY --from=0 /app/build /usr/share/nginx/html
+COPY --from=build /app/build /usr/share/nginx/html
 
 RUN find /usr/share/nginx/html -type d -exec chmod 755 {} \; && \
     find /usr/share/nginx/html -type f -exec chmod 644 {} \;

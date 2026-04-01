@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../services/AuthContext';
 
@@ -60,7 +61,7 @@ const GpxMap = () => {
       });
       setVisibleAdventures(adventures);
     } catch (err) {
-      console.error('Failed to load tracks:', err);
+      toast.error('Failed to load tracks');
     } finally {
       setLoading(false);
     }

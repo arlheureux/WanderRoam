@@ -1,6 +1,9 @@
 const express = require('express');
+const { body } = require('express-validator');
 const { User, Adventure } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -61,8 +64,7 @@ router.get('/status', authMiddleware, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Immich status error:', error);
-    res.status(500).json({ error: 'Failed to check Immich status' });
+    return handleError(error, res, { operation: 'getImmichStatus' });
   }
 });
 
@@ -92,7 +94,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
             thumbId = albumData.assets[0].id;
           }
         } catch (e) {
-          console.error(`Failed to get first asset for album ${album.id}:`, e);
+          logger.warn(`Failed to get first asset for album ${album.id}: ${e.message}`);
         }
       }
 
@@ -109,7 +111,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
             }
           }
         } catch (e) {
-          console.error(`Failed to get assets for album ${album.id}:`, e);
+          logger.warn(`Failed to get assets for album ${album.id}: ${e.message}`);
         }
       }
 
@@ -126,8 +128,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
 
     res.json({ albums: processedAlbums });
   } catch (error) {
-    console.error('Get Immich albums error:', error);
-    res.status(500).json({ error: 'Failed to get Immich albums' });
+    return handleError(error, res, { operation: 'getImmichAlbums' });
   }
 });
 
@@ -183,12 +184,15 @@ router.get('/assets', authMiddleware, async (req, res) => {
 
     res.json({ assets: processedAssets });
   } catch (error) {
-    console.error('Get Immich assets error:', error.message);
-    res.status(500).json({ error: 'Failed to get Immich assets' });
+    return handleError(error, res, { operation: 'getImmichAssets' });
   }
 });
 
-router.post('/connect', authMiddleware, async (req, res) => {
+router.post('/connect', authMiddleware, [
+  body('immich_url').trim().isURL().withMessage('Invalid URL format'),
+  body('immich_api_key').trim().notEmpty().withMessage('API key is required'),
+  validate
+], async (req, res) => {
   try {
     const { immich_url, immich_api_key } = req.body;
 
@@ -224,8 +228,7 @@ router.post('/connect', authMiddleware, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Connect to Immich error:', error);
-    res.status(500).json({ error: 'Failed to connect to Immich' });
+    return handleError(error, res, { operation: 'connectImmich' });
   }
 });
 
@@ -254,8 +257,7 @@ router.get('/asset/:id', authMiddleware, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Immich asset error:', error);
-    res.status(500).json({ error: 'Failed to get Immich asset' });
+    return handleError(error, res, { operation: 'getImmichAsset' });
   }
 });
 
@@ -294,15 +296,14 @@ router.get('/thumbnails', authMiddleware, async (req, res) => {
             thumbnails[assetId.trim()] = `data:${contentType};base64,${base64}`;
           }
         } catch (e) {
-          console.error(`Failed to fetch thumbnail for ${assetId}:`, e);
+          logger.warn(`Failed to fetch thumbnail for ${assetId}: ${e.message}`);
         }
       })
     );
 
     res.json({ thumbnails });
   } catch (error) {
-    console.error('Get thumbnails error:', error);
-    res.status(500).json({ error: 'Failed to fetch thumbnails' });
+    return handleError(error, res, { operation: 'getThumbnails' });
   }
 });
 
@@ -334,8 +335,7 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('Get thumbnail error:', error);
-    res.status(500).send('Failed to fetch thumbnail');
+    return handleError(error, res, { operation: 'getThumbnail' });
   }
 });
 
@@ -366,8 +366,7 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('Get full image error:', error);
-    res.status(500).send('Failed to fetch full image');
+    return handleError(error, res, { operation: 'getFullImageDirect' });
   }
 });
 
@@ -403,8 +402,7 @@ router.get('/full/:adventureId/:assetId', authMiddleware, async (req, res) => {
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('Get full image error:', error);
-    res.status(500).send('Failed to fetch full image');
+    return handleError(error, res, { operation: 'getFullImageByAdventure' });
   }
 });
 

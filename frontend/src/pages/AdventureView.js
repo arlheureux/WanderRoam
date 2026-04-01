@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import 'react-leaflet-fullscreen/styles.css';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
@@ -126,7 +130,6 @@ const AdventureView = () => {
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -151,7 +154,7 @@ const AdventureView = () => {
       const res = await api.get(`/adventures/${id}`);
       setAdventure(res.data.adventure);
     } catch (err) {
-      console.error('Failed to load adventure:', err);
+      toast.error('Failed to load adventure');
       navigate('/');
     } finally {
       setLoading(false);
@@ -165,7 +168,7 @@ const AdventureView = () => {
       await api.delete(`/adventures/${id}`);
       navigate('/');
     } catch (err) {
-      console.error('Failed to delete adventure:', err);
+      toast.error('Failed to delete adventure');
     }
   };
 
@@ -306,27 +309,14 @@ const AdventureView = () => {
             <div className="adventure-card-header">
               <h3>Map</h3>
             </div>
-            <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
-              <button 
-                className="fullscreen-btn" 
-                onClick={() => {
-                  setMapFullscreen(!mapFullscreen);
-                  setTimeout(() => {
-                    if (mapRef.current) {
-                      mapRef.current.invalidateSize();
-                    }
-                  }, 100);
-                }}
-                title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {mapFullscreen ? '⛶' : '⛶'}
-              </button>
+            <div className="adventure-map-container">
               <MapContainer 
                 ref={mapRef}
                 center={defaultCenter} 
                 zoom={defaultZoom} 
-                style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+                style={{ height: '100%', width: '100%' }}
               >
+              <FullscreenControl position="topright" />
               <TileLayer
                 attribution='&copy; <a href="httpsmap.org/copyright://www.openstreet">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -347,15 +337,12 @@ const AdventureView = () => {
                 />
               ))}
 
-              {pictures.map((picture, index) => (
+              {pictures.map((picture) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
                     icon={createCustomIcon(hoveredPictureId === picture.id ? '#10B981' : '#FFD700', hoveredPictureId === picture.id ? 1.5 : 1)}
-                    eventHandlers={{
-                      click: () => openPicture(picture, index)
-                    }}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (

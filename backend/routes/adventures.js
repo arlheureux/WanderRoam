@@ -5,6 +5,7 @@ const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
+const { handleError, logger } = require('../middleware/errorHandler');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -117,10 +118,6 @@ router.get('/', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    
     const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -311,21 +308,11 @@ router.get('/', authMiddleware, [
       };
     });
 
-    const total = adventuresWithStats.length;
-    const paginatedAdventures = adventuresWithStats.slice(offset, offset + limit);
-    
     res.json({ 
-      adventures: paginatedAdventures,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
+      adventures: adventuresWithStats
     });
   } catch (error) {
-    console.error('Get adventures error:', error.message);
-    res.status(500).json({ error: 'Failed to get adventures' });
+    return handleError(error, res, { operation: 'getAdventures' });
   }
 });
 
@@ -356,8 +343,100 @@ router.get('/users', authMiddleware, [
       }
     });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
+    return handleError(error, res, { operation: 'getUsers' });
+  }
+});
+
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const { view = 'all' } = req.query;
+    
+    let adventureIds;
+    let ownedIds;
+    
+    if (view === 'owned') {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      adventureIds = owned.map(a => a.id);
+    } else if (view === 'shared') {
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      adventureIds = shared.map(s => s.AdventureId);
+      ownedIds = [];
+    } else {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      ownedIds = owned.map(a => a.id);
+      adventureIds = [...ownedIds, ...shared.map(s => s.AdventureId)];
+    }
+
+    if (adventureIds.length === 0) {
+      return res.json({
+        overview: { adventures: 0, photos: 0, waypoints: 0, tracks: 0, distance: 0 },
+        byYear: [],
+        byTransport: []
+      });
+    }
+
+    const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance] = await Promise.all([
+      Adventure.count({ where: { id: { [Op.in]: adventureIds } } }),
+      Picture.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      Waypoint.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: adventureIds } } })
+    ]);
+
+    const tracksByType = await GpxTrack.findAll({
+      where: { adventure_id: { [Op.in]: adventureIds } },
+      attributes: ['type', [sequelize.fn('SUM', sequelize.col('distance')), 'totalDistance'], [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['type'],
+      raw: true
+    });
+
+    const adventuresWithDates = await Adventure.findAll({
+      where: { id: { [Op.in]: adventureIds }, adventure_date: { [Op.ne]: null } },
+      attributes: ['id', 'adventure_date']
+    });
+
+    const byYear = {};
+    for (const adv of adventuresWithDates) {
+      const year = new Date(adv.adventure_date).getFullYear();
+      byYear[year] = (byYear[year] || 0) + 1;
+    }
+
+    const yearStats = Object.entries(byYear)
+      .map(([year, count]) => ({ year: parseInt(year), count }))
+      .sort((a, b) => b.year - a.year);
+
+    const transportStats = tracksByType.map(t => ({
+      type: t.type,
+      count: parseInt(t.count),
+      distance: parseFloat(t.totalDistance) || 0
+    }));
+
+    res.json({
+      overview: {
+        adventures: totalAdventures || 0,
+        photos: totalPhotos || 0,
+        waypoints: totalWaypoints || 0,
+        tracks: totalTracks || 0,
+        distance: totalDistance || 0
+      },
+      byYear: yearStats,
+      byTransport: transportStats
+    });
+  } catch (error) {
+    return handleError(error, res, { operation: 'getStats' });
   }
 });
 
@@ -432,8 +511,7 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
 
     res.json({ tracks });
   } catch (error) {
-    console.error('Get all GPX error:', error);
-    res.status(500).json({ error: 'Failed to get GPX tracks' });
+    return handleError(error, res, { operation: 'getAllGpx' });
   }
 });
 
@@ -450,8 +528,7 @@ router.get('/tags', authMiddleware, async (req, res) => {
     }));
     res.json({ tags: tagsWithCategory });
   } catch (error) {
-    console.error('Get tags error:', error);
-    res.status(500).json({ error: 'Failed to get tags' });
+    return handleError(error, res, { operation: 'getTags' });
   }
 });
 
@@ -478,12 +555,14 @@ router.post('/tags', authMiddleware, [
 
     res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.type } });
   } catch (error) {
-    console.error('Create tag error:', error);
-    res.status(500).json({ error: 'Failed to create tag' });
+    return handleError(error, res, { operation: 'createTag' });
   }
 });
 
-router.delete('/tags/:id', authMiddleware, async (req, res) => {
+router.delete('/tags/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid tag ID'),
+  validate
+], async (req, res) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
     
@@ -495,8 +574,7 @@ router.delete('/tags/:id', authMiddleware, async (req, res) => {
     
     res.json({ message: 'Tag deleted successfully' });
   } catch (error) {
-    console.error('Delete tag error:', error);
-    res.status(500).json({ error: 'Failed to delete tag' });
+    return handleError(error, res, { operation: 'deleteTag' });
   }
 });
 
@@ -607,7 +685,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
                 thumbnails[assetId] = `data:${contentType};base64,${base64}`;
               }
             } catch (e) {
-              console.error(`Failed to fetch preview for ${assetId}:`, e);
+              logger.warn(`Failed to fetch preview for ${assetId}: ${e.message}`);
             }
           })
         );
@@ -639,8 +717,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     res.json({ adventure: adventureData });
   } catch (error) {
-    console.error('Get adventure error:', error);
-    res.status(500).json({ error: 'Failed to get adventure' });
+    return handleError(error, res, { operation: 'getAdventure' });
   }
 });
 
@@ -668,8 +745,7 @@ router.post('/', authMiddleware, [
 
     res.status(201).json({ adventure });
   } catch (error) {
-    console.error('Create adventure error:', error);
-    res.status(500).json({ error: 'Failed to create adventure' });
+    return handleError(error, res, { operation: 'createAdventure' });
   }
 });
 
@@ -709,8 +785,7 @@ router.put('/:id', authMiddleware, [
 
     res.json({ adventure });
   } catch (error) {
-    console.error('Update adventure error:', error);
-    res.status(500).json({ error: 'Failed to update adventure' });
+    return handleError(error, res, { operation: 'updateAdventure' });
   }
 });
 
@@ -731,12 +806,14 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Adventure deleted' });
   } catch (error) {
-    console.error('Delete adventure error:', error);
-    res.status(500).json({ error: 'Failed to delete adventure' });
+    return handleError(error, res, { operation: 'deleteAdventure' });
   }
 });
 
-router.post('/:id/gpx', authMiddleware, async (req, res) => {
+router.post('/:id/gpx', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -771,12 +848,15 @@ router.post('/:id/gpx', authMiddleware, async (req, res) => {
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload GPX error:', error);
-    res.status(500).json({ error: 'Failed to upload GPX' });
+    return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
 
-router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
+router.delete('/:id/gpx/:gpxId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('gpxId').isUUID().withMessage('Invalid GPX ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -805,7 +885,7 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
           fs.unlinkSync(gpxTrack.file_path);
         }
       } catch (err) {
-        console.error('Failed to delete GPX file:', err);
+        logger.warn(`Failed to delete GPX file: ${err.message}`);
       }
     }
 
@@ -813,12 +893,18 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'GPX track deleted' });
   } catch (error) {
-    console.error('Delete GPX error:', error);
-    res.status(500).json({ error: 'Failed to delete GPX' });
+    return handleError(error, res, { operation: 'deleteGpx' });
   }
 });
 
-router.post('/:id/pictures', authMiddleware, async (req, res) => {
+router.post('/:id/pictures', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('immich_asset_id').optional().trim(),
+  body('filename').optional().trim().isLength({ max: 255 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -844,12 +930,15 @@ router.post('/:id/pictures', authMiddleware, async (req, res) => {
 
     res.status(201).json({ picture });
   } catch (error) {
-    console.error('Add picture error:', error);
-    res.status(500).json({ error: 'Failed to add picture' });
+    return handleError(error, res, { operation: 'addPicture' });
   }
 });
 
-router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
+router.delete('/:id/pictures/:pictureId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('pictureId').isUUID().withMessage('Invalid picture ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -876,8 +965,7 @@ router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Picture deleted' });
   } catch (error) {
-    console.error('Delete picture error:', error);
-    res.status(500).json({ error: 'Failed to delete picture' });
+    return handleError(error, res, { operation: 'deletePicture' });
   }
 });
 
@@ -903,8 +991,7 @@ router.get('/:id/share', authMiddleware, async (req, res) => {
       permission: s.permission
     })) });
   } catch (error) {
-    console.error('Get shares error:', error);
-    res.status(500).json({ error: 'Failed to get shares' });
+    return handleError(error, res, { operation: 'getShares' });
   }
 });
 
@@ -952,12 +1039,15 @@ router.post('/:id/share', authMiddleware, [
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Share adventure error:', error);
-    res.status(500).json({ error: 'Failed to share adventure' });
+    return handleError(error, res, { operation: 'shareAdventure' });
   }
 });
 
-router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
+router.delete('/:id/share/:shareId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('shareId').isUUID().withMessage('Invalid share ID'),
+  validate
+], async (req, res) => {
   try {
     const adventure = await Adventure.findOne({
       where: { id: req.params.id, user_id: req.user.id }
@@ -979,8 +1069,7 @@ router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Remove share error:', error);
-    res.status(500).json({ error: 'Failed to remove share' });
+    return handleError(error, res, { operation: 'removeShare' });
   }
 });
 
@@ -1010,12 +1099,19 @@ router.post('/:id/waypoints', authMiddleware, [
 
     res.status(201).json({ waypoint });
   } catch (error) {
-    console.error('Create waypoint error:', error);
-    res.status(500).json({ error: 'Failed to create waypoint' });
+    return handleError(error, res, { operation: 'createWaypoint' });
   }
 });
 
-router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.put('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  body('name').optional().trim().isLength({ max: 100 }),
+  body('icon').optional().trim().isLength({ max: 10 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -1039,12 +1135,15 @@ router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
 
     res.json({ waypoint });
   } catch (error) {
-    console.error('Update waypoint error:', error);
-    res.status(500).json({ error: 'Failed to update waypoint' });
+    return handleError(error, res, { operation: 'updateWaypoint' });
   }
 });
 
-router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.delete('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -1063,8 +1162,7 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
 
     res.json({ message: 'Waypoint deleted successfully' });
   } catch (error) {
-    console.error('Delete waypoint error:', error);
-    res.status(500).json({ error: 'Failed to delete waypoint' });
+    return handleError(error, res, { operation: 'deleteWaypoint' });
   }
 });
 
@@ -1095,8 +1193,7 @@ router.put('/:id/tags', authMiddleware, [
     const updatedTags = await adventure.getTags();
     res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })) });
   } catch (error) {
-    console.error('Update tags error:', error);
-    res.status(500).json({ error: 'Failed to update tags' });
+    return handleError(error, res, { operation: 'updateTags' });
   }
 });
 

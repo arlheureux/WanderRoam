@@ -28,6 +28,10 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['username'] }
+  ]
 });
 
 const Adventure = sequelize.define('Adventure', {
@@ -66,6 +70,12 @@ const Adventure = sequelize.define('Adventure', {
     type: DataTypes.UUID,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['adventure_date'] },
+    { fields: ['createdAt'] }
+  ]
 });
 
 const GpxTrack = sequelize.define('GpxTrack', {
@@ -98,6 +108,11 @@ const GpxTrack = sequelize.define('GpxTrack', {
     type: DataTypes.FLOAT,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] },
+    { fields: ['type'] }
+  ]
 });
 
 const Picture = sequelize.define('Picture', {
@@ -130,6 +145,10 @@ const Picture = sequelize.define('Picture', {
     type: DataTypes.TEXT,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] }
+  ]
 });
 
 const Waypoint = sequelize.define('Waypoint', {
@@ -154,6 +173,10 @@ const Waypoint = sequelize.define('Waypoint', {
     type: DataTypes.DECIMAL(10, 7),
     allowNull: false
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] }
+  ]
 });
 
 const Tag = sequelize.define('Tag', {
@@ -196,6 +219,11 @@ const AdventureShare = sequelize.define('AdventureShare', {
     type: DataTypes.UUID,
     allowNull: false
   }
+}, {
+  indexes: [
+    { fields: ['AdventureId'] },
+    { fields: ['UserId'] }
+  ]
 });
 
 const AuditLog = sequelize.define('AuditLog', {

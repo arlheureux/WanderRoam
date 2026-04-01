@@ -1,23 +1,30 @@
 {
   "name": "wanderroam-frontend",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "dependencies": {
     "@react-leaflet/core": "^2.1.0",
     "leaflet": "^1.9.4",
+    "leaflet-fullscreen": "^1.0.2",
     "leaflet-gpx": "^1.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
     "react-leaflet": "^4.2.1",
+    "react-leaflet-fullscreen": "^4.1.1",
     "react-router-dom": "^6.21.1",
     "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext .js,.jsx",
+    "lint:fix": "eslint src --ext .js,.jsx --fix"
   },
   "browserslist": {
     "production": [

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
@@ -212,10 +213,7 @@ const GpxEditorModal = ({
         setActiveTab('edit');
       }
     } catch (err) {
-      console.error('Routing error:', err);
-      setRoutingError(err.response?.data?.error || err.message || 'Failed to calculate route');
-    } finally {
-      setRoutingLoading(false);
+      toast.error('Routing calculation failed');
     }
   };
 
@@ -315,10 +313,7 @@ const GpxEditorModal = ({
       onSave(result.data.gpxTrack || result.data);
       onClose();
     } catch (err) {
-      console.error('Failed to save track:', err);
-      alert('Failed to save track: ' + err.message);
-    } finally {
-      setSaving(false);
+      toast.error('Failed to save track');
     }
   };
 
@@ -443,12 +438,12 @@ const GpxEditorModal = ({
             <div className="waypoints-info">
               <span>{routingWaypoints.length} waypoint{routingWaypoints.length !== 1 ? 's' : ''}</span>
               {routingWaypoints.length > 2 && (
-                <button type="button" className="btn-link" onClick={handleReverse}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                   Reverse
                 </button>
               )}
               {routingWaypoints.length > 0 && (
-                <button type="button" className="btn-link" onClick={handleClearAll}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                   Clear All
                 </button>
               )}
@@ -515,12 +510,12 @@ const GpxEditorModal = ({
           <div className="points-info">
             {points.length} point{points.length !== 1 ? 's' : ''}
             {points.length > 1 && (
-              <button type="button" className="btn-link" onClick={handleReverse}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                 Reverse
               </button>
             )}
             {points.length > 0 && activeTab !== 'route' && (
-              <button type="button" className="btn-link" onClick={handleClearAll}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                 Clear All
               </button>
             )}

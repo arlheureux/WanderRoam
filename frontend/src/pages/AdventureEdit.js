@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import 'react-leaflet-fullscreen/styles.css';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 import GpxEditorModal from '../components/GpxEditorModal';
 
@@ -172,7 +176,6 @@ const AdventureEdit = () => {
   const [creatingTag, setCreatingTag] = useState(false);
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -198,7 +201,7 @@ const AdventureEdit = () => {
       setAdventure(res.data.adventure);
       setSelectedTags(res.data.adventure.tags || []);
     } catch (err) {
-      console.error('Failed to load adventure:', err);
+      toast.error('Failed to load adventure');
       navigate('/');
       return;
     }
@@ -207,7 +210,7 @@ const AdventureEdit = () => {
       const tagsRes = await api.getTags();
       setAllTags(tagsRes.data.tags || []);
     } catch (err) {
-      console.error('Failed to load tags:', err);
+      toast.error('Failed to load tags');
     } finally {
       setLoading(false);
     }
@@ -219,7 +222,7 @@ const AdventureEdit = () => {
       const res = await api.get(`/adventures/${id}/share`);
       setShares(res.data.shares || []);
     } catch (err) {
-      console.error('Failed to load shares:', err);
+      toast.error('Failed to load shares');
     } finally {
       setLoadingShares(false);
     }
@@ -230,7 +233,7 @@ const AdventureEdit = () => {
       const res = await api.get('/adventures/users');
       setUsers(res.data.users || []);
     } catch (err) {
-      console.error('Failed to load users:', err);
+      toast.error('Failed to load users');
     }
   };
 
@@ -250,7 +253,7 @@ const AdventureEdit = () => {
       setShareUsername('');
       await loadShares();
     } catch (err) {
-      console.error('Failed to share:', err);
+      toast.error('Failed to share adventure');
       alert(err.message || 'Failed to share adventure');
     }
   };
@@ -261,7 +264,7 @@ const AdventureEdit = () => {
       await api.delete(`/adventures/${id}/share/${shareId}`);
       await loadShares();
     } catch (err) {
-      console.error('Failed to remove share:', err);
+      toast.error('Failed to remove share:', err);
     }
   };
 
@@ -271,7 +274,7 @@ const AdventureEdit = () => {
       const res = await api.put(`/adventures/${id}`, updates);
       setAdventure({ ...adventure, ...res.data.adventure });
     } catch (err) {
-      console.error('Failed to update adventure:', err);
+      toast.error('Failed to update adventure:', err);
     } finally {
       setSaving(false);
     }
@@ -284,7 +287,7 @@ const AdventureEdit = () => {
       setSelectedTags(res.data.tags || []);
       setAdventure({ ...adventure, tags: res.data.tags || [] });
     } catch (err) {
-      console.error('Failed to save tags:', err);
+      toast.error('Failed to save tags:', err);
     } finally {
       setSaving(false);
     }
@@ -308,7 +311,7 @@ const AdventureEdit = () => {
       setSelectedTags(selectedTags.filter(t => t.id !== tagId));
       await saveTags(selectedTags.filter(t => t.id !== tagId).map(t => t.id));
     } catch (err) {
-      console.error('Failed to delete tag:', err);
+      toast.error('Failed to delete tag:', err);
       alert(err.response?.data?.error || 'Failed to delete tag');
     }
   };
@@ -331,7 +334,7 @@ const AdventureEdit = () => {
       setNewTagName('');
       setNewTagCategory('');
     } catch (err) {
-      console.error('Failed to create tag:', err);
+      toast.error('Failed to create tag:', err);
       alert(err.response?.data?.error || 'Failed to create tag');
     } finally {
       setCreatingTag(false);
@@ -361,7 +364,7 @@ const AdventureEdit = () => {
       setGpxFile(null);
       setGpxName('');
     } catch (err) {
-      console.error('Failed to upload GPX:', err);
+      toast.error('Failed to upload GPX:', err);
     } finally {
       setUploadingGpx(false);
     }
@@ -378,7 +381,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to delete GPX:', err);
+      toast.error('Failed to delete GPX:', err);
     }
   };
 
@@ -401,7 +404,7 @@ const AdventureEdit = () => {
       setWaypointName('');
       setWaypointIcon('📍');
     } catch (err) {
-      console.error('Failed to add waypoint:', err);
+      toast.error('Failed to add waypoint:', err);
     }
   };
 
@@ -422,7 +425,7 @@ const AdventureEdit = () => {
       setWaypointName('');
       setWaypointIcon('📍');
     } catch (err) {
-      console.error('Failed to update waypoint:', err);
+      toast.error('Failed to update waypoint:', err);
     }
   };
 
@@ -437,7 +440,7 @@ const AdventureEdit = () => {
       });
       setEditingWaypoint(null);
     } catch (err) {
-      console.error('Failed to delete waypoint:', err);
+      toast.error('Failed to delete waypoint:', err);
     }
   };
 
@@ -458,7 +461,7 @@ const AdventureEdit = () => {
         })));
       }
     } catch (err) {
-      console.error('Failed to load Immich assets:', err);
+      toast.error('Failed to load Immich assets:', err);
     } finally {
       setLoadingAssets(false);
     }
@@ -479,7 +482,7 @@ const AdventureEdit = () => {
         setAlbumThumbnails(thumbRes.data.thumbnails || {});
       }
     } catch (err) {
-      console.error('Failed to load Immich albums:', err);
+      toast.error('Failed to load Immich albums:', err);
     }
   };
 
@@ -530,7 +533,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to add picture:', err);
+      toast.error('Failed to add picture:', err);
     }
   };
 
@@ -546,7 +549,7 @@ const AdventureEdit = () => {
         });
         setMapKey(mapKey + 1);
       } catch (err) {
-        console.error('Failed to remove picture:', err);
+        toast.error('Failed to remove picture:', err);
       }
     } else {
       addPicture(asset);
@@ -564,7 +567,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to delete picture:', err);
+      toast.error('Failed to delete picture:', err);
     }
   };
 
@@ -640,21 +643,7 @@ const AdventureEdit = () => {
 
       <div className="container">
         <div className="adventure-detail">
-          <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
-            <button 
-              className="fullscreen-btn" 
-              onClick={() => {
-                setMapFullscreen(!mapFullscreen);
-                setTimeout(() => {
-                  if (mapRef.current) {
-                    mapRef.current.invalidateSize();
-                  }
-                }, 100);
-              }}
-              title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              {mapFullscreen ? '⛶' : '⛶'}
-            </button>
+          <div className="adventure-map-container">
             <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
               Click on map to add waypoint
             </div>
@@ -663,8 +652,9 @@ const AdventureEdit = () => {
               key={mapKey}
               center={defaultCenter} 
               zoom={defaultZoom} 
-              style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+              style={{ height: '100%', width: '100%' }}
             >
+              <FullscreenControl position="topright" />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -685,16 +675,13 @@ const AdventureEdit = () => {
                 />
               ))}
 
-              {pictures.map((picture, index) => (
+              {pictures.map((picture) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
                     position={[picture.latitude, picture.longitude]}
                     icon={createCustomIcon('#FFD700', hoveredPictureId === picture.id ? 1.3 : 1)}
                     opacity={hoveredPictureId && hoveredPictureId !== picture.id ? 0.5 : 1}
-                    eventHandlers={{
-                      click: () => openPicture(picture, index)
-                    }}
                   >
                     <Popup>
                       {(picture.thumbnail_base64 || picture.thumbnail_url) && (
@@ -744,7 +731,7 @@ const AdventureEdit = () => {
           {newWaypoint && (
             <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="close-btn" onClick={() => setNewWaypoint(null)}>&times;</button>
+                <button onClick={() => setNewWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Add Waypoint</h3>
                 <form onSubmit={addWaypoint}>
                   <div className="form-group">
@@ -772,7 +759,7 @@ const AdventureEdit = () => {
                     </div>
                   </div>
                   <div className="modal-actions">
-                    <button type="button" className="btn" onClick={() => setNewWaypoint(null)}>Cancel</button>
+                    <button type="button" className="btn btn-outline" onClick={() => setNewWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Add Waypoint</button>
                   </div>
                 </form>
@@ -783,7 +770,7 @@ const AdventureEdit = () => {
           {editingWaypoint && (
             <div className="modal-overlay" onClick={() => setEditingWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="close-btn" onClick={() => setEditingWaypoint(null)}>&times;</button>
+                <button onClick={() => setEditingWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Edit Waypoint</h3>
                 <form onSubmit={updateWaypoint}>
                   <div className="form-group">
@@ -819,7 +806,7 @@ const AdventureEdit = () => {
                     >
                       Delete
                     </button>
-                    <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
+                    <button type="button" className="btn btn-outline" onClick={() => setEditingWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Save</button>
                   </div>
                 </form>
@@ -1093,7 +1080,6 @@ const AdventureEdit = () => {
                       key={picture.id} 
                       className="picture-thumb" 
                       style={{ position: 'relative', cursor: 'pointer', transform: hoveredPictureId === picture.id ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }}
-                      onClick={() => openPicture(picture, index)}
                       onMouseEnter={() => setHoveredPictureId(picture.id)}
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
@@ -1112,7 +1098,29 @@ const AdventureEdit = () => {
                         </div>
                       )}
                       <button
-                        onClick={() => deletePicture(picture.id)}
+                        onClick={() => openPicture(picture, index)}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px'
+                        }}
+                        title="View"
+                      >
+                        👁
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deletePicture(picture.id); }}
                         style={{
                           position: 'absolute',
                           top: '2px',
@@ -1128,6 +1136,7 @@ const AdventureEdit = () => {
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
+                        title="Delete"
                       >
                         ×
                       </button>
@@ -1445,7 +1454,7 @@ const AdventureEdit = () => {
                 />
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => setShowTagModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-outline" onClick={() => setShowTagModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingTag || !newTagName.trim()}>
                   {creatingTag ? 'Creating...' : 'Create Tag'}
                 </button>
