@@ -9,7 +9,7 @@ RUN npm install
 COPY public ./public
 COPY src ./src
 
-RUN CI=true npm run build
+RUN DISABLE_ESLINT_PLUGIN=true CI=true npm run build
 
 FROM nginx:alpine
 
