@@ -109,7 +109,10 @@ router.post('/users', authMiddleware, adminMiddleware, [
   }
 });
 
-router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/users/:id', authMiddleware, adminMiddleware, [
+  param('id').isUUID().withMessage('Invalid user ID'),
+  validate
+], async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -145,7 +148,11 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) =>
   }
 });
 
-router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, [
+  param('id').isUUID().withMessage('Invalid user ID'),
+  body('password').notEmpty().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  validate
+], async (req, res) => {
   try {
     const userId = req.params.id;
     const { newPassword } = req.body;
@@ -171,7 +178,10 @@ router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, async (
   }
 });
 
-router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, [
+  param('id').isUUID().withMessage('Invalid user ID'),
+  validate
+], async (req, res) => {
   try {
     const userId = req.params.id;
 

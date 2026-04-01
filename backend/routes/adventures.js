@@ -559,7 +559,10 @@ router.post('/tags', authMiddleware, [
   }
 });
 
-router.delete('/tags/:id', authMiddleware, async (req, res) => {
+router.delete('/tags/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid tag ID'),
+  validate
+], async (req, res) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
     
@@ -807,7 +810,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/:id/gpx', authMiddleware, async (req, res) => {
+router.post('/:id/gpx', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -846,7 +852,11 @@ router.post('/:id/gpx', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
+router.delete('/:id/gpx/:gpxId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('gpxId').isUUID().withMessage('Invalid GPX ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -887,7 +897,14 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/:id/pictures', authMiddleware, async (req, res) => {
+router.post('/:id/pictures', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('immich_asset_id').optional().trim(),
+  body('filename').optional().trim().isLength({ max: 255 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -917,7 +934,11 @@ router.post('/:id/pictures', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
+router.delete('/:id/pictures/:pictureId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('pictureId').isUUID().withMessage('Invalid picture ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -1022,7 +1043,11 @@ router.post('/:id/share', authMiddleware, [
   }
 });
 
-router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
+router.delete('/:id/share/:shareId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('shareId').isUUID().withMessage('Invalid share ID'),
+  validate
+], async (req, res) => {
   try {
     const adventure = await Adventure.findOne({
       where: { id: req.params.id, user_id: req.user.id }
@@ -1078,7 +1103,15 @@ router.post('/:id/waypoints', authMiddleware, [
   }
 });
 
-router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.put('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  body('name').optional().trim().isLength({ max: 100 }),
+  body('icon').optional().trim().isLength({ max: 10 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -1106,7 +1139,11 @@ router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.delete('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {

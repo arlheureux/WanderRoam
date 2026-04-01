@@ -1,7 +1,9 @@
 const express = require('express');
+const { body } = require('express-validator');
 const { User, Adventure } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -186,7 +188,11 @@ router.get('/assets', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/connect', authMiddleware, async (req, res) => {
+router.post('/connect', authMiddleware, [
+  body('immich_url').trim().isURL().withMessage('Invalid URL format'),
+  body('immich_api_key').trim().notEmpty().withMessage('API key is required'),
+  validate
+], async (req, res) => {
   try {
     const { immich_url, immich_api_key } = req.body;
 
