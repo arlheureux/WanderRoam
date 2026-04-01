@@ -4,6 +4,7 @@ const { body, param, query } = require('express-validator');
 const { User, Adventure, GpxTrack, Picture, AdventureShare, AuditLog } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
+const { handleError, logError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const logAudit = async (adminUserId, action, targetUserId, details, req) => {
       adminUserId
     });
   } catch (err) {
-    console.error('Failed to create audit log:', err);
+    logError(err, '[AuditLog]');
   }
 };
 
@@ -67,8 +68,7 @@ router.get('/users', authMiddleware, adminMiddleware, [
       }
     });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
+    return handleError(error, res, { operation: 'getUsers' });
   }
 });
 
@@ -105,8 +105,7 @@ router.post('/users', authMiddleware, adminMiddleware, [
       }
     });
   } catch (error) {
-    console.error('Create user error:', error);
-    res.status(500).json({ error: 'Failed to create user' });
+    return handleError(error, res, { operation: 'createUser' });
   }
 });
 
@@ -142,8 +141,7 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) =>
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    return handleError(error, res, { operation: 'deleteUser' });
   }
 });
 
@@ -169,8 +167,7 @@ router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, async (
 
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({ error: 'Failed to reset password' });
+    return handleError(error, res, { operation: 'resetPassword' });
   }
 });
 
@@ -201,8 +198,7 @@ router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, async (re
       }
     });
   } catch (error) {
-    console.error('Toggle admin error:', error);
-    res.status(500).json({ error: 'Failed to toggle admin status' });
+    return handleError(error, res, { operation: 'toggleAdmin' });
   }
 });
 

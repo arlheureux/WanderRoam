@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { GpxTrack } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -174,8 +175,7 @@ router.post('/upload', authMiddleware, upload.single('gpx'), async (req, res) =>
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload GPX error:', error);
-    res.status(500).json({ error: 'Failed to upload GPX' });
+    return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
 
@@ -189,8 +189,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     res.json({ gpxTrack });
   } catch (error) {
-    console.error('Get GPX error:', error);
-    res.status(500).json({ error: 'Failed to get GPX' });
+    return handleError(error, res, { operation: 'getGpx' });
   }
 });
 
@@ -227,8 +226,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     res.json({ gpxTrack });
   } catch (error) {
-    console.error('Update GPX error:', error);
-    res.status(500).json({ error: 'Failed to update GPX' });
+    return handleError(error, res, { operation: 'updateGpx' });
   }
 });
 
@@ -248,8 +246,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     res.json({ message: 'GPX track deleted' });
   } catch (error) {
-    console.error('Delete GPX error:', error);
-    res.status(500).json({ error: 'Failed to delete GPX' });
+    return handleError(error, res, { operation: 'deleteGpx' });
   }
 });
 
@@ -269,8 +266,7 @@ router.get('/:id/data', authMiddleware, async (req, res) => {
       data: gpxTrack.data
     });
   } catch (error) {
-    console.error('Get GPX data error:', error);
-    res.status(500).json({ error: 'Failed to get GPX data' });
+    return handleError(error, res, { operation: 'getGpxData' });
   }
 });
 

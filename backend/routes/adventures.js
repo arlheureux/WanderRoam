@@ -5,6 +5,7 @@ const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
+const { handleError, logger } = require('../middleware/errorHandler');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -311,8 +312,7 @@ router.get('/', authMiddleware, [
       adventures: adventuresWithStats
     });
   } catch (error) {
-    console.error('Get adventures error:', error.message);
-    res.status(500).json({ error: 'Failed to get adventures' });
+    return handleError(error, res, { operation: 'getAdventures' });
   }
 });
 
@@ -343,8 +343,7 @@ router.get('/users', authMiddleware, [
       }
     });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
+    return handleError(error, res, { operation: 'getUsers' });
   }
 });
 
@@ -437,8 +436,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       byTransport: transportStats
     });
   } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({ error: 'Failed to get stats' });
+    return handleError(error, res, { operation: 'getStats' });
   }
 });
 
@@ -513,8 +511,7 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
 
     res.json({ tracks });
   } catch (error) {
-    console.error('Get all GPX error:', error);
-    res.status(500).json({ error: 'Failed to get GPX tracks' });
+    return handleError(error, res, { operation: 'getAllGpx' });
   }
 });
 
@@ -531,8 +528,7 @@ router.get('/tags', authMiddleware, async (req, res) => {
     }));
     res.json({ tags: tagsWithCategory });
   } catch (error) {
-    console.error('Get tags error:', error);
-    res.status(500).json({ error: 'Failed to get tags' });
+    return handleError(error, res, { operation: 'getTags' });
   }
 });
 
@@ -559,8 +555,7 @@ router.post('/tags', authMiddleware, [
 
     res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.type } });
   } catch (error) {
-    console.error('Create tag error:', error);
-    res.status(500).json({ error: 'Failed to create tag' });
+    return handleError(error, res, { operation: 'createTag' });
   }
 });
 
@@ -576,8 +571,7 @@ router.delete('/tags/:id', authMiddleware, async (req, res) => {
     
     res.json({ message: 'Tag deleted successfully' });
   } catch (error) {
-    console.error('Delete tag error:', error);
-    res.status(500).json({ error: 'Failed to delete tag' });
+    return handleError(error, res, { operation: 'deleteTag' });
   }
 });
 
@@ -688,7 +682,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
                 thumbnails[assetId] = `data:${contentType};base64,${base64}`;
               }
             } catch (e) {
-              console.error(`Failed to fetch preview for ${assetId}:`, e);
+              logger.warn(`Failed to fetch preview for ${assetId}: ${e.message}`);
             }
           })
         );
@@ -720,8 +714,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     res.json({ adventure: adventureData });
   } catch (error) {
-    console.error('Get adventure error:', error);
-    res.status(500).json({ error: 'Failed to get adventure' });
+    return handleError(error, res, { operation: 'getAdventure' });
   }
 });
 
@@ -749,8 +742,7 @@ router.post('/', authMiddleware, [
 
     res.status(201).json({ adventure });
   } catch (error) {
-    console.error('Create adventure error:', error);
-    res.status(500).json({ error: 'Failed to create adventure' });
+    return handleError(error, res, { operation: 'createAdventure' });
   }
 });
 
@@ -790,8 +782,7 @@ router.put('/:id', authMiddleware, [
 
     res.json({ adventure });
   } catch (error) {
-    console.error('Update adventure error:', error);
-    res.status(500).json({ error: 'Failed to update adventure' });
+    return handleError(error, res, { operation: 'updateAdventure' });
   }
 });
 
@@ -812,8 +803,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Adventure deleted' });
   } catch (error) {
-    console.error('Delete adventure error:', error);
-    res.status(500).json({ error: 'Failed to delete adventure' });
+    return handleError(error, res, { operation: 'deleteAdventure' });
   }
 });
 
@@ -852,8 +842,7 @@ router.post('/:id/gpx', authMiddleware, async (req, res) => {
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload GPX error:', error);
-    res.status(500).json({ error: 'Failed to upload GPX' });
+    return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
 
@@ -886,7 +875,7 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
           fs.unlinkSync(gpxTrack.file_path);
         }
       } catch (err) {
-        console.error('Failed to delete GPX file:', err);
+        logger.warn(`Failed to delete GPX file: ${err.message}`);
       }
     }
 
@@ -894,8 +883,7 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'GPX track deleted' });
   } catch (error) {
-    console.error('Delete GPX error:', error);
-    res.status(500).json({ error: 'Failed to delete GPX' });
+    return handleError(error, res, { operation: 'deleteGpx' });
   }
 });
 
@@ -925,8 +913,7 @@ router.post('/:id/pictures', authMiddleware, async (req, res) => {
 
     res.status(201).json({ picture });
   } catch (error) {
-    console.error('Add picture error:', error);
-    res.status(500).json({ error: 'Failed to add picture' });
+    return handleError(error, res, { operation: 'addPicture' });
   }
 });
 
@@ -957,8 +944,7 @@ router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Picture deleted' });
   } catch (error) {
-    console.error('Delete picture error:', error);
-    res.status(500).json({ error: 'Failed to delete picture' });
+    return handleError(error, res, { operation: 'deletePicture' });
   }
 });
 
@@ -984,8 +970,7 @@ router.get('/:id/share', authMiddleware, async (req, res) => {
       permission: s.permission
     })) });
   } catch (error) {
-    console.error('Get shares error:', error);
-    res.status(500).json({ error: 'Failed to get shares' });
+    return handleError(error, res, { operation: 'getShares' });
   }
 });
 
@@ -1033,8 +1018,7 @@ router.post('/:id/share', authMiddleware, [
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Share adventure error:', error);
-    res.status(500).json({ error: 'Failed to share adventure' });
+    return handleError(error, res, { operation: 'shareAdventure' });
   }
 });
 
@@ -1060,8 +1044,7 @@ router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Remove share error:', error);
-    res.status(500).json({ error: 'Failed to remove share' });
+    return handleError(error, res, { operation: 'removeShare' });
   }
 });
 
@@ -1091,8 +1074,7 @@ router.post('/:id/waypoints', authMiddleware, [
 
     res.status(201).json({ waypoint });
   } catch (error) {
-    console.error('Create waypoint error:', error);
-    res.status(500).json({ error: 'Failed to create waypoint' });
+    return handleError(error, res, { operation: 'createWaypoint' });
   }
 });
 
@@ -1120,8 +1102,7 @@ router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
 
     res.json({ waypoint });
   } catch (error) {
-    console.error('Update waypoint error:', error);
-    res.status(500).json({ error: 'Failed to update waypoint' });
+    return handleError(error, res, { operation: 'updateWaypoint' });
   }
 });
 
@@ -1144,8 +1125,7 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
 
     res.json({ message: 'Waypoint deleted successfully' });
   } catch (error) {
-    console.error('Delete waypoint error:', error);
-    res.status(500).json({ error: 'Failed to delete waypoint' });
+    return handleError(error, res, { operation: 'deleteWaypoint' });
   }
 });
 
@@ -1176,8 +1156,7 @@ router.put('/:id/tags', authMiddleware, [
     const updatedTags = await adventure.getTags();
     res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })) });
   } catch (error) {
-    console.error('Update tags error:', error);
-    res.status(500).json({ error: 'Failed to update tags' });
+    return handleError(error, res, { operation: 'updateTags' });
   }
 });
 

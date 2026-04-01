@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const { User } = require('../models');
 const { generateToken, authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
+const { handleError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -87,8 +88,7 @@ router.post('/register', [
       user: { id: user.id, username: user.username, isAdmin: user.isAdmin }
     });
   } catch (error) {
-    console.error('Register error:', error.message);
-    res.status(500).json({ error: 'Failed to register' });
+    return handleError(error, res, { operation: 'register' });
   }
 });
 
@@ -141,8 +141,7 @@ router.post('/login', [
       token
     });
   } catch (error) {
-    console.error('Login error:', error.message);
-    res.status(500).json({ error: 'Failed to login' });
+    return handleError(error, res, { operation: 'login' });
   }
 });
 
@@ -158,8 +157,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
     res.json({ user });
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to get user' });
+    return handleError(error, res, { operation: 'getUser' });
   }
 });
 
@@ -192,8 +190,7 @@ router.put('/settings', authMiddleware, [
       }
     });
   } catch (error) {
-    console.error('Update settings error:', error);
-    res.status(500).json({ error: 'Failed to update settings' });
+    return handleError(error, res, { operation: 'updateSettings' });
   }
 });
 

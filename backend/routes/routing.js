@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { authMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -119,16 +120,7 @@ router.post('/route', authMiddleware, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Routing error:', error.message);
-    
-    if (error.code === 'ECONNREFUSED') {
-      return res.status(503).json({ error: 'Routing service unavailable' });
-    }
-    if (error.response) {
-      return res.status(error.response.status).json({ error: error.response.data });
-    }
-    
-    res.status(500).json({ error: error.message || 'Failed to calculate route' });
+    return handleError(error, res, { operation: 'calculateRoute' });
   }
 });
 
