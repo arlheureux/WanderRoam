@@ -69,7 +69,7 @@ const uploadLimiter = rateLimit({
 
 const adventureLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 20,
+  max: 200,
   message: { error: 'Too many adventure requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
