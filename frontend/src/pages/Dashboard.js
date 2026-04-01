@@ -122,8 +122,10 @@ const Dashboard = () => {
       const tagsParam = selectedTags.length > 0 ? `&tags=${selectedTags.join(',')}` : '';
       const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}${tagsParam}`);
       setAdventures(res.data.adventures);
+      setLoading(false);
     } catch (err) {
       toast.error('Failed to load adventures');
+      setLoading(false);
     }
   };
 
