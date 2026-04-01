@@ -207,6 +207,24 @@ const AdventureView = () => {
         yPos += 8;
       }
 
+      const mapElement = document.querySelector('.adventure-map-card .leaflet-container');
+      if (mapElement) {
+        try {
+          const canvas = await html2canvas(mapElement, { 
+            useCORS: true,
+            scale: 2,
+            logging: false
+          });
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = pageWidth - margin * 2;
+          const imgHeight = (canvas.height / canvas.width) * imgWidth;
+          pdf.addImage(imgData, 'PNG', margin, yPos, imgWidth, Math.min(imgHeight, 80));
+          yPos += Math.min(imgHeight, 80) + 10;
+        } catch (mapErr) {
+          console.error('Failed to capture map:', mapErr);
+        }
+      }
+
       const statsText = [];
       if (totalDistance > 0) statsText.push(`Distance: ${(totalDistance / 1000).toFixed(2)} km`);
       if (totalElevation > 0) statsText.push(`Elevation: ${totalElevation.toFixed(0)} m`);
