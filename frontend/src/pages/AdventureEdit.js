@@ -233,7 +233,237 @@ const AdventureEdit = () => {
       const res = await api.get('/adventures/users');
       setUsers(res.data.users || []);
     } catch (err) {
-      toast.error('Failed to load Immich assets');
+      toast.error('Failed to load users');
+    }
+  };
+
+  const handleOpenShareModal = async () => {
+    await loadShares();
+    await loadUsers();
+    setShowShareModal(true);
+  };
+
+  const handleShare = async () => {
+    if (!shareUsername) return;
+    try {
+      await api.post(`/adventures/${id}/share`, {
+        username: shareUsername,
+        permission: sharePermission
+      });
+      setShareUsername('');
+      await loadShares();
+    } catch (err) {
+      toast.error('Failed to share adventure');
+      alert(err.message || 'Failed to share adventure');
+    }
+  };
+
+  const handleRemoveShare = async (shareId) => {
+    if (!window.confirm('Remove access for this user?')) return;
+    try {
+      await api.delete(`/adventures/${id}/share/${shareId}`);
+      await loadShares();
+    } catch (err) {
+      toast.error('Failed to remove share:', err);
+    }
+  };
+
+  const updateAdventure = async (updates) => {
+    setSaving(true);
+    try {
+      const res = await api.put(`/adventures/${id}`, updates);
+      setAdventure({ ...adventure, ...res.data.adventure });
+    } catch (err) {
+      toast.error('Failed to update adventure:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveTags = async (tagIds) => {
+    setSaving(true);
+    try {
+      const res = await api.updateAdventureTags(id, tagIds);
+      setSelectedTags(res.data.tags || []);
+      setAdventure({ ...adventure, tags: res.data.tags || [] });
+    } catch (err) {
+      toast.error('Failed to save tags:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTag = (tagId) => {
+    const newSelected = selectedTags.some(t => t.id === tagId)
+      ? selectedTags.filter(t => t.id !== tagId)
+      : [...selectedTags, allTags.find(t => t.id === tagId)];
+    setSelectedTags(newSelected);
+    saveTags(newSelected.map(t => t.id));
+  };
+
+  const handleDeleteTag = async (tagId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Delete this tag from all adventures?')) return;
+    
+    try {
+      await api.deleteTag(tagId);
+      setAllTags(allTags.filter(t => t.id !== tagId));
+      setSelectedTags(selectedTags.filter(t => t.id !== tagId));
+      await saveTags(selectedTags.filter(t => t.id !== tagId).map(t => t.id));
+    } catch (err) {
+      toast.error('Failed to delete tag:', err);
+      alert(err.response?.data?.error || 'Failed to delete tag');
+    }
+  };
+
+  const handleCreateTag = async (e) => {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    
+    setCreatingTag(true);
+    try {
+      const res = await api.createTag(newTagName.trim(), newTagCategory.trim() || 'Custom');
+      const newTag = res.data.tag;
+      setAllTags([...allTags, newTag].sort((a, b) => {
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
+        return a.name.localeCompare(b.name);
+      }));
+      setSelectedTags([...selectedTags, newTag]);
+      await saveTags([...selectedTags.map(t => t.id), newTag.id]);
+      setShowTagModal(false);
+      setNewTagName('');
+      setNewTagCategory('');
+    } catch (err) {
+      toast.error('Failed to create tag:', err);
+      alert(err.response?.data?.error || 'Failed to create tag');
+    } finally {
+      setCreatingTag(false);
+    }
+  };
+
+  const handleGpxUpload = async (e) => {
+    e.preventDefault();
+    if (!gpxFile) return;
+
+    setUploadingGpx(true);
+    try {
+      const formData = new FormData();
+      formData.append('gpx', gpxFile);
+      formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
+      formData.append('type', gpxType);
+      formData.append('adventure_id', id);
+
+      const res = await api.post('/gpx/upload', formData, true);
+      
+      setAdventure({
+        ...adventure,
+        GpxTracks: [...(adventure.GpxTracks || []), res.data.gpxTrack]
+      });
+      setMapKey(mapKey + 1);
+      
+      setGpxFile(null);
+      setGpxName('');
+    } catch (err) {
+      toast.error('Failed to upload GPX:', err);
+    } finally {
+      setUploadingGpx(false);
+    }
+  };
+
+  const deleteGpx = async (gpxId) => {
+    if (!window.confirm('Delete this GPX track?')) return;
+    
+    try {
+      await api.delete(`/adventures/${id}/gpx/${gpxId}`);
+      setAdventure({
+        ...adventure,
+        GpxTracks: adventure.GpxTracks.filter(t => t.id !== gpxId)
+      });
+      setMapKey(mapKey + 1);
+    } catch (err) {
+      toast.error('Failed to delete GPX:', err);
+    }
+  };
+
+  const addWaypoint = async (e) => {
+    e.preventDefault();
+    if (!newWaypoint) return;
+    
+    try {
+      const res = await api.post(`/adventures/${id}/waypoints`, {
+        name: waypointName,
+        icon: waypointIcon,
+        latitude: newWaypoint.lat,
+        longitude: newWaypoint.lng
+      });
+      setAdventure({
+        ...adventure,
+        Waypoints: [...(adventure.Waypoints || []), res.data.waypoint]
+      });
+      setNewWaypoint(null);
+      setWaypointName('');
+      setWaypointIcon('📍');
+    } catch (err) {
+      toast.error('Failed to add waypoint:', err);
+    }
+  };
+
+  const updateWaypoint = async (e) => {
+    e.preventDefault();
+    if (!editingWaypoint) return;
+    
+    try {
+      const res = await api.put(`/adventures/${id}/waypoints/${editingWaypoint.id}`, {
+        name: waypointName,
+        icon: waypointIcon
+      });
+      setAdventure({
+        ...adventure,
+        Waypoints: adventure.Waypoints.map(w => w.id === editingWaypoint.id ? res.data.waypoint : w)
+      });
+      setEditingWaypoint(null);
+      setWaypointName('');
+      setWaypointIcon('📍');
+    } catch (err) {
+      toast.error('Failed to update waypoint:', err);
+    }
+  };
+
+  const deleteWaypoint = async (waypointId) => {
+    if (!window.confirm('Delete this waypoint?')) return;
+    
+    try {
+      await api.delete(`/adventures/${id}/waypoints/${waypointId}`);
+      setAdventure({
+        ...adventure,
+        Waypoints: adventure.Waypoints.filter(w => w.id !== waypointId)
+      });
+      setEditingWaypoint(null);
+    } catch (err) {
+      toast.error('Failed to delete waypoint:', err);
+    }
+  };
+
+  const loadImmichAssets = async (albumId = null) => {
+    setLoadingAssets(true);
+    try {
+      const url = albumId ? `/immich/assets?albumId=${albumId}` : '/immich/assets';
+      const res = await api.get(url);
+      const assets = res.data.assets || [];
+      setImmichAssets(assets);
+      
+      if (assets.length > 0) {
+        const thumbRes = await api.get(`/immich/thumbnails?ids=${assets.map(a => a.id).join(',')}`);
+        setImmichAssets(assets.map(a => ({
+          ...a,
+          originalThumbnailUrl: `/api/immich/thumbnail/${a.id}?size=preview`,
+          thumbnailUrl: thumbRes.data.thumbnails[a.id] || `/api/immich/thumbnail/${a.id}?size=preview`
+        })));
+      }
+    } catch (err) {
+      toast.error('Failed to load Immich assets:', err);
+    } finally {
+      setLoadingAssets(false);
     }
   };
 
@@ -252,7 +482,7 @@ const AdventureEdit = () => {
         setAlbumThumbnails(thumbRes.data.thumbnails || {});
       }
     } catch (err) {
-      toast.error('Failed to load Immich albums');
+      toast.error('Failed to load Immich albums:', err);
     }
   };
 
@@ -303,7 +533,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      toast.error('Failed to add picture');
+      toast.error('Failed to add picture:', err);
     }
   };
 
@@ -319,7 +549,7 @@ const AdventureEdit = () => {
         });
         setMapKey(mapKey + 1);
       } catch (err) {
-        toast.error('Failed to remove picture');
+        toast.error('Failed to remove picture:', err);
       }
     } else {
       addPicture(asset);
@@ -337,7 +567,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      toast.error('Failed to delete picture');
+      toast.error('Failed to delete picture:', err);
     }
   };
 
