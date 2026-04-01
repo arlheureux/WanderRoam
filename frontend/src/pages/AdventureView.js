@@ -178,6 +178,11 @@ const AdventureView = () => {
     try {
       toast.loading('Generating PDF...', { id: 'pdf' });
       
+      const gpxTracks = adventure.GpxTracks || [];
+      const totalDistance = gpxTracks.reduce((sum, t) => sum + (t.distance || 0), 0);
+      const totalElevation = gpxTracks.reduce((sum, t) => sum + (t.elevation_gain || 0), 0);
+      const totalDuration = gpxTracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+      
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const margin = 15;
