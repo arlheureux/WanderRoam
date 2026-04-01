@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
 import 'react-leaflet-fullscreen/styles.css';
@@ -10,15 +12,15 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
+  walking: '#DC2626',
+  hiking: '#EA580C',
+  cycling: '#65A30D',
+  bus: '#2563EB',
+  metro: '#DB2777',
+  train: '#0891B2',
+  boat: '#4F46E5',
+  car: '#52525B',
+  other: '#0D9488'
 };
 
 const fixLeafletIcons = () => {
@@ -172,6 +174,142 @@ const AdventureView = () => {
     }
   };
 
+  const exportToPdf = async () => {
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf' });
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPos = margin;
+
+      pdf.setFontSize(20);
+      pdf.setTextColor(16, 185, 129);
+      pdf.text(adventure.name, margin, yPos);
+      yPos += 10;
+
+      if (adventure.adventure_date) {
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(new Date(adventure.adventure_date).toLocaleDateString(), margin, yPos);
+        yPos += 10;
+      }
+
+      if (adventure.location) {
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text(`Location: ${adventure.location}`, margin, yPos);
+        yPos += 8;
+      }
+
+      const statsText = [];
+      if (totalDistance > 0) statsText.push(`Distance: ${(totalDistance / 1000).toFixed(2)} km`);
+      if (totalElevation > 0) statsText.push(`Elevation: ${totalElevation.toFixed(0)} m`);
+      if (totalDuration > 0) {
+        const hours = Math.floor(totalDuration / 3600);
+        const mins = Math.floor((totalDuration % 3600) / 60);
+        statsText.push(`Duration: ${hours}h ${mins}m`);
+      }
+      
+      if (statsText.length > 0) {
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text(statsText.join(' • '), margin, yPos);
+        yPos += 10;
+      }
+
+      if (adventure.description) {
+        pdf.setFontSize(10);
+        pdf.setTextColor(71, 85, 105);
+        const descLines = pdf.splitTextToSize(adventure.description, pageWidth - margin * 2);
+        pdf.text(descLines.slice(0, 5), margin, yPos);
+        yPos += Math.min(descLines.length, 5) * 5 + 10;
+      }
+
+      if (pictures.length > 0) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 185, 129);
+        pdf.text('Pictures', margin, yPos);
+        yPos += 8;
+
+        const imgWidth = 40;
+        const imgHeight = 30;
+        const gap = 5;
+        const cols = 4;
+        
+        for (let i = 0; i < Math.min(pictures.length, 8); i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = margin + col * (imgWidth + gap);
+          const y = yPos + row * (imgHeight + gap);
+          
+          const imgSrc = pictures[i].thumbnail_base64 || pictures[i].thumbnail_url;
+          if (imgSrc) {
+            try {
+              if (imgSrc.startsWith('data:')) {
+                pdf.addImage(imgSrc, 'JPEG', x, y, imgWidth, imgHeight);
+              } else {
+                const response = await fetch(imgSrc);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  pdf.addImage(reader.result, 'JPEG', x, y, imgWidth, imgHeight);
+                };
+                reader.readAsDataURL(blob);
+              }
+            } catch (e) {
+              console.error('Failed to load image:', e);
+            }
+          }
+        }
+        yPos += Math.ceil(Math.min(pictures.length, 8) / cols) * (imgHeight + gap) + 15;
+      }
+
+      if (gpxTracks.length > 0) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 185, 129);
+        pdf.text('Tracks', margin, yPos);
+        yPos += 8;
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(15, 23, 42);
+        
+        gpxTracks.forEach((track, idx) => {
+          const trackDist = track.data ? (track.data.length > 0 ? calculateTrackDistance(track.data) : 0) : 0;
+          const trackType = track.type || 'other';
+          const trackColor = TYPE_COLORS[trackType] || '#9B59B6';
+          
+          pdf.setFillColor(trackColor);
+          pdf.circle(margin + 2, yPos - 1, 2, 'F');
+          pdf.text(`${track.name || `Track ${idx + 1}`} - ${trackType} (${(trackDist / 1000).toFixed(2)} km)`, margin + 8, yPos);
+          yPos += 6;
+        });
+      }
+
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('Generated by WanderRoam', margin, 285);
+
+      pdf.save(`${adventure.name.replace(/[^a-z0-9]/gi, '_')}_adventure.pdf`);
+      toast.success('PDF exported!', { id: 'pdf' });
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to export PDF', { id: 'pdf' });
+    }
+  };
+
+  const calculateTrackDistance = (points) => {
+    let dist = 0;
+    for (let i = 1; i < points.length; i++) {
+      const d = Math.sqrt(
+        Math.pow(points[i].lat - points[i-1].lat, 2) + 
+        Math.pow(points[i].lng - points[i-1].lng, 2)
+      );
+      dist += d * 111000;
+    }
+    return dist;
+  };
+
   const openPicture = (picture, index) => {
     setPictureIndex(index);
     setViewingPicture(picture);
@@ -212,6 +350,7 @@ const AdventureView = () => {
         </div>
         <h1 style={{ flex: 1, textAlign: 'center', margin: 0 }}>{adventure.name}</h1>
         <div className="header-actions">
+          <button onClick={exportToPdf} className="btn btn-outline btn-sm">Export PDF</button>
           <Link to={`/adventure/${id}/edit`} className="btn btn-outline btn-sm">Edit</Link>
           <button onClick={deleteAdventure} className="btn btn-danger btn-sm">Delete</button>
         </div>

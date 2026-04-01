@@ -24,6 +24,7 @@
   --background: #F8FAFC;
   --surface: #FFFFFF;
   --surface-elevated: #F1F5F9;
+  --card: #FFFFFF;
   --border: #E2E8F0;
   --border-light: #F1F5F9;
   --divider: #CBD5E1;
@@ -33,11 +34,17 @@
   --text-light: #64748B;
   
   /* GPX Colors */
-  --gpx-hiking: #EF4444;
-  --gpx-cycling: #06B6D4;
+  --gpx-walking: #DC2626;
+  --gpx-hiking: #EA580C;
+  --gpx-cycling: #65A30D;
+  --gpx-bus: #2563EB;
+  --gpx-metro: #DB2777;
+  --gpx-train: #0891B2;
+  --gpx-boat: #4F46E5;
+  --gpx-car: #52525B;
+  --gpx-other: #0D9488;
   --gpx-running: #8B5CF6;
   --gpx-climbing: #22C55E;
-  --gpx-other: #F59E0B;
   
   /* Spacing */
   --space-1: 0.25rem;
@@ -235,24 +242,65 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
   padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 70% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+  animation: authGlow 20s ease-in-out infinite;
+}
+
+@keyframes authGlow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-5%, -5%); }
 }
 
 .auth-card {
-  background: var(--card);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
   padding: var(--space-12);
   border-radius: var(--radius-2xl);
   width: 100%;
   max-width: 28rem;
-  box-shadow: var(--shadow-xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-6);
+}
+
+.auth-logo svg {
+  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3));
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--text-light);
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-8);
+  font-size: 0.9375rem;
 }
 
 .auth-card h2 {
   text-align: center;
-  margin-bottom: var(--space-8);
-  color: var(--accent);
-  font-size: 1.5rem;
+  margin-bottom: var(--space-2);
+  color: var(--text);
+  font-size: 1.75rem;
   font-weight: var(--font-bold);
 }
 
