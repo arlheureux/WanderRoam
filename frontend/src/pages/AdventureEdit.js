@@ -731,7 +731,7 @@ const AdventureEdit = () => {
           {newWaypoint && (
             <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="close-btn" onClick={() => setNewWaypoint(null)}>&times;</button>
+                <button onClick={() => setNewWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Add Waypoint</h3>
                 <form onSubmit={addWaypoint}>
                   <div className="form-group">
@@ -759,7 +759,7 @@ const AdventureEdit = () => {
                     </div>
                   </div>
                   <div className="modal-actions">
-                    <button type="button" className="btn" onClick={() => setNewWaypoint(null)}>Cancel</button>
+                    <button type="button" className="btn btn-outline" onClick={() => setNewWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Add Waypoint</button>
                   </div>
                 </form>
@@ -770,7 +770,7 @@ const AdventureEdit = () => {
           {editingWaypoint && (
             <div className="modal-overlay" onClick={() => setEditingWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="close-btn" onClick={() => setEditingWaypoint(null)}>&times;</button>
+                <button onClick={() => setEditingWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Edit Waypoint</h3>
                 <form onSubmit={updateWaypoint}>
                   <div className="form-group">
@@ -806,7 +806,7 @@ const AdventureEdit = () => {
                     >
                       Delete
                     </button>
-                    <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
+                    <button type="button" className="btn btn-outline" onClick={() => setEditingWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Save</button>
                   </div>
                 </form>
@@ -1454,7 +1454,7 @@ const AdventureEdit = () => {
                 />
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => setShowTagModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-outline" onClick={() => setShowTagModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingTag || !newTagName.trim()}>
                   {creatingTag ? 'Creating...' : 'Create Tag'}
                 </button>
