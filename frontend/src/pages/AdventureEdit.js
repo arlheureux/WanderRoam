@@ -1079,7 +1079,6 @@ const AdventureEdit = () => {
                       key={picture.id} 
                       className="picture-thumb" 
                       style={{ position: 'relative', cursor: 'pointer', transform: hoveredPictureId === picture.id ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }}
-                      onClick={() => openPicture(picture, index)}
                       onMouseEnter={() => setHoveredPictureId(picture.id)}
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
@@ -1098,7 +1097,29 @@ const AdventureEdit = () => {
                         </div>
                       )}
                       <button
-                        onClick={() => deletePicture(picture.id)}
+                        onClick={() => openPicture(picture, index)}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px'
+                        }}
+                        title="View"
+                      >
+                        👁
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deletePicture(picture.id); }}
                         style={{
                           position: 'absolute',
                           top: '2px',
@@ -1114,6 +1135,7 @@ const AdventureEdit = () => {
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
+                        title="Delete"
                       >
                         ×
                       </button>
