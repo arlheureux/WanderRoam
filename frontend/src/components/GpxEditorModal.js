@@ -5,15 +5,15 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
+  walking: '#DC2626',
+  hiking: '#EA580C',
+  cycling: '#65A30D',
+  bus: '#2563EB',
+  metro: '#DB2777',
+  train: '#0891B2',
+  boat: '#4F46E5',
+  car: '#52525B',
+  other: '#0D9488'
 };
 
 const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'];

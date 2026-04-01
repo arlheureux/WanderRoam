@@ -15,12 +15,12 @@ const ROUTING_PROFILES = {
 };
 
 const TYPE_COLORS = {
-  car: '#FC5C65',
-  bike: '#4ECDC4',
-  foot: '#FF9F43',
-  boat: '#2D98DA',
-  train: '#45B7D1',
-  metro: '#A55EEA'
+  car: '#52525B',
+  bike: '#65A30D',
+  foot: '#EA580C',
+  boat: '#4F46E5',
+  train: '#0891B2',
+  metro: '#DB2777'
 };
 
 function calculateDistance(points) {
