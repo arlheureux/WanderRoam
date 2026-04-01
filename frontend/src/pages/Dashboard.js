@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import toast from 'react-hot-toast';
 import { useAuth } from '../services/AuthContext';
 import api from '../services/api';
 
@@ -112,7 +113,7 @@ const Dashboard = () => {
       const res = await api.getTags();
       setAllTags(res.data.tags || []);
     } catch (err) {
-      console.error('Failed to load tags:', err);
+      toast.error('Failed to load tags');
     }
   };
 
@@ -122,9 +123,7 @@ const Dashboard = () => {
       const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}${tagsParam}`);
       setAdventures(res.data.adventures);
     } catch (err) {
-      console.error('Failed to load adventures:', err);
-    } finally {
-      setLoading(false);
+      toast.error('Failed to load adventures');
     }
   };
 
@@ -136,26 +135,26 @@ const Dashboard = () => {
       const adventures = {};
       res.data.tracks.forEach(t => {
         adventures[t.adventureId] = true;
-      });
-      setVisibleAdventures(adventures);
-    } catch (err) {
-      console.error('Failed to load tracks:', err);
-    }
-  };
+    });
+    setVisibleAdventures(adventures);
+  } catch (err) {
+    toast.error('Failed to load tracks');
+  }
+};
 
-  const createAdventure = async (e) => {
-    e.preventDefault();
-    setCreating(true);
+const createAdventure = async (e) => {
+  e.preventDefault();
+  setCreating(true);
 
-    try {
-      const res = await api.post('/adventures', newAdventure);
-      navigate(`/adventure/${res.data.adventure.id}/edit`);
-    } catch (err) {
-      console.error('Failed to create adventure:', err);
-    } finally {
-      setCreating(false);
-      setShowModal(false);
-    }
+  try {
+    const res = await api.post('/adventures', newAdventure);
+    navigate(`/adventure/${res.data.adventure.id}/edit`);
+  } catch (err) {
+    toast.error('Failed to create adventure');
+  } finally {
+    setCreating(false);
+    setShowModal(false);
+  }
   };
 
   const toggleAdventure = (adventureId) => {

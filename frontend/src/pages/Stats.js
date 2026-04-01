@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
@@ -29,7 +30,7 @@ const Stats = () => {
       const res = await api.get(`/adventures/stats?view=${view}`);
       setStats(res.data);
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      toast.error('Failed to load stats');
     } finally {
       setLoading(false);
     }
