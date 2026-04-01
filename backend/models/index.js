@@ -246,6 +246,22 @@ AdventureShare.belongsTo(Adventure, { foreignKey: 'AdventureId', as: 'Adventure'
 User.hasMany(AuditLog, { foreignKey: 'adminUserId' });
 AuditLog.belongsTo(User, { foreignKey: 'adminUserId', as: 'admin' });
 
+Adventure.addIndex('user_id');
+Adventure.addIndex('adventure_date');
+Adventure.addIndex('created_at');
+
+GpxTrack.addIndex('adventure_id');
+GpxTrack.addIndex('type');
+
+Picture.addIndex('adventure_id');
+
+Waypoint.addIndex('adventure_id');
+
+AdventureShare.addIndex('AdventureId');
+AdventureShare.addIndex('UserId');
+
+Tag.addIndex('name', { unique: true });
+
 module.exports = {
   sequelize,
   User,
