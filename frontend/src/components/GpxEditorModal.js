@@ -438,12 +438,12 @@ const GpxEditorModal = ({
             <div className="waypoints-info">
               <span>{routingWaypoints.length} waypoint{routingWaypoints.length !== 1 ? 's' : ''}</span>
               {routingWaypoints.length > 2 && (
-                <button type="button" className="btn-link" onClick={handleReverse}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                   Reverse
                 </button>
               )}
               {routingWaypoints.length > 0 && (
-                <button type="button" className="btn-link" onClick={handleClearAll}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                   Clear All
                 </button>
               )}
@@ -510,12 +510,12 @@ const GpxEditorModal = ({
           <div className="points-info">
             {points.length} point{points.length !== 1 ? 's' : ''}
             {points.length > 1 && (
-              <button type="button" className="btn-link" onClick={handleReverse}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                 Reverse
               </button>
             )}
             {points.length > 0 && activeTab !== 'route' && (
-              <button type="button" className="btn-link" onClick={handleClearAll}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                 Clear All
               </button>
             )}

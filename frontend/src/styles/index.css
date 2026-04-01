@@ -782,16 +782,9 @@ body {
 }
 
 .btn-link {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
+  composes: btn-outline;
   font-size: 0.875rem;
-  padding: 0;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
+  padding: 6px 12px;
 }
 
 .import-section {
