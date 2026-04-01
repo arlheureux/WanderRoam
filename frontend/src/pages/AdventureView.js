@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
 import 'react-leaflet-fullscreen/styles.css';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
@@ -153,7 +154,7 @@ const AdventureView = () => {
       const res = await api.get(`/adventures/${id}`);
       setAdventure(res.data.adventure);
     } catch (err) {
-      console.error('Failed to load adventure:', err);
+      toast.error('Failed to load adventure');
       navigate('/');
     } finally {
       setLoading(false);
@@ -167,7 +168,7 @@ const AdventureView = () => {
       await api.delete(`/adventures/${id}`);
       navigate('/');
     } catch (err) {
-      console.error('Failed to delete adventure:', err);
+      toast.error('Failed to delete adventure');
     }
   };
 
