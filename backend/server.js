@@ -59,6 +59,22 @@ const globalLimiter = rateLimit({
 
 app.use('/api/', globalLimiter);
 
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many uploads, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const adventureLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Too many adventure requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use((req, res, next) => {
   if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
     next();
@@ -100,8 +116,8 @@ const upload = multer({
 app.use('/uploads', express.static(uploadDir));
 
 app.use('/api/auth', sanitizeInput, authRoutes);
-app.use('/api/adventures', sanitizeInput, adventuresRoutes);
-app.use('/api/gpx', sanitizeInput, gpxRoutes);
+app.use('/api/adventures', sanitizeInput, adventureLimiter, adventuresRoutes);
+app.use('/api/gpx', sanitizeInput, uploadLimiter, gpxRoutes);
 app.use('/api/routing', sanitizeInput, routingRoutes);
 app.use('/api/immich', sanitizeInput, immichRoutes);
 app.use('/api/admin', sanitizeInput, adminRoutes);
