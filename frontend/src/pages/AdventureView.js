@@ -127,6 +127,13 @@ const AdventureView = () => {
   const navigate = useNavigate();
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
+  const handleTrackClick = (track) => {
+    if (selectedTrack && selectedTrack.id === track.id) {
+      setSelectedTrack(null);
+    } else {
+      setSelectedTrack(track);
+    }
+  };
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [viewingPicture, setViewingPicture] = useState(null);
@@ -438,9 +445,11 @@ const AdventureView = () => {
                   className="gpx-item"
                   style={{ 
                     borderLeftColor: track.color || TYPE_COLORS[track.type],
-                    background: hoveredTrackId === track.id ? 'var(--background)' : 'transparent'
+                    background: hoveredTrackId === track.id ? 'var(--background)' : 'transparent',
+                    boxShadow: selectedTrack && selectedTrack.id === track.id ? '0 0 0 2px var(--primary)' : 'none',
+                    cursor: 'pointer'
                   }}
-                  onClick={() => setSelectedTrack(track)}
+                  onClick={() => handleTrackClick(track)}
                   onMouseEnter={() => setHoveredTrackId(track.id)}
                   onMouseLeave={() => setHoveredTrackId(null)}
                 >
@@ -491,10 +500,12 @@ const AdventureView = () => {
                   pathOptions={{ 
                     color: track.color || TYPE_COLORS[track.type] || TYPE_COLORS.other,
                     weight: 5,
-                    opacity: (selectedTrack && selectedTrack.id !== track.id) || (hoveredTrackId && hoveredTrackId !== track.id) ? 0.4 : 1
+                    opacity: selectedTrack 
+                      ? (selectedTrack.id === track.id ? 1 : 0.3)
+                      : (hoveredTrackId && hoveredTrackId !== track.id ? 0.4 : 1)
                   }}
                   eventHandlers={{
-                    click: () => setSelectedTrack(track)
+                    click: () => handleTrackClick(track)
                   }}
                 />
               ))}
