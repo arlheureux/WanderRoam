@@ -1009,22 +1009,13 @@ const AdventureEdit = () => {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); navigate(`/gpx/${track.id}`); }}
-                          className="btn btn-outline btn-sm"
-                          title="View on map"
-                        >
-                          👁
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
-                          className="btn btn-danger btn-sm"
-                          title="Delete"
-                        >
-                          ×
-                        </button>
-                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
+                        className="btn btn-danger btn-sm"
+                        title="Delete"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>

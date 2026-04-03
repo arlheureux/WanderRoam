@@ -55,7 +55,7 @@ const MapBoundsFitter = ({ points, runOnce }) => {
   return null;
 };
 
-const createPointIcon = (color = '#2196F3', size = 12) => {
+const createPointIcon = (color = '#2196F3', size = 12, opacity = 1) => {
   return L.divIcon({
     className: 'point-marker',
     html: `<div style="
@@ -65,6 +65,24 @@ const createPointIcon = (color = '#2196F3', size = 12) => {
       border-radius: 50%;
       border: 2px solid white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      opacity: ${opacity};
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+  });
+};
+
+const createDraggablePointIcon = (color = '#2196F3', size = 14) => {
+  return L.divIcon({
+    className: 'draggable-point-marker',
+    html: `<div style="
+      background-color: ${color};
+      width: ${size}px;
+      height: ${size}px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      cursor: move;
     "></div>`,
     iconSize: [size, size],
     iconAnchor: [size/2, size/2],
@@ -98,6 +116,37 @@ const MapClickHandler = ({ onMapClick, enabled }) => {
   return null;
 };
 
+const DraggableMarker = ({ position, index, onDragEnd, color, isNew }) => {
+  const markerRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const eventHandlers = useRef({
+    mousedown: () => {
+      setIsDragging(true);
+    },
+    mouseup: () => {
+      setIsDragging(false);
+    },
+    dragend: () => {
+      const marker = markerRef.current;
+      if (marker) {
+        const newPos = marker.getLatLng();
+        onDragEnd(index, { lat: newPos.lat, lng: newPos.lng, ele: position.ele, time: position.time });
+      }
+    },
+  });
+  
+  return (
+    <Marker
+      ref={markerRef}
+      position={[position.lat, position.lng]}
+      icon={createDraggablePointIcon(color, isNew ? 16 : 14)}
+      draggable={true}
+      eventHandlers={eventHandlers.current}
+    />
+  );
+};
+
 const GpxEditorModal = ({ 
   isOpen, 
   onClose, 
@@ -116,6 +165,8 @@ const GpxEditorModal = ({
   const [existingPoints, setExistingPoints] = useState(existingTrack?.data || []);
   const [newPoints, setNewPoints] = useState([]);
   
+  const [lastRemoved, setLastRemoved] = useState(null);
+  
   const [importedFile, setImportedFile] = useState(null);
   const [saving, setSaving] = useState(false);
   
@@ -123,6 +174,7 @@ const GpxEditorModal = ({
   const [routingWaypoints, setRoutingWaypoints] = useState([]);
   const [routingLoading, setRoutingLoading] = useState(false);
   const [routingError, setRoutingError] = useState('');
+  const [showRouting, setShowRouting] = useState(false);
   
   const mapRef = useRef(null);
 
@@ -145,23 +197,54 @@ const GpxEditorModal = ({
       setTrackType(existingTrack?.type || 'hiking');
       setColor(existingTrack?.color || TYPE_COLORS.hiking);
       setRoutingWaypoints([]);
+      setShowRouting(false);
+      setLastRemoved(null);
     }
   }, [isOpen, existingTrack]);
 
   const handleMapClick = (point) => {
     if (mode === 'route') {
       setRoutingWaypoints([...routingWaypoints, point]);
-    } else if (mode === 'add' || mode === 'draw') {
+    } else if (mode === 'draw' || mode === 'edit') {
       setNewPoints([...newPoints, point]);
     }
   };
 
-  const handleRemoveNewPoint = (index) => {
-    setNewPoints(newPoints.filter((_, i) => i !== index));
+  const handleRemovePoint = (arrayType, index, point) => {
+    if (arrayType === 'existing') {
+      setLastRemoved({ point, index, array: 'existing' });
+      setExistingPoints(existingPoints.filter((_, i) => i !== index));
+    } else if (arrayType === 'new') {
+      setLastRemoved({ point, index, array: 'new' });
+      setNewPoints(newPoints.filter((_, i) => i !== index));
+    }
   };
 
-  const handleRemoveExistingPoint = (index) => {
-    setExistingPoints(existingPoints.filter((_, i) => i !== index));
+  const handleUndo = () => {
+    if (!lastRemoved) return;
+    
+    if (lastRemoved.array === 'existing') {
+      const newArr = [...existingPoints];
+      newArr.splice(lastRemoved.index, 0, lastRemoved.point);
+      setExistingPoints(newArr);
+    } else if (lastRemoved.array === 'new') {
+      const newArr = [...newPoints];
+      newArr.splice(lastRemoved.index, 0, lastRemoved.point);
+      setNewPoints(newArr);
+    }
+    setLastRemoved(null);
+  };
+
+  const handleDragEnd = (arrayType, index, newPosition) => {
+    if (arrayType === 'existing') {
+      const newArr = [...existingPoints];
+      newArr[index] = newPosition;
+      setExistingPoints(newArr);
+    } else if (arrayType === 'new') {
+      const newArr = [...newPoints];
+      newArr[index] = newPosition;
+      setNewPoints(newArr);
+    }
   };
 
   const handleRemoveWaypoint = (index) => {
@@ -173,7 +256,7 @@ const GpxEditorModal = ({
       setRoutingWaypoints([...routingWaypoints].reverse());
     } else if (mode === 'edit') {
       setExistingPoints([...existingPoints].reverse());
-    } else if (mode === 'add' || mode === 'draw') {
+    } else if (mode === 'draw') {
       setNewPoints([...newPoints].reverse());
     }
   };
@@ -217,8 +300,6 @@ const GpxEditorModal = ({
         if (!name) {
           setName(`${modeLabel} Route`);
         }
-        
-        setMode('add');
       }
     } catch (err) {
       toast.error('Routing calculation failed');
@@ -236,7 +317,11 @@ const GpxEditorModal = ({
     reader.onload = (event) => {
       const xml = event.target.result;
       const parsedPoints = parseGpxFromText(xml);
-      setExistingPoints(parsedPoints);
+      if (isNewTrack) {
+        setExistingPoints(parsedPoints);
+      } else {
+        setExistingPoints(parsedPoints);
+      }
     };
     reader.readAsText(file);
   };
@@ -276,10 +361,6 @@ const GpxEditorModal = ({
     let allPoints;
     if (mode === 'route') {
       allPoints = routingWaypoints;
-    } else if (mode === 'edit' && isNewTrack) {
-      allPoints = [...existingPoints, ...newPoints];
-    } else if (mode === 'edit') {
-      allPoints = existingPoints;
     } else {
       allPoints = [...existingPoints, ...newPoints];
     }
@@ -330,9 +411,7 @@ const GpxEditorModal = ({
     let currentPoints = [];
     if (mode === 'route') {
       currentPoints = routingWaypoints;
-    } else if (mode === 'edit') {
-      currentPoints = existingPoints;
-    } else if (mode === 'add' || mode === 'draw') {
+    } else if (mode === 'edit' || mode === 'draw') {
       currentPoints = [...existingPoints, ...newPoints];
     }
     
@@ -355,7 +434,7 @@ const GpxEditorModal = ({
 
   if (!isOpen) return null;
 
-  const allDisplayedPoints = mode === 'edit' ? existingPoints : (mode === 'route' ? routingWaypoints : [...existingPoints, ...newPoints]);
+  const allPoints = [...existingPoints, ...newPoints];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -367,7 +446,7 @@ const GpxEditorModal = ({
             <>
               <button 
                 className={`tab-btn ${mode === 'draw' ? 'active' : ''}`}
-                onClick={() => { setMode('draw'); }}
+                onClick={() => { setMode('draw'); setShowRouting(false); }}
               >
                 Draw
               </button>
@@ -379,32 +458,18 @@ const GpxEditorModal = ({
               </button>
               <button 
                 className={`tab-btn ${mode === 'import' ? 'active' : ''}`}
-                onClick={() => { setMode('import'); }}
+                onClick={() => { setMode('import'); setShowRouting(false); }}
               >
                 Import
               </button>
             </>
           ) : (
-            <>
-              <button 
-                className={`tab-btn ${mode === 'edit' ? 'active' : ''}`}
-                onClick={() => { setMode('edit'); setNewPoints([]); }}
-              >
-                Edit Points
-              </button>
-              <button 
-                className={`tab-btn ${mode === 'add' ? 'active' : ''}`}
-                onClick={() => { setMode('add'); }}
-              >
-                Add Points
-              </button>
-              <button 
-                className={`tab-btn ${mode === 'route' ? 'active' : ''}`}
-                onClick={() => { setMode('route'); }}
-              >
-                Route
-              </button>
-            </>
+            <button 
+              className={`tab-btn active`}
+              onClick={() => { setMode('edit'); setShowRouting(false); }}
+            >
+              Edit
+            </button>
           )}
         </div>
 
@@ -412,7 +477,7 @@ const GpxEditorModal = ({
           <MapContainer
             ref={mapRef}
             center={getMapCenter()}
-            zoom={allDisplayedPoints.length > 0 ? 12 : 5}
+            zoom={allPoints.length > 0 ? 12 : 5}
             style={{ height: '400px', width: '100%' }}
           >
             <TileLayer
@@ -423,14 +488,14 @@ const GpxEditorModal = ({
             {existingPoints.length > 0 && (
               <Polyline
                 positions={existingPoints.map(p => [p.lat, p.lng])}
-                pathOptions={{ color: color, weight: 4, opacity: mode === 'add' ? 0.3 : 1 }}
+                pathOptions={{ color: color, weight: 4 }}
               />
             )}
             
             {newPoints.length > 0 && (
               <Polyline
                 positions={newPoints.map(p => [p.lat, p.lng])}
-                pathOptions={{ color: color, weight: 4 }}
+                pathOptions={{ color: color, weight: 4, opacity: 0.6 }}
               />
             )}
             
@@ -441,24 +506,35 @@ const GpxEditorModal = ({
               />
             )}
             
-            {mode === 'edit' && existingPoints.map((point, index) => (
-              <Marker
+            {existingTrack && mode === 'edit' && existingPoints.map((point, index) => (
+              <DraggableMarker
                 key={`existing-${index}`}
-                position={[point.lat, point.lng]}
-                icon={createPointIcon(color)}
-                eventHandlers={{
-                  click: () => handleRemoveExistingPoint(index)
-                }}
+                position={point}
+                index={index}
+                color={color}
+                isNew={false}
+                onDragEnd={(idx, newPos) => handleDragEnd('existing', idx, newPos)}
               />
             ))}
             
-            {mode === 'add' && newPoints.map((point, index) => (
+            {mode === 'edit' && newPoints.map((point, index) => (
+              <DraggableMarker
+                key={`new-${index}`}
+                position={point}
+                index={index}
+                color={color}
+                isNew={true}
+                onDragEnd={(idx, newPos) => handleDragEnd('new', idx, newPos)}
+              />
+            ))}
+            
+            {mode !== 'edit' && newPoints.map((point, index) => (
               <Marker
                 key={`new-${index}`}
                 position={[point.lat, point.lng]}
-                icon={createPointIcon(color, 16)}
+                icon={createPointIcon(color, 16, 0.6)}
                 eventHandlers={{
-                  click: () => handleRemoveNewPoint(index)
+                  click: () => handleRemovePoint('new', index, point)
                 }}
               />
             ))}
@@ -474,18 +550,28 @@ const GpxEditorModal = ({
               />
             ))}
             
-            <MapBoundsFitter points={allDisplayedPoints} runOnce={!!existingTrack} />
-            <MapClickHandler onMapClick={handleMapClick} enabled={mode === 'draw' || mode === 'add' || mode === 'route'} />
+            <MapBoundsFitter points={allPoints} runOnce={!!existingTrack} />
+            <MapClickHandler onMapClick={handleMapClick} enabled={mode === 'draw' || mode === 'edit' || mode === 'route'} />
           </MapContainer>
           
           <div className="map-hint">
-            {mode === 'draw' && 'Click on the map to add points. Click a point to remove it.'}
-            {mode === 'add' && 'Click on the map to add new points. Click new point markers to remove them.'}
-            {mode === 'edit' && 'Click on points to remove them from the track.'}
+            {isNewTrack && mode === 'draw' && 'Click on the map to add points. Click a point to remove it. Long click and drag to move.'}
+            {existingTrack && mode === 'edit' && 'Click on points to remove them. Long click and drag to move points.'}
             {mode === 'route' && `Click on the map to add waypoints (${routingWaypoints.length} added). Click a marker to remove it.`}
             {mode === 'import' && 'Upload a GPX file above to load track points.'}
           </div>
         </div>
+
+        {showRouting && mode !== 'route' && (
+          <button 
+            type="button" 
+            className="btn btn-outline"
+            onClick={() => setMode('route')}
+            style={{ width: '100%', marginBottom: '10px' }}
+          >
+            Switch to Route Mode
+          </button>
+        )}
 
         {mode === 'route' && (
           <div className="routing-section">
@@ -574,17 +660,27 @@ const GpxEditorModal = ({
 
           <div className="points-info">
             <span>
-              {mode === 'edit' ? existingPoints.length : (mode === 'route' ? routingWaypoints.length : newPoints.length)} points
-              {existingTrack && mode !== 'edit' && ` (+ ${existingPoints.length} existing)`}
+              {allPoints.length} point{allPoints.length !== 1 ? 's' : ''}
+              {existingTrack && newPoints.length > 0 && ` (+ ${newPoints.length} new)`}
             </span>
-            {(mode !== 'route' && (mode === 'edit' ? existingPoints.length : newPoints.length) > 1) && (
+            {lastRemoved && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleUndo}>
+                ↩ Undo
+              </button>
+            )}
+            {allPoints.length > 1 && (
               <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                 Reverse
               </button>
             )}
-            {((mode === 'edit' && existingPoints.length > 0) || (mode !== 'edit' && newPoints.length > 0) || (mode === 'route' && routingWaypoints.length > 0)) && (
+            {allPoints.length > 0 && (
               <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                 Clear All
+              </button>
+            )}
+            {!showRouting && mode !== 'route' && !isNewTrack && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowRouting(true)}>
+                Route
               </button>
             )}
           </div>
@@ -609,7 +705,7 @@ const GpxEditorModal = ({
           <button 
             onClick={handleSave} 
             className="btn btn-primary"
-            disabled={saving || allDisplayedPoints.length < 2}
+            disabled={saving || allPoints.length < 2}
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
