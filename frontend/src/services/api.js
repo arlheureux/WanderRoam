@@ -96,6 +96,10 @@ class ApiService {
   updateGpx(gpxId, data) {
     return this.put(`/gpx/${gpxId}`, data);
   }
+
+  createGpxFromPoints(data) {
+    return this.post('/gpx/from-points', data);
+  }
 }
 
 export default new ApiService();

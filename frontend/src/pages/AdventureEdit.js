@@ -653,6 +653,7 @@ const AdventureEdit = () => {
               center={defaultCenter} 
               zoom={defaultZoom} 
               style={{ height: '100%', width: '100%' }}
+              doubleClickZoom={false}
             >
               <FullscreenControl position="topright" />
               <TileLayer

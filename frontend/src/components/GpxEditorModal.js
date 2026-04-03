@@ -284,30 +284,40 @@ const GpxEditorModal = ({
       return;
     }
 
-    if (points.length < 2) {
+    const activePoints = activeTab === 'route' ? routingWaypoints : points;
+    if (activePoints.length < 2) {
       alert('Track must have at least 2 points');
       return;
     }
 
     setSaving(true);
     try {
-      const trackData = {
-        name: name.trim(),
-        type: trackType,
-        color: color,
-        data: points,
-        adventure_id: adventureId
-      };
-
       let result;
       if (existingTrack) {
+        const trackData = {
+          name: name.trim(),
+          type: trackType,
+          color: color,
+          data: activePoints,
+          adventure_id: adventureId
+        };
         result = await api.updateGpx(existingTrack.id, trackData);
-      } else {
+      } else if (importedFile) {
         const formData = new FormData();
         formData.append('name', name.trim());
         formData.append('type', trackType);
         formData.append('adventure_id', adventureId);
+        formData.append('gpx', importedFile);
         result = await api.post('/gpx/upload', formData, true);
+      } else {
+        const trackData = {
+          name: name.trim(),
+          type: trackType,
+          color: color,
+          data: activePoints,
+          adventure_id: adventureId
+        };
+        result = await api.createGpxFromPoints(trackData);
       }
 
       onSave(result.data.gpxTrack || result.data);
@@ -380,6 +390,7 @@ const GpxEditorModal = ({
             center={getMapCenter()}
             zoom={currentPoints.length > 0 ? 12 : 5}
             style={{ height: '400px', width: '100%' }}
+            doubleClickZoom={false}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
