@@ -35,24 +35,6 @@ const fixLeafletIcons = () => {
   });
 };
 
-const MapBoundsFitter = ({ points }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (points.length > 0) {
-      const lats = points.map(p => p.lat);
-      const lngs = points.map(p => p.lng);
-      const bounds = [
-        [Math.min(...lats), Math.min(...lngs)],
-        [Math.max(...lats), Math.max(...lngs)]
-      ];
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [points, map]);
-  
-  return null;
-};
-
 const createPointIcon = (color = '#2196F3', isWaypoint = false) => {
   if (isWaypoint) {
     return L.divIcon({
@@ -390,7 +372,6 @@ const GpxEditorModal = ({
             center={getMapCenter()}
             zoom={currentPoints.length > 0 ? 12 : 5}
             style={{ height: '400px', width: '100%' }}
-            doubleClickZoom={false}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -418,7 +399,6 @@ const GpxEditorModal = ({
                 }}
               />
             ))}
-            <MapBoundsFitter points={currentPoints} />
             <MapClickHandler onMapClick={handleMapClick} enabled={activeTab === 'draw' || activeTab === 'route'} />
           </MapContainer>
           {activeTab === 'draw' && (
