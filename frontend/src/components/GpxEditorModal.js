@@ -35,6 +35,26 @@ const fixLeafletIcons = () => {
   });
 };
 
+const MapBoundsFitter = ({ points, runOnce }) => {
+  const map = useMap();
+  const hasRunRef = useRef(false);
+  
+  useEffect(() => {
+    if (runOnce && points.length > 0 && !hasRunRef.current) {
+      const lats = points.map(p => p.lat);
+      const lngs = points.map(p => p.lng);
+      const bounds = [
+        [Math.min(...lats), Math.min(...lngs)],
+        [Math.max(...lats), Math.max(...lngs)]
+      ];
+      map.fitBounds(bounds, { padding: [50, 50] });
+      hasRunRef.current = true;
+    }
+  }, [runOnce, points, map]);
+  
+  return null;
+};
+
 const createPointIcon = (color = '#2196F3', isWaypoint = false) => {
   if (isWaypoint) {
     return L.divIcon({
@@ -96,6 +116,7 @@ const GpxEditorModal = ({
   const [trackType, setTrackType] = useState(existingTrack?.type || 'hiking');
   const [color, setColor] = useState(existingTrack?.color || TYPE_COLORS.hiking);
   const [points, setPoints] = useState(existingTrack?.data || []);
+  const [initialPoints, setInitialPoints] = useState(existingTrack?.data || []);
   const [importedFile, setImportedFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [drawing, setDrawing] = useState(true);
@@ -118,12 +139,14 @@ const GpxEditorModal = ({
       setTrackType(existingTrack.type || 'hiking');
       setColor(existingTrack.color || TYPE_COLORS.hiking);
       setPoints(existingTrack.data || []);
+      setInitialPoints(existingTrack.data || []);
     } else if (isOpen) {
       setActiveTab('draw');
       setName('');
       setTrackType('hiking');
       setColor(TYPE_COLORS.hiking);
       setPoints([]);
+      setInitialPoints([]);
       setRoutingWaypoints([]);
     }
   }, [isOpen, existingTrack]);
@@ -338,12 +361,22 @@ const GpxEditorModal = ({
         <h3>{existingTrack ? 'Edit Track' : 'Create Track'}</h3>
         
         <div className="gpx-editor-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'draw' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('draw'); setDrawing(true); }}
-          >
-            Draw
-          </button>
+          {existingTrack && (
+            <button 
+              className={`tab-btn ${activeTab === 'draw' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('draw'); setDrawing(true); setPoints([...initialPoints]); }}
+            >
+              Draw
+            </button>
+          )}
+          {!existingTrack && (
+            <button 
+              className={`tab-btn ${activeTab === 'draw' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('draw'); setDrawing(true); }}
+            >
+              Draw
+            </button>
+          )}
           <button 
             className={`tab-btn ${activeTab === 'route' ? 'active' : ''}`}
             onClick={() => { setActiveTab('route'); setDrawing(false); }}
@@ -399,6 +432,7 @@ const GpxEditorModal = ({
                 }}
               />
             ))}
+            <MapBoundsFitter points={initialPoints} runOnce={!!existingTrack} />
             <MapClickHandler onMapClick={handleMapClick} enabled={activeTab === 'draw' || activeTab === 'route'} />
           </MapContainer>
           {activeTab === 'draw' && (
