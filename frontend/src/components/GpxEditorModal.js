@@ -244,20 +244,22 @@ const GpxEditorModal = ({
       });
 
       if (response.data && response.data.points) {
-        if (mode === 'edit') {
-          setNewPoints(response.data.points);
-        } else {
-          setNewPoints(response.data.points);
-        }
+        setNewPoints(response.data.points);
         setColor(response.data.color || TYPE_COLORS[routingMode] || TYPE_COLORS.hiking);
         
         const modeLabel = ROUTING_MODES.find(m => m.value === routingMode)?.label || routingMode;
         if (!name) {
           setName(`${modeLabel} Route`);
         }
+        
+        if (existingTrack) {
+          setMode('edit');
+        }
       }
     } catch (err) {
       toast.error('Routing calculation failed');
+    } finally {
+      setRoutingLoading(false);
     }
   };
 
@@ -315,7 +317,7 @@ const GpxEditorModal = ({
 
     let allPoints;
     if (mode === 'route') {
-      allPoints = routingWaypoints;
+      allPoints = newPoints.length > 0 ? newPoints : routingWaypoints;
     } else {
       allPoints = [...existingPoints, ...newPoints];
     }
