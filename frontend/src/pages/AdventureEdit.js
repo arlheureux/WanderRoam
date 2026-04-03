@@ -975,13 +975,18 @@ const AdventureEdit = () => {
             </div>
 
             <div className="sidebar-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3>Transportation ({gpxTracks.length})</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div>
+                  <h3>Transportation ({gpxTracks.length})</h3>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '-4px' }}>
+                    Click a track to edit, add points, or view on map
+                  </p>
+                </div>
                 <button 
                   onClick={() => openGpxEditor(null)}
                   className="btn btn-primary btn-sm"
                 >
-                  + Draw Track
+                  + New GPX Track
                 </button>
               </div>
               {gpxTracks.length === 0 ? (
@@ -1004,12 +1009,22 @@ const AdventureEdit = () => {
                           </div>
                         )}
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
-                        className="btn btn-danger btn-sm"
-                      >
-                        ×
-                      </button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); navigate(`/gpx/${track.id}`); }}
+                          className="btn btn-outline btn-sm"
+                          title="View on map"
+                        >
+                          👁
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
+                          className="btn btn-danger btn-sm"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
