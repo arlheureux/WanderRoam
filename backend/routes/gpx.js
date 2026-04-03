@@ -186,6 +186,59 @@ router.post('/upload', authMiddleware, [
   }
 });
 
+router.post('/from-points', authMiddleware, [
+  body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Name is required and must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('color').optional().isHexColor().withMessage('Invalid color'),
+  body('adventure_id').isUUID().withMessage('Valid adventure ID is required'),
+  body('data').isArray({ min: 2 }).withMessage('Track must have at least 2 points'),
+  validate
+], async (req, res) => {
+  try {
+    const { name, type, color, adventure_id, data } = req.body;
+
+    const TYPE_COLORS = {
+      walking: '#DC2626',
+      hiking: '#EA580C',
+      cycling: '#65A30D',
+      bus: '#2563EB',
+      metro: '#DB2777',
+      train: '#0891B2',
+      boat: '#4F46E5',
+      car: '#52525B',
+      other: '#0D9488'
+    };
+
+    const gpxType = type || 'hiking';
+    const trackColor = color || TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    let totalDistance = 0;
+    if (data.length >= 2) {
+      for (let i = 1; i < data.length; i++) {
+        const prev = data[i - 1];
+        const curr = data[i];
+        if (prev.lat && prev.lng && curr.lat && curr.lng) {
+          const dist = haversine(prev.lat, prev.lng, curr.lat, curr.lng);
+          totalDistance += dist;
+        }
+      }
+    }
+
+    const gpxTrack = await GpxTrack.create({
+      name: name.trim(),
+      type: gpxType,
+      color: trackColor,
+      data: data,
+      adventure_id: adventure_id,
+      distance: Math.round(totalDistance / 10) / 100
+    });
+
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    return handleError(error, res, { operation: 'createGpxFromPoints' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
