@@ -361,6 +361,8 @@ const GpxEditorModal = ({
       onClose();
     } catch (err) {
       toast.error('Failed to save track');
+    } finally {
+      setSaving(false);
     }
   };
 
