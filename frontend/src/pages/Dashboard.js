@@ -57,6 +57,9 @@ const Dashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [newAdventure, setNewAdventure] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
+  const [showSeriesModal, setShowSeriesModal] = useState(false);
+  const [newSeries, setNewSeries] = useState({ name: '', description: '' });
+  const [creatingSeries, setCreatingSeries] = useState(false);
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('sortBy') || 'adventure_date');
   const [sortOrder, setSortOrder] = useState(() => localStorage.getItem('sortOrder') || 'DESC');
   const [activeTab, setActiveTab] = useState('adventures');
@@ -174,7 +177,23 @@ const createAdventure = async (e) => {
     setCreating(false);
     setShowModal(false);
   }
-  };
+};
+
+const createSeries = async (e) => {
+  e.preventDefault();
+  setCreatingSeries(true);
+
+  try {
+    const res = await api.createSeries(newSeries);
+    setShowSeriesModal(false);
+    setNewSeries({ name: '', description: '' });
+    navigate(`/series/${res.data.series.id}`);
+  } catch (err) {
+    toast.error('Failed to create series');
+  } finally {
+    setCreatingSeries(false);
+  }
+};
 
   const toggleAdventure = (adventureId) => {
     setVisibleAdventures(prev => ({
@@ -324,6 +343,12 @@ const createAdventure = async (e) => {
               </button>
               <button onClick={() => setShowModal(true)} className="btn btn-primary" style={{ marginLeft: '8px' }}>
                 + New Adventure
+              </button>
+              <button onClick={() => setShowSeriesModal(true)} className="btn btn-outline" style={{ marginLeft: '8px' }}>
+                + New Series
+              </button>
+              <button onClick={() => navigate('/series')} className="btn btn-outline btn-sm" style={{ marginLeft: '8px' }}>
+                📚 All Series
               </button>
             </div>
           </div>
@@ -729,6 +754,43 @@ const createAdventure = async (e) => {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={creating}>
                   {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSeriesModal && (
+        <div className="modal-overlay" onClick={() => setShowSeriesModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>New Series</h2>
+            <form onSubmit={createSeries}>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={newSeries.name}
+                  onChange={(e) => setNewSeries({ ...newSeries, name: e.target.value })}
+                  placeholder="Weekend Trip to Alps"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description (optional)</label>
+                <textarea
+                  value={newSeries.description}
+                  onChange={(e) => setNewSeries({ ...newSeries, description: e.target.value })}
+                  placeholder="A multi-day hiking adventure..."
+                  rows={3}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowSeriesModal(false)} className="btn btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={creatingSeries}>
+                  {creatingSeries ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
