@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../services/AuthContext';
+import { useMapContext } from '../contexts/MapContext';
 import api from '../services/api';
 
 const Settings = () => {
   const { user, updateSettings } = useAuth();
+  const { mapProvider, setMapProvider, mapboxToken, setMapboxToken } = useMapContext();
   const navigate = useNavigate();
   
   const [immichUrl, setImmichUrl] = useState(user?.immich_url || '');
@@ -134,6 +136,77 @@ const Settings = () => {
                 </div>
               )}
             </>
+          )}
+        </div>
+
+        <div className="settings-section" style={{ marginTop: '32px' }}>
+          <h3>Map Provider</h3>
+          <p style={{ color: 'var(--text-light)', marginBottom: '16px' }}>
+            Choose which map service to use. Mapbox offers 3D terrain and globe view.
+          </p>
+
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+            <button
+              type="button"
+              onClick={() => setMapProvider('osm')}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: mapProvider === 'osm' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                background: mapProvider === 'osm' ? 'var(--primary)' + '15' : 'var(--background)',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>OpenStreetMap</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Free, always available</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapProvider('mapbox')}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: mapProvider === 'mapbox' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                background: mapProvider === 'mapbox' ? 'var(--primary)' + '15' : 'var(--background)',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>Mapbox</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>3D terrain, globe view</div>
+            </button>
+          </div>
+
+          {mapProvider === 'mapbox' && (
+            <div style={{ padding: '16px', background: 'var(--background)', borderRadius: '8px' }}>
+              <div className="form-group">
+                <label>Mapbox Access Token</label>
+                <input
+                  type="text"
+                  value={mapboxToken}
+                  onChange={(e) => setMapboxToken(e.target.value)}
+                  placeholder="pk.eyJ1..."
+                />
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px' }}>
+                  Get your free token at{' '}
+                  <a href="https://mapbox.com" target="_blank" rel="noopener noreferrer">
+                    mapbox.com
+                  </a>
+                </p>
+              </div>
+              {!mapboxToken && (
+                <div style={{ 
+                  padding: '12px', 
+                  background: '#FFF3E0', 
+                  borderRadius: '8px', 
+                  color: '#E65100',
+                  fontSize: '0.85rem'
+                }}>
+                  ⚠️ Enter your Mapbox token to use Mapbox maps
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -89,7 +89,7 @@ const GpxTrack = sequelize.define('GpxTrack', {
     allowNull: false
   },
   type: {
-    type: DataTypes.ENUM('walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'),
+    type: DataTypes.ENUM('walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other'),
     defaultValue: 'walking'
   },
   color: {
@@ -250,6 +250,60 @@ const AuditLog = sequelize.define('AuditLog', {
   }
 });
 
+const Series = sequelize.define('Series', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  start_date: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  },
+  end_date: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  }
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['start_date'] }
+  ]
+});
+
+const SeriesAdventure = sequelize.define('SeriesAdventure', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  SeriesId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  AdventureId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  order: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  }
+}, {
+  indexes: [
+    { fields: ['SeriesId'] },
+    { fields: ['AdventureId'] }
+  ]
+});
+
 User.hasMany(Adventure, { foreignKey: 'user_id' });
 Adventure.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
 
@@ -274,6 +328,15 @@ AdventureShare.belongsTo(Adventure, { foreignKey: 'AdventureId', as: 'Adventure'
 User.hasMany(AuditLog, { foreignKey: 'adminUserId' });
 AuditLog.belongsTo(User, { foreignKey: 'adminUserId', as: 'admin' });
 
+Series.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
+User.hasMany(Series, { foreignKey: 'user_id' });
+
+Series.belongsToMany(Adventure, { through: SeriesAdventure, as: 'adventures' });
+Adventure.belongsToMany(Series, { through: SeriesAdventure, as: 'series' });
+
+SeriesAdventure.belongsTo(Series, { foreignKey: 'SeriesId' });
+SeriesAdventure.belongsTo(Adventure, { foreignKey: 'AdventureId' });
+
 module.exports = {
   sequelize,
   User,
@@ -283,5 +346,7 @@ module.exports = {
   Waypoint,
   Tag,
   AdventureShare,
-  AuditLog
+  AuditLog,
+  Series,
+  SeriesAdventure
 };
