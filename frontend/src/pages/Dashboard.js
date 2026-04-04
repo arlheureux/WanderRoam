@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
+import { Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { useAuth } from '../services/AuthContext';
+import { useMapContext } from '../contexts/MapContext';
+import { MapView, TYPE_COLORS } from '../components/MapView';
 import api from '../services/api';
+import { VERSION } from '../version';
 
 const Logo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '12px' }}>
@@ -49,6 +52,7 @@ const MapBounds = ({ tracks }) => {
 
 const Dashboard = () => {
   const [adventures, setAdventures] = useState([]);
+  const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newAdventure, setNewAdventure] = useState({ name: '', description: '' });
@@ -64,12 +68,16 @@ const Dashboard = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedMapTag, setSelectedMapTag] = useState(null);
   const { user, logout } = useAuth();
+  const { mapProvider, mapboxToken, isMapbox } = useMapContext();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAdventures();
+    loadSeries();
     loadTags();
-    api.getVersion().then(v => setAppVersion(v)).catch(() => {});
+    if (VERSION) {
+      setAppVersion({ version: VERSION, tag: 'latest' });
+    }
   }, [sortBy, sortOrder, selectedTags]);
 
   useEffect(() => {
@@ -129,7 +137,7 @@ const Dashboard = () => {
     }
   };
 
-  const loadAllTracks = async () => {
+const loadAllTracks = async () => {
     try {
       const res = await api.get('/adventures/all-gpx');
       setAllTracks(res.data.tracks);
@@ -137,12 +145,21 @@ const Dashboard = () => {
       const adventures = {};
       res.data.tracks.forEach(t => {
         adventures[t.adventureId] = true;
-    });
-    setVisibleAdventures(adventures);
-  } catch (err) {
-    toast.error('Failed to load tracks');
-  }
-};
+      });
+      setVisibleAdventures(adventures);
+    } catch (err) {
+      toast.error('Failed to load tracks');
+    }
+  };
+
+  const loadSeries = async () => {
+    try {
+      const res = await api.getSeries();
+      setSeriesList(res.data.series || []);
+    } catch (err) {
+      console.error('Failed to load series');
+    }
+  };
 
 const createAdventure = async (e) => {
   e.preventDefault();
@@ -191,6 +208,29 @@ const createAdventure = async (e) => {
   const uniqueAdventures = selectedMapTag 
     ? allUniqueAdventures.filter(adv => getAdventureTags(adv.id).includes(selectedMapTag))
     : allUniqueAdventures;
+
+  const seriesAdventureIds = new Set(
+    seriesList.flatMap(s => s.adventureIds || [])
+  );
+
+  const filteredAdventures = adventures.filter(a => !seriesAdventureIds.has(a.id));
+
+  const combinedItems = [
+    ...filteredAdventures.map(a => ({ type: 'adventure', data: a })),
+    ...seriesList.map(s => ({ type: 'series', data: s }))
+  ].sort((a, b) => {
+    const aVal = sortBy === 'name' 
+      ? a.data.name 
+      : (a.data.adventure_date || a.data.start_date || a.data.createdAt);
+    const bVal = sortBy === 'name' 
+      ? b.data.name 
+      : (b.data.adventure_date || b.data.start_date || b.data.createdAt);
+    
+    if (sortOrder === 'ASC') {
+      return String(aVal).localeCompare(String(bVal));
+    }
+    return String(bVal).localeCompare(String(aVal));
+  });
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
@@ -351,25 +391,86 @@ const createAdventure = async (e) => {
             </div>
           )}
 
-          {adventures.length === 0 ? (
+          {combinedItems.length === 0 ? (
             <div className="empty-state">
               <h3>No adventures yet</h3>
               <p>Create your first adventure to get started</p>
             </div>
           ) : (
               <div className="adventures-grid">
-                {adventures.map(adventure => (
+                {combinedItems.map(item => item.type === 'series' ? (
                   <div 
-                    key={adventure.id} 
+                    key={item.data.id} 
                     className="adventure-card"
-                    onClick={() => navigate(`/adventure/${adventure.id}`)}
+                    onClick={() => navigate(`/series/${item.data.id}`)}
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      zIndex: 10,
+                      background: 'var(--primary)',
+                      color: 'white',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600
+                    }}>
+                      SERIES
+                    </div>
+                    <div className="adventure-card-preview">
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '3rem'
+                      }}>
+                        📚
+                      </div>
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '12px',
+                        color: 'white',
+                        fontWeight: 600
+                      }}>
+                        {item.data.adventureCount} adventures
+                      </div>
+                    </div>
+                    <div className="adventure-card-body">
+                      <h3>{item.data.name}</h3>
+                      {(item.data.start_date || item.data.end_date) && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '-8px' }}>
+                          {item.data.start_date ? new Date(item.data.start_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''}
+                          {item.data.start_date && item.data.end_date ? ' - ' : ''}
+                          {item.data.end_date ? new Date(item.data.end_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''}
+                        </p>
+                      )}
+                      {item.data.description && (
+                        <p>{item.data.description.substring(0, 60)}...</p>
+                      )}
+                      <div className="adventure-stats">
+                        <span className="stat">📷 {item.data.totalPhotos} photos</span>
+                        <span className="stat">📏 {item.data.totalDistance ? (item.data.totalDistance / 1000).toFixed(1) : 0} km</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    key={item.data.id} 
+                    className="adventure-card"
+                    onClick={() => navigate(`/adventure/${item.data.id}`)}
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="adventure-card-preview">
-                      {adventure.preview_picture ? (
+                      {item.data.preview_picture ? (
                         <img 
-                          src={adventure.preview_picture.thumbnail_base64 || adventure.preview_picture.thumbnail_url} 
-                          alt={adventure.name}
+                          src={item.data.preview_picture.thumbnail_base64 || item.data.preview_picture.thumbnail_url} 
+                          alt={item.data.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (
@@ -392,39 +493,39 @@ const createAdventure = async (e) => {
                         color: 'white',
                         fontWeight: 600
                       }}>
-                        {adventure.gpxCount} tracks
+                        {item.data.gpxCount} tracks
                       </div>
                     </div>
                     <div className="adventure-card-body">
-                    <h3>{adventure.name}</h3>
-                    {adventure.adventure_date && (
+                    <h3>{item.data.name}</h3>
+                    {item.data.adventure_date && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '-8px' }}>
-                        {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
+                        {new Date(item.data.adventure_date).toLocaleDateString(undefined, { 
                           year: 'numeric', 
                           month: 'short', 
                           day: 'numeric' 
                         })}
                       </p>
                     )}
-                    {adventure.description && (
-                      <p>{adventure.description.substring(0, 80)}...</p>
+                    {item.data.description && (
+                      <p>{item.data.description.substring(0, 80)}...</p>
                     )}
                     <div className="adventure-stats">
                       <span className="stat">
-                        📷 {adventure.pictureCount} photos
+                        📷 {item.data.pictureCount} photos
                       </span>
-                      {adventure.gpxByType && Object.keys(adventure.gpxByType).map(type => (
+                      {item.data.gpxByType && Object.keys(item.data.gpxByType).map(type => (
                         <span 
                           key={type}
                           className="stat-badge"
                           style={{ backgroundColor: getTypeColor(type) }}
                         >
-                          {adventure.gpxByType[type]} {type}
+                          {item.data.gpxByType[type]} {type}
                         </span>
                       ))}
-                      {adventure.tags && adventure.tags.length > 0 && (
+                      {item.data.tags && item.data.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-                          {adventure.tags.map(tag => (
+                          {item.data.tags.map(tag => (
                             <span
                               key={tag.id}
                               style={{
@@ -444,7 +545,7 @@ const createAdventure = async (e) => {
                     </div>
                   </div>
                 </div>
-              ))}
+              )              )}
             </div>
           )}
         </div>
@@ -554,16 +655,13 @@ const createAdventure = async (e) => {
               </div>
 
               <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }} role="application" aria-label="Adventure map showing GPX tracks">
-                <MapContainer 
-                  center={[46.2276, 2.2137]} 
-                  zoom={5} 
-                  style={{ height: '100%', width: '100%' }}
+                <MapView 
+                  mapProvider={mapProvider}
+                  mapboxToken={mapboxToken}
+                  center={[46.2276, 2.2137]}
+                  zoom={5}
+                  bounds={allTracks.filter(t => visibleAdventures[t.adventureId]).flatMap(t => t.data?.map(p => [p.lat, p.lng]) || [])}
                 >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <MapBounds tracks={allTracks.filter(t => visibleAdventures[t.adventureId])} />
                   {allTracks.filter(t => visibleAdventures[t.adventureId]).map(track => (
                     <Polyline
                       key={track.id}
@@ -590,7 +688,7 @@ const createAdventure = async (e) => {
                       </Popup>
                     </Polyline>
                   ))}
-                </MapContainer>
+                </MapView>
               </div>
 
               <div style={{ marginTop: '16px', color: 'var(--text-light)', fontSize: '0.85rem' }}>

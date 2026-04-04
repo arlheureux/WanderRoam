@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Polyline, Marker, Popup } from 'react-leaflet';
 import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
 import jsPDF from 'jspdf';
@@ -9,19 +9,9 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
 import 'react-leaflet-fullscreen/styles.css';
 import toast from 'react-hot-toast';
+import { useMapContext } from '../contexts/MapContext';
+import { MapView, TYPE_COLORS } from '../components/MapView';
 import api from '../services/api';
-
-const TYPE_COLORS = {
-  walking: '#DC2626',
-  hiking: '#EA580C',
-  cycling: '#65A30D',
-  bus: '#2563EB',
-  metro: '#DB2777',
-  train: '#0891B2',
-  boat: '#4F46E5',
-  car: '#52525B',
-  other: '#0D9488'
-};
 
 const fixLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
@@ -88,58 +78,32 @@ const getWaypointIcon = (icon, scale = 1) => {
   return waypointIconCache[key];
 };
 
-const MapBounds = ({ tracks, pictures, waypoints }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    const allPoints = [];
-    
-    if (tracks && tracks.length > 0) {
-      const trackPoints = tracks
-        .filter(t => t.data && t.data.length > 0)
-        .flatMap(t => t.data.map(p => [p.lat, p.lng]));
-      allPoints.push(...trackPoints);
-    }
-    
-    if (pictures && pictures.length > 0) {
-      const picturePoints = pictures
-        .filter(p => p.latitude && p.longitude)
-        .map(p => [p.latitude, p.longitude]);
-      allPoints.push(...picturePoints);
-    }
-
-    if (waypoints && waypoints.length > 0) {
-      const waypointPoints = waypoints.map(w => [w.latitude, w.longitude]);
-      allPoints.push(...waypointPoints);
-    }
-
-    if (allPoints.length > 0) {
-      const bounds = L.latLngBounds(allPoints);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [tracks, pictures, map]);
-
-  return null;
-};
-
 const AdventureView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const seriesId = searchParams.get('seriesId');
+  const backLink = seriesId ? `/series/${seriesId}` : '/';
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
   const handleTrackClick = (track) => {
     if (selectedTrack && selectedTrack.id === track.id) {
       setSelectedTrack(null);
+      setSelectedTrackBounds(null);
     } else {
       setSelectedTrack(track);
+      const trackPoints = track.data?.map(p => [p.lat, p.lng]) || [];
+      setSelectedTrackBounds(trackPoints);
     }
   };
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedTrackBounds, setSelectedTrackBounds] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
   const mapRef = useRef(null);
+  const { mapProvider, mapboxToken } = useMapContext();
 
   useEffect(() => {
     fixLeafletIcons();
@@ -372,11 +336,17 @@ const AdventureView = () => {
   const defaultCenter = [parseFloat(adventure.center_lat) || 46.2276, parseFloat(adventure.center_lng) || 2.2137];
   const defaultZoom = adventure.zoom || 10;
 
+  const allBounds = [
+    ...gpxTracks.flatMap(t => t.data?.map(p => [p.lat, p.lng]) || []),
+    ...pictures.filter(p => p.latitude && p.longitude).map(p => [p.latitude, p.longitude]),
+    ...waypoints.map(w => [w.latitude, w.longitude])
+  ];
+
   return (
     <div>
       <header className="header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/" className="back-link">← Back</Link>
+          <Link to={backLink} className="back-link">← Back</Link>
         </div>
         <h1 style={{ flex: 1, textAlign: 'center', margin: 0 }}>{adventure.name}</h1>
         <div className="header-actions">
@@ -481,18 +451,20 @@ const AdventureView = () => {
               <h3>Map</h3>
             </div>
             <div className="adventure-map-container">
-              <MapContainer 
+              <MapView 
                 ref={mapRef}
+                mapProvider={mapProvider}
+                mapboxToken={mapboxToken}
                 center={defaultCenter} 
-                zoom={defaultZoom} 
+                zoom={defaultZoom}
+                bounds={allBounds}
+                selectedTrack={selectedTrack}
+                gpxTracks={gpxTracks}
                 style={{ height: '100%', width: '100%' }}
+                mapboxPictures={pictures.filter(p => p.latitude && p.longitude)}
+                mapboxWaypoints={waypoints}
+                hoveredPictureId={hoveredPictureId}
               >
-              <FullscreenControl position="topright" />
-              <TileLayer
-                attribution='&copy; <a href="httpsmap.org/copyright://www.openstreet">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
               {gpxTracks.map(track => (
                 <Polyline
                   key={track.id}
@@ -544,10 +516,8 @@ const AdventureView = () => {
                   </Popup>
                 </Marker>
               ))}
-
-              <MapBounds tracks={gpxTracks} pictures={pictures} waypoints={waypoints} />
-            </MapContainer>
-            </div>
+              </MapView>
+              </div>
           </div>
 
           <div className="adventure-picture-section">
