@@ -25,13 +25,15 @@
 ## Features
 
 - **Adventure Management** - Create and organize your outdoor trips
-- **GPX Tracking** - Upload and visualize GPX tracks on OpenStreetMap
-- **GPX Routing** - Calculate routes using BRouter for car, bike, foot, boat, train, metro
+- **GPX Tracking** - Upload and visualize GPX tracks on maps
+- **Multiple Map Providers** - OpenStreetMap (free) or Mapbox (3D terrain, globe view)
+- **GPX Routing** - Calculate routes using BRouter for car, bike, foot, boat, train, metro, plane
 - **Waypoints** - Add custom markers with icons on the map
 - **Tags** - Categorize adventures with custom tags and categories. Create any tag with your own category name.
 - **Photo Integration** - Connect to Immich for photo management
+- **Series** - Group multiple adventures into multi-day trips
 - **Sharing** - Share adventures with other users
-- **Multiple Transport Types** - Hiking, cycling, running, climbing
+- **Multiple Transport Types** - Hiking, cycling, running, climbing, walking, bus, metro, train, boat, car, plane
 - **Statistics** - View stats by year and transport mode (owned/shared/all)
 - **Admin Panel** - User management on port 4000
 
@@ -46,10 +48,10 @@
 
 ## Tech Stack
 
-- **Frontend**: React, React Router, Leaflet
+- **Frontend**: React, React Router, Leaflet, react-map-gl
 - **Backend**: Node.js, Express, Sequelize
 - **Database**: PostgreSQL
-- **Maps**: OpenStreetMap / Leaflet
+- **Maps**: OpenStreetMap (Leaflet) / Mapbox (react-map-gl)
 - **Routing**: BRouter (self-hosted)
 
 ## Quick Start

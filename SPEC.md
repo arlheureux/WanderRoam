@@ -14,12 +14,13 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 ## 2. Architecture
 
 ### Tech Stack
-- **Frontend:** React 18 with Leaflet for maps
+- **Frontend:** React 18 with Leaflet for maps, react-map-gl for Mapbox
 - **Backend:** Node.js/Express
 - **Database:** PostgreSQL
 - **File Storage:** Local filesystem with uploaded GPX and images
 - **Photo Management:** Immich (self-hosted photo library)
 - **Containerization:** Docker & Docker Compose
+- **Maps:** OpenStreetMap (default) or Mapbox (optional, with 3D terrain)
 
 ### Services
 1. **Frontend** - React app on port 3000 (nginx)
