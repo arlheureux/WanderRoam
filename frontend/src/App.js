@@ -10,6 +10,7 @@ import AdventureView from './pages/AdventureView';
 import AdventureEdit from './pages/AdventureEdit';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
+import Series from './pages/Series';
 import SeriesView from './pages/SeriesView';
 
 const ProtectedRoute = ({ children }) => {
@@ -54,6 +55,11 @@ function App() {
           <Route path="/stats" element={
             <ProtectedRoute>
               <Stats />
+            </ProtectedRoute>
+          } />
+          <Route path="/series" element={
+            <ProtectedRoute>
+              <Series />
             </ProtectedRoute>
           } />
           <Route path="/series/:id" element={
