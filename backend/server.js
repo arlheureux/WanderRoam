@@ -44,7 +44,7 @@ app.use(cors(corsOptions));
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 1000,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -54,7 +54,7 @@ app.use('/api/', globalLimiter);
 
 const adventureLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 1000,
   message: { error: 'Too many adventure requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
