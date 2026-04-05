@@ -1,5 +1,7 @@
 const express = require('express');
 const fs = require('fs');
+const multer = require('multer');
+const path = require('path');
 const xml2js = require('xml2js');
 const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
@@ -10,6 +12,31 @@ const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 
 const router = express.Router();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/gpx+xml' || file.originalname.endsWith('.gpx')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only GPX files are allowed'), false);
+    }
+  }
+});
 
 const getAdventureAccess = async (adventureId, userId) => {
   const adventure = await Adventure.findByPk(adventureId);
@@ -539,6 +566,7 @@ router.post('/tags', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
+    console.log('Create tag request - body:', req.body, 'user:', req.user?.username);
     const { name, category } = req.body;
 
     const existingTag = await Tag.findOne({ where: { name } });
@@ -811,11 +839,25 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/:id/gpx', authMiddleware, [
+// Multer error handler for file uploads
+const handleMulterError = (err, req, res, next) => {
+  if (err) {
+    console.log('Multer error:', err.message);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large' });
+    }
+    return res.status(400).json({ error: 'File upload error: ' + err.message });
+  }
+  next();
+};
+
+router.post('/:id/gpx', upload.single('file'), handleMulterError, authMiddleware, [
   param('id').isUUID().withMessage('Invalid adventure ID'),
   validate
 ], async (req, res) => {
   try {
+    console.log('GPX upload START - params:', req.params, 'body:', req.body, 'file:', req.file ? 'present' : 'missing');
+    
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
     if (!adventure) {
@@ -852,6 +894,162 @@ router.post('/:id/gpx', authMiddleware, [
     return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
+
+router.post('/gpx/from-points', authMiddleware, [
+  body('name').notEmpty().withMessage('Track name is required'),
+  body('adventure_id').isUUID().withMessage('Valid adventure ID is required'),
+  validate
+], async (req, res) => {
+  try {
+    const { name, type, color, data, adventure_id } = req.body;
+    
+    const { adventure, canEdit } = await getAdventureAccess(adventure_id, req.user.id);
+    
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const gpxType = type || 'hiking';
+    const trackColor = color || TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    const gpxTrack = await GpxTrack.create({
+      name: name.trim(),
+      type: gpxType,
+      color: trackColor,
+      data: data || [],
+      adventure_id: adventure.id
+    });
+
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    return handleError(error, res, { operation: 'createGpxFromPoints' });
+  }
+});
+
+router.post('/:id/gpx-base64', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('file').notEmpty().withMessage('GPX file is required'),
+  validate
+], async (req, res) => {
+  try {
+    console.log('GPX base64 upload START - params:', req.params, 'body keys:', Object.keys(req.body));
+    
+    const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const { file: base64Data, name, type } = req.body;
+    
+    if (!base64Data) {
+      return res.status(400).json({ error: 'GPX file is required' });
+    }
+
+    // Parse base64 data URL
+    const base64Match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!base64Match) {
+      return res.status(400).json({ error: 'Invalid base64 data format' });
+    }
+
+    const xmlContent = Buffer.from(base64Match[2], 'base64').toString('utf-8');
+    console.log('GPX XML parsed, length:', xmlContent.length);
+
+    const gpxData = parseGpxFromText(xmlContent);
+    console.log('GPX points parsed:', gpxData.length);
+
+    const gpxType = type || 'hiking';
+    const color = TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    const gpxTrack = await GpxTrack.create({
+      name: name || 'Imported GPX',
+      type: gpxType,
+      color,
+      data: gpxData,
+      adventure_id: adventure.id
+    });
+
+    console.log('GPX track created:', gpxTrack.id, 'points:', gpxData.length);
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    console.log('GPX base64 error:', error.message);
+    return handleError(error, res, { operation: 'uploadGpxBase64' });
+  }
+});
+
+// parse GPX from text (same logic as parseGpx but synchronous)
+const parseGpxFromText = (xml) => {
+  const points = [];
+  
+  const trkptRegex = /<trkpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  let match;
+  
+  while ((match = trkptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+  
+  const rteptRegex = /<rtept[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  while ((match = rteptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+  
+  const wptRegex = /<wpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  while ((match = wptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+
+  return points;
+};
 
 router.delete('/:id/gpx/:gpxId', authMiddleware, [
   param('id').isUUID().withMessage('Invalid adventure ID'),

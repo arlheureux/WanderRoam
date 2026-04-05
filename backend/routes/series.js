@@ -30,7 +30,8 @@ router.get('/', async (req, res) => {
 
       const adventureIds = seriesAdventures.map(sa => sa.AdventureId);
       const adventures = await Adventure.findAll({
-        where: { id: { [Op.in]: adventureIds } }
+        where: { id: { [Op.in]: adventureIds } },
+        attributes: ['id', 'adventure_date']
       });
 
       const adventuresWithOrder = seriesAdventures.map(sa => ({
@@ -38,7 +39,6 @@ router.get('/', async (req, res) => {
         order: sa.order
       })).filter(a => a.id);
 
-      let totalDistance = 0;
       let totalPhotos = 0;
       let startDate = null;
       let endDate = null;
@@ -48,8 +48,6 @@ router.get('/', async (req, res) => {
         firstAdventure = adventuresWithOrder[0];
         
         for (const adv of adventuresWithOrder) {
-          totalDistance += adv.distance || 0;
-
           const pictures = await Picture.count({ where: { adventure_id: adv.id } });
           totalPhotos += pictures;
 
@@ -72,7 +70,6 @@ router.get('/', async (req, res) => {
         end_date: s.end_date || endDate,
         adventureCount: adventuresWithOrder.length,
         adventureIds: adventureIds,
-        totalDistance: Math.round(totalDistance * 100) / 100,
         totalPhotos,
         isOwner: s.user_id === req.user.id,
         createdAt: s.createdAt,

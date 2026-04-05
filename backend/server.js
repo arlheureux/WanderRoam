@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
@@ -26,7 +25,6 @@ const logger = winston.createLogger({
 
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
-const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
@@ -54,14 +52,6 @@ const globalLimiter = rateLimit({
 
 app.use('/api/', globalLimiter);
 
-const uploadLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: { error: 'Too many uploads, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 const adventureLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,
@@ -70,49 +60,11 @@ const adventureLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use((req, res, next) => {
-  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-    next();
-  } else {
-    express.json({ limit: '10mb' })(req, res, next);
-  }
-});
-
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/gpx+xml' || 
-        file.originalname.endsWith('.gpx')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only GPX files are allowed'));
-    }
-  }
-});
-
-app.use('/uploads', express.static(uploadDir));
 
 app.use('/api/auth', sanitizeInput, authRoutes);
 app.use('/api/adventures', sanitizeInput, adventureLimiter, adventuresRoutes);
-app.use('/api/gpx', sanitizeInput, uploadLimiter, gpxRoutes);
 app.use('/api/routing', sanitizeInput, routingRoutes);
 app.use('/api/immich', sanitizeInput, immichRoutes);
 app.use('/api/admin', sanitizeInput, adminRoutes);

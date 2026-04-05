@@ -33,6 +33,8 @@ class ApiService {
       headers: this.getHeaders(true, isFormData)
     };
 
+    console.log('API Request:', { method, endpoint, isFormData, hasData: !!data });
+
     if (data) {
       if (isFormData && data instanceof FormData) {
         options.body = data;
@@ -46,10 +48,13 @@ class ApiService {
         options.body = formData;
       } else {
         options.body = JSON.stringify(data);
+        console.log('Request body (JSON):', options.body.substring(0, 200));
       }
     }
 
+    console.log('Fetching:', url, 'options:', { method: options.method, hasBody: !!options.body });
     const response = await fetch(url, options);
+    console.log('Response status:', response.status, response.statusText);
     const result = await response.json();
 
     if (!response.ok) {
@@ -97,8 +102,28 @@ class ApiService {
     return this.put(`/gpx/${gpxId}`, data);
   }
 
+  uploadGpx(adventureId, file, name, type) {
+    console.log('uploadGpx called:', { adventureId, name, type, file });
+    const formData = new FormData();
+    formData.append('file', file);
+    if (name) formData.append('name', name);
+    if (type) formData.append('type', type);
+    console.log('FormData created, posting to:', `/adventures/${adventureId}/gpx`);
+    return this.post(`/adventures/${adventureId}/gpx`, formData, true);
+  }
+
+  uploadGpxBase64(adventureId, base64Data, name, type) {
+    console.log('uploadGpxBase64 called:', { adventureId, name, type, dataLength: base64Data?.length });
+    return this.post(`/adventures/${adventureId}/gpx-base64`, { 
+      file: base64Data, 
+      name, 
+      type 
+    });
+  }
+
   createGpxFromPoints(data) {
-    return this.post('/gpx/from-points', data);
+    console.log('createGpxFromPoints called with:', data);
+    return this.post('/adventures/gpx/from-points', data);
   }
 
   getSeries() {
