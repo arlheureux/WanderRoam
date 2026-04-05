@@ -13,10 +13,11 @@ const TYPE_COLORS = {
   train: '#0891B2',
   boat: '#4F46E5',
   car: '#52525B',
+  plane: '#6366F1',
   other: '#0D9488'
 };
 
-const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'];
+const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other'];
 
 const ROUTING_MODES = [
   { value: 'car', label: 'Car', color: '#FC5C65' },
