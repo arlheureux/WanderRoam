@@ -347,9 +347,6 @@ const createSeries = async (e) => {
               <button onClick={() => setShowSeriesModal(true)} className="btn btn-outline" style={{ marginLeft: '8px' }}>
                 + New Series
               </button>
-              <button onClick={() => navigate('/series')} className="btn btn-outline btn-sm" style={{ marginLeft: '8px' }}>
-                📚 All Series
-              </button>
             </div>
           </div>
 
