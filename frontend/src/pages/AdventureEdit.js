@@ -143,10 +143,6 @@ const AdventureEdit = () => {
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingGpx, setUploadingGpx] = useState(false);
-  const [gpxFile, setGpxFile] = useState(null);
-  const [gpxName, setGpxName] = useState('');
-  const [gpxType, setGpxType] = useState('hiking');
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showImmichBrowser, setShowImmichBrowser] = useState(false);
   const [immichAlbums, setImmichAlbums] = useState([]);
@@ -338,35 +334,6 @@ const AdventureEdit = () => {
       alert(err.response?.data?.error || 'Failed to create tag');
     } finally {
       setCreatingTag(false);
-    }
-  };
-
-  const handleGpxUpload = async (e) => {
-    e.preventDefault();
-    if (!gpxFile) return;
-
-    setUploadingGpx(true);
-    try {
-      const formData = new FormData();
-      formData.append('gpx', gpxFile);
-      formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
-      formData.append('type', gpxType);
-      formData.append('adventure_id', id);
-
-      const res = await api.post('/gpx/upload', formData, true);
-      
-      setAdventure({
-        ...adventure,
-        GpxTracks: [...(adventure.GpxTracks || []), res.data.gpxTrack]
-      });
-      setMapKey(mapKey + 1);
-      
-      setGpxFile(null);
-      setGpxName('');
-    } catch (err) {
-      toast.error('Failed to upload GPX:', err);
-    } finally {
-      setUploadingGpx(false);
     }
   };
 
@@ -728,6 +695,54 @@ const AdventureEdit = () => {
             </MapContainer>
           </div>
 
+          <div className="sidebar-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <div>
+                <h3>Transportation ({gpxTracks.length})</h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '-4px' }}>
+                  Click a track to edit, add points, or view on map
+                </p>
+              </div>
+              <button 
+                onClick={() => openGpxEditor(null)}
+                className="btn btn-primary btn-sm"
+              >
+                + New GPX Track
+              </button>
+            </div>
+            {gpxTracks.length === 0 ? (
+              <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
+            ) : (
+              <div className="gpx-list">
+                {gpxTracks.map(track => (
+                  <div 
+                    key={track.id} 
+                    className="gpx-item"
+                    style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
+                    onClick={() => openGpxEditor(track)}
+                  >
+                    <div>
+                      <div className="gpx-item-name">{track.name}</div>
+                      <div className="gpx-item-type">{track.type}</div>
+                      {track.distance > 0 && (
+                        <div className="gpx-item-stats">
+                          {track.distance.toFixed(1)} km
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
+                      className="btn btn-danger btn-sm"
+                      title="Delete"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {newWaypoint && (
             <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -815,48 +830,6 @@ const AdventureEdit = () => {
           )}
 
           <div className="adventure-sidebar">
-            <div className="sidebar-section">
-              <h3>Upload GPX</h3>
-              <form onSubmit={handleGpxUpload}>
-                <div className="form-group">
-                  <input
-                    type="file"
-                    accept=".gpx"
-                    onChange={(e) => setGpxFile(e.target.files[0])}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <input
-                    type="text"
-                    placeholder="Track name (optional)"
-                    value={gpxName}
-                    onChange={(e) => setGpxName(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <select value={gpxType} onChange={(e) => setGpxType(e.target.value)}>
-                    <option value="walking">Walking</option>
-                    <option value="hiking">Hiking</option>
-                    <option value="cycling">Cycling</option>
-                    <option value="bus">Bus</option>
-                    <option value="metro">Metro</option>
-                    <option value="train">Train</option>
-                    <option value="boat">Boat</option>
-                    <option value="car">Car</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ width: '100%' }}
-                  disabled={uploadingGpx || !gpxFile}
-                >
-                  {uploadingGpx ? 'Uploading...' : 'Upload GPX'}
-                </button>
-              </form>
-            </div>
 
             <div className="sidebar-section">
               <h3>Date</h3>
@@ -873,6 +846,27 @@ const AdventureEdit = () => {
                   color: 'var(--text)',
                   fontFamily: 'inherit',
                   fontSize: '0.9rem'
+                }}
+              />
+            </div>
+
+            <div className="sidebar-section">
+              <h3>Description</h3>
+              <textarea
+                value={adventure.description || ''}
+                onChange={(e) => updateAdventure({ description: e.target.value })}
+                placeholder="Add a description..."
+                style={{
+                  width: '100%',
+                  minHeight: '80px',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--background)',
+                  color: 'var(--text)',
+                  fontFamily: 'inherit',
+                  fontSize: '0.9rem',
+                  resize: 'vertical'
                 }}
               />
             </div>
@@ -951,75 +945,6 @@ const AdventureEdit = () => {
               >
                 + Add Tag
               </button>
-            </div>
-
-            <div className="sidebar-section">
-              <h3>Description</h3>
-              <textarea
-                value={adventure.description || ''}
-                onChange={(e) => updateAdventure({ description: e.target.value })}
-                placeholder="Add a description..."
-                style={{
-                  width: '100%',
-                  minHeight: '80px',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  color: 'var(--text)',
-                  fontFamily: 'inherit',
-                  fontSize: '0.9rem',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            <div className="sidebar-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                <div>
-                  <h3>Transportation ({gpxTracks.length})</h3>
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '-4px' }}>
-                    Click a track to edit, add points, or view on map
-                  </p>
-                </div>
-                <button 
-                  onClick={() => openGpxEditor(null)}
-                  className="btn btn-primary btn-sm"
-                >
-                  + New GPX Track
-                </button>
-              </div>
-              {gpxTracks.length === 0 ? (
-                <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
-              ) : (
-                <div className="gpx-list">
-                  {gpxTracks.map(track => (
-                    <div 
-                      key={track.id} 
-                      className="gpx-item"
-                      style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
-                      onClick={() => openGpxEditor(track)}
-                    >
-                      <div>
-                        <div className="gpx-item-name">{track.name}</div>
-                        <div className="gpx-item-type">{track.type}</div>
-                        {track.distance > 0 && (
-                          <div className="gpx-item-stats">
-                            {track.distance.toFixed(1)} km
-                          </div>
-                        )}
-                      </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
-                        className="btn btn-danger btn-sm"
-                        title="Delete"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {pictures.length > 0 && (

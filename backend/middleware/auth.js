@@ -8,9 +8,11 @@ if (!JWT_SECRET) {
 }
 
 const authMiddleware = (req, res, next) => {
+  console.log('Auth middleware - path:', req.path, 'method:', req.method);
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('Auth middleware - No token');
     return res.status(401).json({ error: 'No token provided' });
   }
 
@@ -18,9 +20,11 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Auth middleware - Token valid, user:', decoded.username);
     req.user = decoded;
     next();
   } catch (error) {
+    console.log('Auth middleware - Invalid token:', error.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 };

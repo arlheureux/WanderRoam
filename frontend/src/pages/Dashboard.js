@@ -8,7 +8,7 @@ import { useAuth } from '../services/AuthContext';
 import { useMapContext } from '../contexts/MapContext';
 import { MapView, TYPE_COLORS } from '../components/MapView';
 import api from '../services/api';
-import { VERSION } from '../version';
+import { VERSION, GIT_COMMIT } from '../version';
 
 const Logo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '12px' }}>
@@ -65,7 +65,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('adventures');
   const [allTracks, setAllTracks] = useState([]);
   const [visibleAdventures, setVisibleAdventures] = useState({});
-  const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
+  const [appVersion, setAppVersion] = useState({ version: '', tag: '', gitCommit: '' });
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -79,7 +79,7 @@ const Dashboard = () => {
     loadSeries();
     loadTags();
     if (VERSION) {
-      setAppVersion({ version: VERSION, tag: 'latest' });
+      setAppVersion({ version: VERSION, tag: 'latest', gitCommit: GIT_COMMIT });
     }
   }, [sortBy, sortOrder, selectedTags]);
 
@@ -263,7 +263,7 @@ const createSeries = async (e) => {
           <h1>WanderRoam</h1>
           {appVersion.version && (
             <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
-              {appVersion.version} ({appVersion.tag})
+              {appVersion.version} ({appVersion.tag}) {appVersion.gitCommit && <span style={{ opacity: 0.7 }}>#{appVersion.gitCommit}</span>}
             </span>
           )}
         </div>

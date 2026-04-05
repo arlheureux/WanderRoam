@@ -89,7 +89,7 @@ const GpxTrack = sequelize.define('GpxTrack', {
     allowNull: false
   },
   type: {
-    type: DataTypes.ENUM('walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other'),
+    type: DataTypes.ENUM('walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'),
     defaultValue: 'walking'
   },
   color: {

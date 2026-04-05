@@ -53,6 +53,13 @@ services:
 
   frontend:
     image: arlheureux/wanderroam-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_VERSION: 0.7.1
+        REACT_APP_CHANNEL: latest
+        REACT_APP_GIT_COMMIT: ${GIT_COMMIT:-9e16433}
     container_name: wanderroam-frontend
     networks:
       - wanderroam-internal
