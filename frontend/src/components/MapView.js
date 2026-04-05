@@ -77,6 +77,7 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
     zoom: zoom || 5
   });
   const [popupInfo, setPopupInfo] = useState(null);
+  const [terrainEnabled, setTerrainEnabled] = useState(true);
 
   const handleMapLoad = (evt) => {
     mapRef.current = evt.target;
@@ -191,20 +192,45 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
       style={{ height: '100%', width: '100%' }}
       mapStyle="mapbox://styles/mapbox/outdoors-v12"
       mapboxAccessToken={mapboxToken}
-      terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
+      terrain={terrainEnabled ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
       projection="globe"
     >
       <NavigationControl position="top-right" />
       <FullscreenControl position="top-right" />
       <ScaleControl />
       
-      <Source
-        id="mapbox-dem"
-        type="raster-dem"
-        url="mapbox://mapbox.mapbox-terrain-dem-v1"
-        tileSize={512}
-        maxzoom={14}
-      />
+      <button
+        onClick={() => setTerrainEnabled(!terrainEnabled)}
+        style={{
+          position: 'absolute',
+          top: '50px',
+          right: '10px',
+          zIndex: 10,
+          padding: '8px 12px',
+          background: terrainEnabled ? 'var(--primary)' : 'var(--surface)',
+          color: terrainEnabled ? 'white' : 'var(--text)',
+          border: '1px solid var(--border)',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+        title={terrainEnabled ? 'Disable 3D Terrain' : 'Enable 3D Terrain'}
+      >
+        🏔️ {terrainEnabled ? 'ON' : 'OFF'}
+      </button>
+      
+      {terrainEnabled && (
+        <Source
+          id="mapbox-dem"
+          type="raster-dem"
+          url="mapbox://mapbox.mapbox-terrain-dem-v1"
+          tileSize={512}
+          maxzoom={14}
+        />
+      )}
       
       {trackFeatures.length > 0 && (
         <Source id="tracks" type="geojson" data={geoJsonData}>
