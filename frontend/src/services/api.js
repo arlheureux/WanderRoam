@@ -96,6 +96,34 @@ class ApiService {
   updateGpx(gpxId, data) {
     return this.put(`/gpx/${gpxId}`, data);
   }
+
+  createGpxFromPoints(data) {
+    return this.post('/gpx/from-points', data);
+  }
+
+  getSeries() {
+    return this.get('/series');
+  }
+
+  getSeriesById(id) {
+    return this.get(`/series/${id}`);
+  }
+
+  createSeries(data) {
+    return this.post('/series', data);
+  }
+
+  updateSeries(id, data) {
+    return this.put(`/series/${id}`, data);
+  }
+
+  deleteSeries(id) {
+    return this.delete(`/series/${id}`);
+  }
+
+  updateSeriesAdventures(id, adventureIds) {
+    return this.put(`/series/${id}/adventures`, { adventureIds });
+  }
 }
 
 export default new ApiService();

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './services/AuthContext';
+import { MapProvider } from './contexts/MapContext';
 import ToastContainer from './components/Toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -9,6 +10,7 @@ import AdventureView from './pages/AdventureView';
 import AdventureEdit from './pages/AdventureEdit';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
+import SeriesView from './pages/SeriesView';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -23,8 +25,9 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <ToastContainer />
-      <BrowserRouter>
+      <MapProvider>
+        <ToastContainer />
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -53,8 +56,14 @@ function App() {
               <Stats />
             </ProtectedRoute>
           } />
+          <Route path="/series/:id" element={
+            <ProtectedRoute>
+              <SeriesView />
+            </ProtectedRoute>
+          } />
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </MapProvider>
     </AuthProvider>
   );
 }

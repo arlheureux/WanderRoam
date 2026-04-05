@@ -30,19 +30,13 @@ const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
+const seriesRoutes = require('./routes/series');
 const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
-const { version } = require('./package.json');
-const VERSION = `v${version}`;
-const TAG = process.env.TAG || 'stable';
-
-app.get('/api/version', (req, res) => {
-  res.json({ version: VERSION, tag: TAG });
-});
 
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'http://frontend:3000'
@@ -51,8 +45,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 60 * 1000,
+  max: 200,
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -122,6 +116,7 @@ app.use('/api/gpx', sanitizeInput, uploadLimiter, gpxRoutes);
 app.use('/api/routing', sanitizeInput, routingRoutes);
 app.use('/api/immich', sanitizeInput, immichRoutes);
 app.use('/api/admin', sanitizeInput, adminRoutes);
+app.use('/api/series', sanitizeInput, seriesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

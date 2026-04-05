@@ -107,6 +107,7 @@ const TYPE_COLORS = {
   train: '#0891B2',
   boat: '#4F46E5',
   car: '#52525B',
+  plane: '#6366F1',
   other: '#0D9488'
 };
 

@@ -8,7 +8,7 @@ const router = express.Router();
 const ROUTING_PROFILES = {
   car: 'car-vario',
   bike: 'trekking',
-  foot: 'hiking',
+  foot: 'trekking',
   boat: 'river',
   train: 'rail',
   metro: 'rail'

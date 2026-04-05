@@ -141,7 +141,7 @@ const haversine = (lat1, lon1, lat2, lon2) => {
 
 router.post('/upload', authMiddleware, [
   body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
-  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other']).withMessage('Invalid track type'),
   body('adventure_id').optional().isUUID().withMessage('Invalid adventure ID'),
   validate
 ], upload.single('gpx'), async (req, res) => {
@@ -161,6 +161,7 @@ router.post('/upload', authMiddleware, [
       train: '#0891B2',
       boat: '#4F46E5',
       car: '#52525B',
+      plane: '#6366F1',
       other: '#0D9488'
     };
 
@@ -186,6 +187,60 @@ router.post('/upload', authMiddleware, [
   }
 });
 
+router.post('/from-points', authMiddleware, [
+  body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Name is required and must be 100 characters or less'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other']).withMessage('Invalid track type'),
+  body('color').optional().isHexColor().withMessage('Invalid color'),
+  body('adventure_id').isUUID().withMessage('Valid adventure ID is required'),
+  body('data').isArray({ min: 2 }).withMessage('Track must have at least 2 points'),
+  validate
+], async (req, res) => {
+  try {
+    const { name, type, color, adventure_id, data } = req.body;
+
+    const TYPE_COLORS = {
+      walking: '#DC2626',
+      hiking: '#EA580C',
+      cycling: '#65A30D',
+      bus: '#2563EB',
+      metro: '#DB2777',
+      train: '#0891B2',
+      boat: '#4F46E5',
+      car: '#52525B',
+      plane: '#6366F1',
+      other: '#0D9488'
+    };
+
+    const gpxType = type || 'hiking';
+    const trackColor = color || TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    let totalDistance = 0;
+    if (data.length >= 2) {
+      for (let i = 1; i < data.length; i++) {
+        const prev = data[i - 1];
+        const curr = data[i];
+        if (prev.lat && prev.lng && curr.lat && curr.lng) {
+          const dist = haversine(prev.lat, prev.lng, curr.lat, curr.lng);
+          totalDistance += dist;
+        }
+      }
+    }
+
+    const gpxTrack = await GpxTrack.create({
+      name: name.trim(),
+      type: gpxType,
+      color: trackColor,
+      data: data,
+      adventure_id: adventure_id,
+      distance: Math.round(totalDistance / 10) / 100
+    });
+
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    return handleError(error, res, { operation: 'createGpxFromPoints' });
+  }
+});
+
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const gpxTrack = await GpxTrack.findByPk(req.params.id);
@@ -203,7 +258,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, [
   param('id').isUUID().withMessage('Invalid GPX track ID'),
   body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
-  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other']).withMessage('Invalid track type'),
   body('color').optional().isHexColor().withMessage('Invalid color'),
   validate
 ], async (req, res) => {
