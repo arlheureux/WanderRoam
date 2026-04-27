@@ -15,13 +15,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - wanderroam-internal
-    healthcheck:
+healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-    restart: on-failure
+    restart: always
 
 
   backend:
