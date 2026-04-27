@@ -28,6 +28,10 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['username'] }
+  ]
 });
 
 const Adventure = sequelize.define('Adventure', {
@@ -66,6 +70,12 @@ const Adventure = sequelize.define('Adventure', {
     type: DataTypes.UUID,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['adventure_date'] },
+    { fields: ['createdAt'] }
+  ]
 });
 
 const GpxTrack = sequelize.define('GpxTrack', {
@@ -98,6 +108,11 @@ const GpxTrack = sequelize.define('GpxTrack', {
     type: DataTypes.FLOAT,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] },
+    { fields: ['type'] }
+  ]
 });
 
 const Picture = sequelize.define('Picture', {
@@ -130,6 +145,10 @@ const Picture = sequelize.define('Picture', {
     type: DataTypes.TEXT,
     allowNull: true
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] }
+  ]
 });
 
 const Waypoint = sequelize.define('Waypoint', {
@@ -154,6 +173,10 @@ const Waypoint = sequelize.define('Waypoint', {
     type: DataTypes.DECIMAL(10, 7),
     allowNull: false
   }
+}, {
+  indexes: [
+    { fields: ['adventure_id'] }
+  ]
 });
 
 const Tag = sequelize.define('Tag', {
@@ -196,6 +219,89 @@ const AdventureShare = sequelize.define('AdventureShare', {
     type: DataTypes.UUID,
     allowNull: false
   }
+}, {
+  indexes: [
+    { fields: ['AdventureId'] },
+    { fields: ['UserId'] }
+  ]
+});
+
+const AuditLog = sequelize.define('AuditLog', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  action: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  targetUserId: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  details: {
+    type: DataTypes.JSONB,
+    allowNull: true
+  },
+  ipAddress: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
+});
+
+const Series = sequelize.define('Series', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  start_date: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  },
+  end_date: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  }
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['start_date'] }
+  ]
+});
+
+const SeriesAdventure = sequelize.define('SeriesAdventure', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  SeriesId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  AdventureId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  order: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  }
+}, {
+  indexes: [
+    { fields: ['SeriesId'] },
+    { fields: ['AdventureId'] }
+  ]
 });
 
 User.hasMany(Adventure, { foreignKey: 'user_id' });
@@ -219,6 +325,18 @@ User.belongsToMany(Adventure, { through: AdventureShare, as: 'sharedAdventures' 
 AdventureShare.belongsTo(User, { foreignKey: 'UserId', as: 'User' });
 AdventureShare.belongsTo(Adventure, { foreignKey: 'AdventureId', as: 'Adventure' });
 
+User.hasMany(AuditLog, { foreignKey: 'adminUserId' });
+AuditLog.belongsTo(User, { foreignKey: 'adminUserId', as: 'admin' });
+
+Series.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
+User.hasMany(Series, { foreignKey: 'user_id' });
+
+Series.belongsToMany(Adventure, { through: SeriesAdventure, as: 'adventures' });
+Adventure.belongsToMany(Series, { through: SeriesAdventure, as: 'series' });
+
+SeriesAdventure.belongsTo(Series, { foreignKey: 'SeriesId' });
+SeriesAdventure.belongsTo(Adventure, { foreignKey: 'AdventureId' });
+
 module.exports = {
   sequelize,
   User,
@@ -227,5 +345,8 @@ module.exports = {
   Picture,
   Waypoint,
   Tag,
-  AdventureShare
+  AdventureShare,
+  AuditLog,
+  Series,
+  SeriesAdventure
 };

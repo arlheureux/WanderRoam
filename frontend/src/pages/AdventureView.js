@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Polyline, Marker, Popup } from 'react-leaflet';
+import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import 'react-leaflet-fullscreen/styles.css';
+import toast from 'react-hot-toast';
+import { useMapContext } from '../contexts/MapContext';
+import { MapView, TYPE_COLORS } from '../components/MapView';
 import api from '../services/api';
-
-const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
-};
 
 const fixLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
@@ -46,94 +42,68 @@ const createCustomIcon = (color, scale = 1) => {
 };
 
 const createWaypointIcon = (icon, scale = 1) => {
-  const size = 23 * scale; // 25% smaller (28 * 0.75)
+  const size = 32 * scale;
+  const half = size / 2;
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<div style="
-      position: relative;
       width: ${size}px;
-      height: ${size * 1.4}px;
+      height: ${size}px;
+      background: #FFFDD0;
+      border-radius: 50%;
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      border: 2px solid #ddd;
     ">
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        background: #FF6B6B;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-      ">
-        <span style="
-          transform: rotate(45deg);
-          font-size: ${size * 0.55}px;
-          line-height: 1;
-        ">${icon}</span>
-      </div>
-      <div style="
-        width: 0;
-        height: 0;
-        border-left: ${size * 0.2}px solid transparent;
-        border-right: ${size * 0.2}px solid transparent;
-        border-top: ${size * 0.3}px solid #FF6B6B;
-      "></div>
+      <span style="
+        font-size: ${size * 0.5}px;
+        line-height: 1;
+      ">${icon}</span>
     </div>`,
-    iconSize: [size, size * 1.4],
-    iconAnchor: [size/2, size * 1.4],
-    popupAnchor: [0, -size * 1.2]
+    iconSize: [size, size],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half]
   });
 };
 
-const MapBounds = ({ tracks, pictures, waypoints }) => {
-  const map = useMap();
+const waypointIconCache = {};
 
-  useEffect(() => {
-    const allPoints = [];
-    
-    if (tracks && tracks.length > 0) {
-      const trackPoints = tracks
-        .filter(t => t.data && t.data.length > 0)
-        .flatMap(t => t.data.map(p => [p.lat, p.lng]));
-      allPoints.push(...trackPoints);
-    }
-    
-    if (pictures && pictures.length > 0) {
-      const picturePoints = pictures
-        .filter(p => p.latitude && p.longitude)
-        .map(p => [p.latitude, p.longitude]);
-      allPoints.push(...picturePoints);
-    }
-
-    if (waypoints && waypoints.length > 0) {
-      const waypointPoints = waypoints.map(w => [w.latitude, w.longitude]);
-      allPoints.push(...waypointPoints);
-    }
-
-    if (allPoints.length > 0) {
-      const bounds = L.latLngBounds(allPoints);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [tracks, pictures, map]);
-
-  return null;
+const getWaypointIcon = (icon, scale = 1) => {
+  const key = `${icon}-${scale}`;
+  if (!waypointIconCache[key]) {
+    waypointIconCache[key] = createWaypointIcon(icon, scale);
+  }
+  return waypointIconCache[key];
 };
 
 const AdventureView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const seriesId = searchParams.get('seriesId');
+  const backLink = seriesId ? `/series/${seriesId}` : '/';
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
+  const handleTrackClick = (track) => {
+    if (selectedTrack && selectedTrack.id === track.id) {
+      setSelectedTrack(null);
+      setSelectedTrackBounds(null);
+    } else {
+      setSelectedTrack(track);
+      const trackPoints = track.data?.map(p => [p.lat, p.lng]) || [];
+      setSelectedTrackBounds(trackPoints);
+    }
+  };
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedTrackBounds, setSelectedTrackBounds] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [viewingPicture, setViewingPicture] = useState(null);
   const [pictureIndex, setPictureIndex] = useState(0);
   const [hoveredPictureId, setHoveredPictureId] = useState(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapRef = useRef(null);
+  const { mapProvider, mapboxToken } = useMapContext();
 
   useEffect(() => {
     fixLeafletIcons();
@@ -157,7 +127,7 @@ const AdventureView = () => {
       const res = await api.get(`/adventures/${id}`);
       setAdventure(res.data.adventure);
     } catch (err) {
-      console.error('Failed to load adventure:', err);
+      toast.error('Failed to load adventure');
       navigate('/');
     } finally {
       setLoading(false);
@@ -171,8 +141,167 @@ const AdventureView = () => {
       await api.delete(`/adventures/${id}`);
       navigate('/');
     } catch (err) {
-      console.error('Failed to delete adventure:', err);
+      toast.error('Failed to delete adventure');
     }
+  };
+
+  const exportToPdf = async () => {
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf' });
+      
+      const gpxTracks = adventure.GpxTracks || [];
+      const totalDistance = gpxTracks.reduce((sum, t) => sum + (t.distance || 0), 0);
+      const totalElevation = gpxTracks.reduce((sum, t) => sum + (t.elevation_gain || 0), 0);
+      const totalDuration = gpxTracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPos = margin;
+
+      pdf.setFontSize(20);
+      pdf.setTextColor(16, 185, 129);
+      pdf.text(adventure.name, margin, yPos);
+      yPos += 10;
+
+      if (adventure.adventure_date) {
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(new Date(adventure.adventure_date).toLocaleDateString(), margin, yPos);
+        yPos += 10;
+      }
+
+      if (adventure.location) {
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text(`Location: ${adventure.location}`, margin, yPos);
+        yPos += 8;
+      }
+
+      const mapElement = document.querySelector('.adventure-map-card .leaflet-container');
+      if (mapElement) {
+        try {
+          const canvas = await html2canvas(mapElement, { 
+            useCORS: true,
+            scale: 2,
+            logging: false
+          });
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = pageWidth - margin * 2;
+          const imgHeight = (canvas.height / canvas.width) * imgWidth;
+          pdf.addImage(imgData, 'PNG', margin, yPos, imgWidth, Math.min(imgHeight, 80));
+          yPos += Math.min(imgHeight, 80) + 10;
+        } catch (mapErr) {
+          console.error('Failed to capture map:', mapErr);
+        }
+      }
+
+      const statsText = [];
+      if (totalDistance > 0) statsText.push(`Distance: ${(totalDistance / 1000).toFixed(2)} km`);
+      if (totalElevation > 0) statsText.push(`Elevation: ${totalElevation.toFixed(0)} m`);
+      if (totalDuration > 0) {
+        const hours = Math.floor(totalDuration / 3600);
+        const mins = Math.floor((totalDuration % 3600) / 60);
+        statsText.push(`Duration: ${hours}h ${mins}m`);
+      }
+      
+      if (statsText.length > 0) {
+        pdf.setFontSize(11);
+        pdf.setTextColor(15, 23, 42);
+        pdf.text(statsText.join(' • '), margin, yPos);
+        yPos += 10;
+      }
+
+      if (adventure.description) {
+        pdf.setFontSize(10);
+        pdf.setTextColor(71, 85, 105);
+        const descLines = pdf.splitTextToSize(adventure.description, pageWidth - margin * 2);
+        pdf.text(descLines.slice(0, 5), margin, yPos);
+        yPos += Math.min(descLines.length, 5) * 5 + 10;
+      }
+
+      if (pictures.length > 0) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 185, 129);
+        pdf.text('Pictures', margin, yPos);
+        yPos += 8;
+
+        const imgWidth = 40;
+        const imgHeight = 30;
+        const gap = 5;
+        const cols = 4;
+        
+        for (let i = 0; i < Math.min(pictures.length, 8); i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = margin + col * (imgWidth + gap);
+          const y = yPos + row * (imgHeight + gap);
+          
+          const imgSrc = pictures[i].thumbnail_base64 || pictures[i].thumbnail_url;
+          if (imgSrc) {
+            try {
+              if (imgSrc.startsWith('data:')) {
+                pdf.addImage(imgSrc, 'JPEG', x, y, imgWidth, imgHeight);
+              } else {
+                const response = await fetch(imgSrc);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  pdf.addImage(reader.result, 'JPEG', x, y, imgWidth, imgHeight);
+                };
+                reader.readAsDataURL(blob);
+              }
+            } catch (e) {
+              console.error('Failed to load image:', e);
+            }
+          }
+        }
+        yPos += Math.ceil(Math.min(pictures.length, 8) / cols) * (imgHeight + gap) + 15;
+      }
+
+      if (gpxTracks.length > 0) {
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 185, 129);
+        pdf.text('Tracks', margin, yPos);
+        yPos += 8;
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(15, 23, 42);
+        
+        gpxTracks.forEach((track, idx) => {
+          const trackDist = track.data ? (track.data.length > 0 ? calculateTrackDistance(track.data) : 0) : 0;
+          const trackType = track.type || 'other';
+          const trackColor = TYPE_COLORS[trackType] || '#9B59B6';
+          
+          pdf.setFillColor(trackColor);
+          pdf.circle(margin + 2, yPos - 1, 2, 'F');
+          pdf.text(`${track.name || `Track ${idx + 1}`} - ${trackType} (${(trackDist / 1000).toFixed(2)} km)`, margin + 8, yPos);
+          yPos += 6;
+        });
+      }
+
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('Generated by WanderRoam', margin, 285);
+
+      pdf.save(`${adventure.name.replace(/[^a-z0-9]/gi, '_')}_adventure.pdf`);
+      toast.success('PDF exported!', { id: 'pdf' });
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to export PDF', { id: 'pdf' });
+    }
+  };
+
+  const calculateTrackDistance = (points) => {
+    let dist = 0;
+    for (let i = 1; i < points.length; i++) {
+      const d = Math.sqrt(
+        Math.pow(points[i].lat - points[i-1].lat, 2) + 
+        Math.pow(points[i].lng - points[i-1].lng, 2)
+      );
+      dist += d * 111000;
+    }
+    return dist;
   };
 
   const openPicture = (picture, index) => {
@@ -207,14 +336,21 @@ const AdventureView = () => {
   const defaultCenter = [parseFloat(adventure.center_lat) || 46.2276, parseFloat(adventure.center_lng) || 2.2137];
   const defaultZoom = adventure.zoom || 10;
 
+  const allBounds = [
+    ...gpxTracks.flatMap(t => t.data?.map(p => [p.lat, p.lng]) || []),
+    ...pictures.filter(p => p.latitude && p.longitude).map(p => [p.latitude, p.longitude]),
+    ...waypoints.map(w => [w.latitude, w.longitude])
+  ];
+
   return (
     <div>
       <header className="header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/" className="back-link">← Back</Link>
+          <Link to={backLink} className="back-link">← Back</Link>
         </div>
         <h1 style={{ flex: 1, textAlign: 'center', margin: 0 }}>{adventure.name}</h1>
         <div className="header-actions">
+          <button onClick={exportToPdf} className="btn btn-outline btn-sm">Export PDF</button>
           <Link to={`/adventure/${id}/edit`} className="btn btn-outline btn-sm">Edit</Link>
           <button onClick={deleteAdventure} className="btn btn-danger btn-sm">Delete</button>
         </div>
@@ -279,9 +415,11 @@ const AdventureView = () => {
                   className="gpx-item"
                   style={{ 
                     borderLeftColor: track.color || TYPE_COLORS[track.type],
-                    background: hoveredTrackId === track.id ? 'var(--background)' : 'transparent'
+                    background: hoveredTrackId === track.id ? 'var(--background)' : 'transparent',
+                    boxShadow: selectedTrack && selectedTrack.id === track.id ? '0 0 0 2px var(--primary)' : 'none',
+                    cursor: 'pointer'
                   }}
-                  onClick={() => setSelectedTrack(track)}
+                  onClick={() => handleTrackClick(track)}
                   onMouseEnter={() => setHoveredTrackId(track.id)}
                   onMouseLeave={() => setHoveredTrackId(null)}
                 >
@@ -312,32 +450,21 @@ const AdventureView = () => {
             <div className="adventure-card-header">
               <h3>Map</h3>
             </div>
-            <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
-              <button 
-                className="fullscreen-btn" 
-                onClick={() => {
-                  setMapFullscreen(!mapFullscreen);
-                  setTimeout(() => {
-                    if (mapRef.current) {
-                      mapRef.current.invalidateSize();
-                    }
-                  }, 100);
-                }}
-                title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {mapFullscreen ? '⛶' : '⛶'}
-              </button>
-              <MapContainer 
+            <div className="adventure-map-container">
+              <MapView 
                 ref={mapRef}
+                mapProvider={mapProvider}
+                mapboxToken={mapboxToken}
                 center={defaultCenter} 
-                zoom={defaultZoom} 
-                style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+                zoom={defaultZoom}
+                bounds={allBounds}
+                selectedTrack={selectedTrack}
+                gpxTracks={gpxTracks}
+                style={{ height: '100%', width: '100%' }}
+                mapboxPictures={pictures.filter(p => p.latitude && p.longitude)}
+                mapboxWaypoints={waypoints}
+                hoveredPictureId={hoveredPictureId}
               >
-              <TileLayer
-                attribution='&copy; <a href="httpsmap.org/copyright://www.openstreet">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
               {gpxTracks.map(track => (
                 <Polyline
                   key={track.id}
@@ -345,15 +472,17 @@ const AdventureView = () => {
                   pathOptions={{ 
                     color: track.color || TYPE_COLORS[track.type] || TYPE_COLORS.other,
                     weight: 5,
-                    opacity: (selectedTrack && selectedTrack.id !== track.id) || (hoveredTrackId && hoveredTrackId !== track.id) ? 0.4 : 1
+                    opacity: selectedTrack 
+                      ? (selectedTrack.id === track.id ? 1 : 0.3)
+                      : (hoveredTrackId && hoveredTrackId !== track.id ? 0.4 : 1)
                   }}
                   eventHandlers={{
-                    click: () => setSelectedTrack(track)
+                    click: () => handleTrackClick(track)
                   }}
                 />
               ))}
 
-              {pictures.map(picture => (
+              {pictures.map((picture) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
@@ -377,7 +506,7 @@ const AdventureView = () => {
                 <Marker
                   key={waypoint.id}
                   position={[waypoint.latitude, waypoint.longitude]}
-                  icon={createWaypointIcon(waypoint.icon)}
+                  icon={getWaypointIcon(waypoint.icon)}
                 >
                   <Popup>
                     <div style={{ minWidth: '100px', textAlign: 'center' }}>
@@ -387,10 +516,8 @@ const AdventureView = () => {
                   </Popup>
                 </Marker>
               ))}
-
-              <MapBounds tracks={gpxTracks} pictures={pictures} waypoints={waypoints} />
-            </MapContainer>
-            </div>
+              </MapView>
+              </div>
           </div>
 
           <div className="adventure-picture-section">

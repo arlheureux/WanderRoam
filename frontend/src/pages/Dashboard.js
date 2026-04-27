@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Polyline, Popup, useMap } from 'react-leaflet';
+import { Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import toast from 'react-hot-toast';
 import { useAuth } from '../services/AuthContext';
+import { useMapContext } from '../contexts/MapContext';
+import { MapView, TYPE_COLORS } from '../components/MapView';
 import api from '../services/api';
+import { VERSION, GIT_COMMIT } from '../version';
 
 const Logo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '12px' }}>
     <g transform="rotate(45 16 16)">
-      <rect x="5" y="5" width="10" height="10" fill="#00B894"/>
-      <rect x="5" y="17" width="10" height="10" fill="#00B894"/>
-      <rect x="17" y="5" width="10" height="10" fill="#00B894"/>
-      <rect x="17" y="17" width="10" height="10" fill="#00B894"/>
+      <rect x="5" y="5" width="10" height="10" fill="#10B981"/>
+      <rect x="5" y="17" width="10" height="10" fill="#10B981"/>
+      <rect x="17" y="5" width="10" height="10" fill="#10B981"/>
+      <rect x="17" y="17" width="10" height="10" fill="#10B981"/>
     </g>
   </svg>
 );
@@ -48,25 +52,35 @@ const MapBounds = ({ tracks }) => {
 
 const Dashboard = () => {
   const [adventures, setAdventures] = useState([]);
+  const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newAdventure, setNewAdventure] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
+  const [showSeriesModal, setShowSeriesModal] = useState(false);
+  const [newSeries, setNewSeries] = useState({ name: '', description: '' });
+  const [creatingSeries, setCreatingSeries] = useState(false);
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('sortBy') || 'adventure_date');
   const [sortOrder, setSortOrder] = useState(() => localStorage.getItem('sortOrder') || 'DESC');
   const [activeTab, setActiveTab] = useState('adventures');
   const [allTracks, setAllTracks] = useState([]);
   const [visibleAdventures, setVisibleAdventures] = useState({});
-  const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
+  const [appVersion, setAppVersion] = useState({ version: '', tag: '', gitCommit: '' });
   const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedMapTag, setSelectedMapTag] = useState(null);
   const { user, logout } = useAuth();
+  const { mapProvider, mapboxToken, isMapbox } = useMapContext();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAdventures();
+    loadSeries();
     loadTags();
-    api.getVersion().then(v => setAppVersion(v)).catch(() => {});
+    if (VERSION) {
+      setAppVersion({ version: VERSION, tag: 'latest', gitCommit: GIT_COMMIT });
+    }
   }, [sortBy, sortOrder, selectedTags]);
 
   useEffect(() => {
@@ -80,12 +94,37 @@ const Dashboard = () => {
     localStorage.setItem('sortOrder', sortOrder);
   }, [sortBy, sortOrder]);
 
+  const getAdventureTags = (adventureId) => {
+    const adventure = adventures.find(a => a.id === adventureId);
+    return adventure?.tags?.map(t => t.name) || [];
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'map' || allTracks.length === 0) return;
+    
+    const adventureIds = [...new Set(allTracks.map(t => t.adventureId))];
+    
+    if (selectedMapTag) {
+      const newVisible = {};
+      adventureIds.forEach(id => {
+        newVisible[id] = getAdventureTags(id).includes(selectedMapTag);
+      });
+      setVisibleAdventures(newVisible);
+    } else {
+      const newVisible = {};
+      adventureIds.forEach(id => {
+        newVisible[id] = true;
+      });
+      setVisibleAdventures(newVisible);
+    }
+  }, [selectedMapTag, activeTab, allTracks.length]);
+
   const loadTags = async () => {
     try {
       const res = await api.getTags();
       setAllTags(res.data.tags || []);
     } catch (err) {
-      console.error('Failed to load tags:', err);
+      toast.error('Failed to load tags');
     }
   };
 
@@ -94,14 +133,14 @@ const Dashboard = () => {
       const tagsParam = selectedTags.length > 0 ? `&tags=${selectedTags.join(',')}` : '';
       const res = await api.get(`/adventures?sort=${sortBy}&order=${sortOrder}${tagsParam}`);
       setAdventures(res.data.adventures);
+      setLoading(false);
     } catch (err) {
-      console.error('Failed to load adventures:', err);
-    } finally {
+      toast.error('Failed to load adventures');
       setLoading(false);
     }
   };
 
-  const loadAllTracks = async () => {
+const loadAllTracks = async () => {
     try {
       const res = await api.get('/adventures/all-gpx');
       setAllTracks(res.data.tracks);
@@ -112,24 +151,49 @@ const Dashboard = () => {
       });
       setVisibleAdventures(adventures);
     } catch (err) {
-      console.error('Failed to load tracks:', err);
+      toast.error('Failed to load tracks');
     }
   };
 
-  const createAdventure = async (e) => {
-    e.preventDefault();
-    setCreating(true);
-
+  const loadSeries = async () => {
     try {
-      const res = await api.post('/adventures', newAdventure);
-      navigate(`/adventure/${res.data.adventure.id}/edit`);
+      const res = await api.getSeries();
+      setSeriesList(res.data.series || []);
     } catch (err) {
-      console.error('Failed to create adventure:', err);
-    } finally {
-      setCreating(false);
-      setShowModal(false);
+      console.error('Failed to load series');
     }
   };
+
+const createAdventure = async (e) => {
+  e.preventDefault();
+  setCreating(true);
+
+  try {
+    const res = await api.post('/adventures', newAdventure);
+    navigate(`/adventure/${res.data.adventure.id}/edit`);
+  } catch (err) {
+    toast.error('Failed to create adventure');
+  } finally {
+    setCreating(false);
+    setShowModal(false);
+  }
+};
+
+const createSeries = async (e) => {
+  e.preventDefault();
+  setCreatingSeries(true);
+
+  try {
+    const res = await api.createSeries(newSeries);
+    setShowSeriesModal(false);
+    setNewSeries({ name: '', description: '' });
+    navigate(`/series/${res.data.series.id}`);
+  } catch (err) {
+    toast.error('Failed to create series');
+  } finally {
+    setCreatingSeries(false);
+  }
+};
 
   const toggleAdventure = (adventureId) => {
     setVisibleAdventures(prev => ({
@@ -139,11 +203,12 @@ const Dashboard = () => {
   };
 
   const toggleAll = (show) => {
-    const adventures = {};
-    Object.keys(visibleAdventures).forEach(id => {
-      adventures[id] = show;
+    const currentAdventureIds = uniqueAdventures.map(a => a.id);
+    const newVisible = { ...visibleAdventures };
+    currentAdventureIds.forEach(id => {
+      newVisible[id] = show;
     });
-    setVisibleAdventures(adventures);
+    setVisibleAdventures(newVisible);
   };
 
   const getTypeColor = (type) => {
@@ -157,7 +222,34 @@ const Dashboard = () => {
     return colors[type] || colors.other;
   };
 
-  const uniqueAdventures = [...new Set(allTracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
+  const allUniqueAdventures = [...new Set(allTracks.map(t => JSON.stringify({ id: t.adventureId, name: t.adventureName, color: t.color })))].map(s => JSON.parse(s));
+  
+  const uniqueAdventures = selectedMapTag 
+    ? allUniqueAdventures.filter(adv => getAdventureTags(adv.id).includes(selectedMapTag))
+    : allUniqueAdventures;
+
+  const seriesAdventureIds = new Set(
+    seriesList.flatMap(s => s.adventureIds || [])
+  );
+
+  const filteredAdventures = adventures.filter(a => !seriesAdventureIds.has(a.id));
+
+  const combinedItems = [
+    ...filteredAdventures.map(a => ({ type: 'adventure', data: a })),
+    ...seriesList.map(s => ({ type: 'series', data: s }))
+  ].sort((a, b) => {
+    const aVal = sortBy === 'name' 
+      ? a.data.name 
+      : (a.data.adventure_date || a.data.start_date || a.data.createdAt);
+    const bVal = sortBy === 'name' 
+      ? b.data.name 
+      : (b.data.adventure_date || b.data.start_date || b.data.createdAt);
+    
+    if (sortOrder === 'ASC') {
+      return String(aVal).localeCompare(String(bVal));
+    }
+    return String(bVal).localeCompare(String(aVal));
+  });
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
@@ -171,11 +263,12 @@ const Dashboard = () => {
           <h1>WanderRoam</h1>
           {appVersion.version && (
             <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
-              {appVersion.version} ({appVersion.tag})
+              {appVersion.version} ({appVersion.tag}) {appVersion.gitCommit && <span style={{ opacity: 0.7 }}>#{appVersion.gitCommit}</span>}
             </span>
           )}
         </div>
         <div className="header-actions">
+          <Link to="/stats" className="btn btn-outline btn-sm">Stats</Link>
           <Link to="/settings" className="btn btn-outline btn-sm">Settings</Link>
           <span>Welcome, {user?.username}</span>
           <button onClick={logout} className="btn btn-outline btn-sm">Logout</button>
@@ -234,14 +327,31 @@ const Dashboard = () => {
               >
                 {sortOrder === 'ASC' ? '↑' : '↓'}
               </button>
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className="btn btn-outline btn-sm"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border)',
+                  background: showFilters ? 'var(--primary)' : 'var(--background)',
+                  color: showFilters ? 'white' : 'var(--text)',
+                  cursor: 'pointer'
+                }}
+              >
+                {showFilters ? '▼' : '▶'} Filters{selectedTags.length > 0 ? ` (${selectedTags.length})` : ''}
+              </button>
               <button onClick={() => setShowModal(true)} className="btn btn-primary" style={{ marginLeft: '8px' }}>
                 + New Adventure
+              </button>
+              <button onClick={() => setShowSeriesModal(true)} className="btn btn-outline" style={{ marginLeft: '8px' }}>
+                + New Series
               </button>
             </div>
           </div>
 
-          {allTags.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
+          {allTags.length > 0 && showFilters && (
+            <div style={{ marginTop: '16px', padding: '12px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginRight: '8px' }}>Filter:</span>
               <button
                 onClick={() => setSelectedTags([])}
@@ -303,25 +413,86 @@ const Dashboard = () => {
             </div>
           )}
 
-          {adventures.length === 0 ? (
+          {combinedItems.length === 0 ? (
             <div className="empty-state">
               <h3>No adventures yet</h3>
               <p>Create your first adventure to get started</p>
             </div>
           ) : (
               <div className="adventures-grid">
-                {adventures.map(adventure => (
+                {combinedItems.map(item => item.type === 'series' ? (
                   <div 
-                    key={adventure.id} 
+                    key={item.data.id} 
                     className="adventure-card"
-                    onClick={() => navigate(`/adventure/${adventure.id}`)}
+                    onClick={() => navigate(`/series/${item.data.id}`)}
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      zIndex: 10,
+                      background: 'var(--primary)',
+                      color: 'white',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600
+                    }}>
+                      SERIES
+                    </div>
+                    <div className="adventure-card-preview">
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '3rem'
+                      }}>
+                        📚
+                      </div>
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '12px',
+                        color: 'white',
+                        fontWeight: 600
+                      }}>
+                        {item.data.adventureCount} adventures
+                      </div>
+                    </div>
+                    <div className="adventure-card-body">
+                      <h3>{item.data.name}</h3>
+                      {(item.data.start_date || item.data.end_date) && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '-8px' }}>
+                          {item.data.start_date ? new Date(item.data.start_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''}
+                          {item.data.start_date && item.data.end_date ? ' - ' : ''}
+                          {item.data.end_date ? new Date(item.data.end_date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''}
+                        </p>
+                      )}
+                      {item.data.description && (
+                        <p>{item.data.description.substring(0, 60)}...</p>
+                      )}
+                      <div className="adventure-stats">
+                        <span className="stat">📷 {item.data.totalPhotos} photos</span>
+                        <span className="stat">📏 {item.data.totalDistance ? (item.data.totalDistance / 1000).toFixed(1) : 0} km</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    key={item.data.id} 
+                    className="adventure-card"
+                    onClick={() => navigate(`/adventure/${item.data.id}`)}
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="adventure-card-preview">
-                      {adventure.preview_picture ? (
+                      {item.data.preview_picture ? (
                         <img 
-                          src={adventure.preview_picture.thumbnail_base64 || adventure.preview_picture.thumbnail_url} 
-                          alt={adventure.name}
+                          src={item.data.preview_picture.thumbnail_base64 || item.data.preview_picture.thumbnail_url} 
+                          alt={item.data.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (
@@ -344,39 +515,39 @@ const Dashboard = () => {
                         color: 'white',
                         fontWeight: 600
                       }}>
-                        {adventure.gpxCount} tracks
+                        {item.data.gpxCount} tracks
                       </div>
                     </div>
                     <div className="adventure-card-body">
-                    <h3>{adventure.name}</h3>
-                    {adventure.adventure_date && (
+                    <h3>{item.data.name}</h3>
+                    {item.data.adventure_date && (
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '-8px' }}>
-                        {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
+                        {new Date(item.data.adventure_date).toLocaleDateString(undefined, { 
                           year: 'numeric', 
                           month: 'short', 
                           day: 'numeric' 
                         })}
                       </p>
                     )}
-                    {adventure.description && (
-                      <p>{adventure.description.substring(0, 80)}...</p>
+                    {item.data.description && (
+                      <p>{item.data.description.substring(0, 80)}...</p>
                     )}
                     <div className="adventure-stats">
                       <span className="stat">
-                        📷 {adventure.pictureCount} photos
+                        📷 {item.data.pictureCount} photos
                       </span>
-                      {adventure.gpxByType && Object.keys(adventure.gpxByType).map(type => (
+                      {item.data.gpxByType && Object.keys(item.data.gpxByType).map(type => (
                         <span 
                           key={type}
                           className="stat-badge"
                           style={{ backgroundColor: getTypeColor(type) }}
                         >
-                          {adventure.gpxByType[type]} {type}
+                          {item.data.gpxByType[type]} {type}
                         </span>
                       ))}
-                      {adventure.tags && adventure.tags.length > 0 && (
+                      {item.data.tags && item.data.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-                          {adventure.tags.map(tag => (
+                          {item.data.tags.map(tag => (
                             <span
                               key={tag.id}
                               style={{
@@ -396,7 +567,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+              )              )}
             </div>
           )}
         </div>
@@ -411,6 +582,59 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
+              {(() => {
+                const adventureIdsWithTracks = [...new Set(allTracks.map(t => t.adventureId))];
+                const tagsFromAdventures = adventures.filter(a => adventureIdsWithTracks.includes(a.id));
+                const uniqueTags = [...new Set(tagsFromAdventures.flatMap(a => (a.tags || []).map(t => t.name)))];
+                
+                return uniqueTags.length > 0 ? (
+                  <div style={{ 
+                    marginTop: '16px', 
+                    marginBottom: '8px', 
+                    padding: '12px', 
+                    background: 'var(--surface)', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontWeight: 600, marginRight: '8px' }}>Filter by tag:</span>
+                    <button 
+                      onClick={() => setSelectedMapTag(null)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        borderRadius: '16px',
+                        border: selectedMapTag === null ? '1px solid #2196F3' : '1px solid var(--border)',
+                        background: selectedMapTag === null ? '#E3F2FD' : 'transparent',
+                        color: 'var(--text)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      All
+                    </button>
+                    {uniqueTags.map(tag => (
+                      <button 
+                        key={tag}
+                        onClick={() => setSelectedMapTag(tag)}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.8rem',
+                          borderRadius: '16px',
+                          border: selectedMapTag === tag ? '1px solid #2196F3' : '1px solid var(--border)',
+                          background: selectedMapTag === tag ? '#E3F2FD' : 'transparent',
+                          color: 'var(--text)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+
               <div style={{ 
                 marginTop: '16px', 
                 marginBottom: '16px', 
@@ -452,17 +676,14 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div style={{ height: 'calc(100vh - 280px)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                <MapContainer 
-                  center={[46.2276, 2.2137]} 
-                  zoom={5} 
-                  style={{ height: '100%', width: '100%' }}
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }} role="application" aria-label="Adventure map showing GPX tracks">
+                <MapView 
+                  mapProvider={mapProvider}
+                  mapboxToken={mapboxToken}
+                  center={[46.2276, 2.2137]}
+                  zoom={5}
+                  bounds={allTracks.filter(t => visibleAdventures[t.adventureId]).flatMap(t => t.data?.map(p => [p.lat, p.lng]) || [])}
                 >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <MapBounds tracks={allTracks.filter(t => visibleAdventures[t.adventureId])} />
                   {allTracks.filter(t => visibleAdventures[t.adventureId]).map(track => (
                     <Polyline
                       key={track.id}
@@ -489,7 +710,7 @@ const Dashboard = () => {
                       </Popup>
                     </Polyline>
                   ))}
-                </MapContainer>
+                </MapView>
               </div>
 
               <div style={{ marginTop: '16px', color: 'var(--text-light)', fontSize: '0.85rem' }}>
@@ -530,6 +751,43 @@ const Dashboard = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={creating}>
                   {creating ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSeriesModal && (
+        <div className="modal-overlay" onClick={() => setShowSeriesModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>New Series</h2>
+            <form onSubmit={createSeries}>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={newSeries.name}
+                  onChange={(e) => setNewSeries({ ...newSeries, name: e.target.value })}
+                  placeholder="Weekend Trip to Alps"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description (optional)</label>
+                <textarea
+                  value={newSeries.description}
+                  onChange={(e) => setNewSeries({ ...newSeries, description: e.target.value })}
+                  placeholder="A multi-day hiking adventure..."
+                  rows={3}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowSeriesModal(false)} className="btn btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={creatingSeries}>
+                  {creatingSeries ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>

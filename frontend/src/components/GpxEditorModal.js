@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
+  walking: '#DC2626',
+  hiking: '#EA580C',
+  cycling: '#65A30D',
+  bus: '#2563EB',
+  metro: '#DB2777',
+  train: '#0891B2',
+  boat: '#4F46E5',
+  car: '#52525B',
+  plane: '#6366F1',
+  other: '#0D9488'
 };
 
-const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other'];
+const TRACK_TYPES = ['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other'];
 
 const ROUTING_MODES = [
   { value: 'car', label: 'Car', color: '#FC5C65' },
@@ -34,11 +36,12 @@ const fixLeafletIcons = () => {
   });
 };
 
-const MapBoundsFitter = ({ points }) => {
+const MapBoundsFitter = ({ points, runOnce }) => {
   const map = useMap();
+  const hasRunRef = useRef(false);
   
   useEffect(() => {
-    if (points.length > 0) {
+    if (runOnce && points.length > 0 && !hasRunRef.current) {
       const lats = points.map(p => p.lat);
       const lngs = points.map(p => p.lng);
       const bounds = [
@@ -46,35 +49,15 @@ const MapBoundsFitter = ({ points }) => {
         [Math.max(...lats), Math.max(...lngs)]
       ];
       map.fitBounds(bounds, { padding: [50, 50] });
+      hasRunRef.current = true;
     }
-  }, [points, map]);
-  
+  }, [map, points, runOnce]);
+
   return null;
 };
 
-const createPointIcon = (color = '#2196F3', isWaypoint = false) => {
-  if (isWaypoint) {
-    return L.divIcon({
-      className: 'waypoint-marker',
-      html: `<div style="
-        background-color: ${color};
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: bold;
-        color: white;
-      "></div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-    });
-  }
-  const size = 12;
+const createPointIcon = (color, size, isNew) => {
+  const opacity = isNew ? 1 : 0.7;
   return L.divIcon({
     className: 'point-marker',
     html: `<div style="
@@ -84,9 +67,26 @@ const createPointIcon = (color = '#2196F3', isWaypoint = false) => {
       border-radius: 50%;
       border: 2px solid white;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      opacity: ${opacity};
     "></div>`,
     iconSize: [size, size],
     iconAnchor: [size/2, size/2],
+  });
+};
+
+const createWaypointIcon = (color = '#2196F3') => {
+  return L.divIcon({
+    className: 'waypoint-marker',
+    html: `<div style="
+      background-color: ${color};
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    "></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 };
 
@@ -108,14 +108,22 @@ const GpxEditorModal = ({
   existingTrack = null,
   onSave 
 }) => {
-  const [activeTab, setActiveTab] = useState(existingTrack ? 'edit' : 'draw');
+  const isNewTrack = !existingTrack;
+  
+  const [mode, setMode] = useState(isNewTrack ? 'draw' : 'edit');
+  
   const [name, setName] = useState(existingTrack?.name || '');
   const [trackType, setTrackType] = useState(existingTrack?.type || 'hiking');
   const [color, setColor] = useState(existingTrack?.color || TYPE_COLORS.hiking);
-  const [points, setPoints] = useState(existingTrack?.data || []);
+  
+  const [existingPoints, setExistingPoints] = useState(existingTrack?.data || []);
+  const [newPoints, setNewPoints] = useState([]);
+  
+  const [lastRemoved, setLastRemoved] = useState(null);
+  
   const [importedFile, setImportedFile] = useState(null);
+  const [importedFileBase64, setImportedFileBase64] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [drawing, setDrawing] = useState(true);
   
   const [routingMode, setRoutingMode] = useState('car');
   const [routingWaypoints, setRoutingWaypoints] = useState([]);
@@ -129,155 +137,190 @@ const GpxEditorModal = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen && existingTrack) {
-      setActiveTab('edit');
-      setName(existingTrack.name || '');
-      setTrackType(existingTrack.type || 'hiking');
-      setColor(existingTrack.color || TYPE_COLORS.hiking);
-      setPoints(existingTrack.data || []);
-    } else if (isOpen) {
-      setActiveTab('draw');
-      setName('');
-      setTrackType('hiking');
-      setColor(TYPE_COLORS.hiking);
-      setPoints([]);
+    if (isOpen) {
+      if (existingTrack) {
+        setMode('edit');
+        setExistingPoints(existingTrack.data || []);
+        setNewPoints([]);
+      } else {
+        setMode('draw');
+        setExistingPoints([]);
+        setNewPoints([]);
+      }
+      setName(existingTrack?.name || '');
+      setTrackType(existingTrack?.type || 'hiking');
+      setColor(existingTrack?.color || TYPE_COLORS.hiking);
       setRoutingWaypoints([]);
+      setImportedFile(null);
+      setImportedFileBase64(null);
     }
   }, [isOpen, existingTrack]);
 
+  if (!isOpen) return null;
+
   const handleMapClick = (point) => {
-    if (activeTab === 'route') {
+    if (mode === 'draw' || mode === 'edit') {
+      setNewPoints([...newPoints, point]);
+    } else if (mode === 'route') {
       setRoutingWaypoints([...routingWaypoints, point]);
-    } else {
-      setPoints([...points, point]);
     }
   };
 
-  const handleRemovePoint = (index) => {
-    if (activeTab === 'route') {
-      setRoutingWaypoints(routingWaypoints.filter((_, i) => i !== index));
+  const handleRemovePoint = (type, index, point) => {
+    if (type === 'existing') {
+      const newPointsList = [...existingPoints];
+      const removed = newPointsList.splice(index, 1)[0];
+      setExistingPoints(newPointsList);
+      setLastRemoved({ type: 'existing', index, point: removed });
     } else {
-      setPoints(points.filter((_, i) => i !== index));
+      const newPointsList = [...newPoints];
+      const removed = newPointsList.splice(index, 1)[0];
+      setNewPoints(newPointsList);
+      setLastRemoved({ type: 'new', index, point: removed });
     }
   };
 
-  const handleRemoveRoutingWaypoint = (index) => {
-    setRoutingWaypoints(routingWaypoints.filter((_, i) => i !== index));
+  const handleUndo = () => {
+    if (lastRemoved) {
+      if (lastRemoved.type === 'existing') {
+        const newPointsList = [...existingPoints];
+        newPointsList.splice(lastRemoved.index, 0, lastRemoved.point);
+        setExistingPoints(newPointsList);
+      } else {
+        const newPointsList = [...newPoints];
+        newPointsList.splice(lastRemoved.index, 0, lastRemoved.point);
+        setNewPoints(newPointsList);
+      }
+      setLastRemoved(null);
+    }
+  };
+
+  const handleDragEnd = (type, index, newPoint) => {
+    if (type === 'existing') {
+      const newPointsList = [...existingPoints];
+      newPointsList[index] = newPoint;
+      setExistingPoints(newPointsList);
+    } else {
+      const newPointsList = [...newPoints];
+      newPointsList[index] = newPoint;
+      setNewPoints(newPointsList);
+    }
+  };
+
+  const handleRemoveWaypoint = (index) => {
+    const newWaypoints = [...routingWaypoints];
+    newWaypoints.splice(index, 1);
+    setRoutingWaypoints(newWaypoints);
   };
 
   const handleReverse = () => {
-    if (activeTab === 'route') {
+    if (mode === 'route') {
       setRoutingWaypoints([...routingWaypoints].reverse());
     } else {
-      setPoints([...points].reverse());
+      setNewPoints([...newPoints].reverse());
     }
   };
 
   const handleClearAll = () => {
-    if (activeTab === 'route') {
-      if (window.confirm('Clear all waypoints?')) {
-        setRoutingWaypoints([]);
-      }
+    if (mode === 'route') {
+      setRoutingWaypoints([]);
     } else {
-      if (window.confirm('Clear all points?')) {
-        setPoints([]);
-      }
+      setNewPoints([]);
     }
   };
 
   const handleCalculateRoute = async () => {
-    if (routingWaypoints.length < 2) {
-      setRoutingError('At least 2 waypoints required (start and end)');
-      return;
-    }
-
-    setRoutingError('');
+    if (routingWaypoints.length < 2) return;
+    
     setRoutingLoading(true);
+    setRoutingError('');
 
     try {
-      const response = await api.post('/routing/route', {
-        waypoints: routingWaypoints,
-        mode: routingMode
+      const points = routingWaypoints.map(p => `${p.lat},${p.lng}`).join('|');
+      const response = await fetch(`/api/routing/route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          waypoints: routingWaypoints.map(p => ({ lat: p.lat, lng: p.lng })),
+          mode: routingMode
+        })
       });
 
-      if (response.data && response.data.points) {
-        setPoints(response.data.points);
-        setColor(response.data.color || TYPE_COLORS[routingMode] || TYPE_COLORS.hiking);
-        
-        const modeLabel = ROUTING_MODES.find(m => m.value === routingMode)?.label || routingMode;
-        if (!name) {
-          setName(`${modeLabel} Route`);
-        }
-        
-        setActiveTab('edit');
+      if (!response.ok) {
+        throw new Error('Routing failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.coordinates && data.coordinates.length > 0) {
+        const routePoints = data.coordinates.map(c => ({
+          lat: c[1],
+          lng: c[0],
+          ele: null,
+          time: null
+        }));
+        setNewPoints(routePoints);
+        setMode('edit');
+      } else {
+        setRoutingError('No route found');
       }
     } catch (err) {
-      console.error('Routing error:', err);
-      setRoutingError(err.response?.data?.error || err.message || 'Failed to calculate route');
+      setRoutingError('Routing calculation failed');
     } finally {
       setRoutingLoading(false);
     }
   };
 
   const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    console.log('File input changed', e);
+    console.log('Files:', e.target.files);
+    
+    const file = e.target.files?.[0];
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
 
+    console.log('Selected file:', file.name, file.size, file.type);
+    
     setImportedFile(file);
     setName(file.name.replace('.gpx', ''));
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const xml = event.target.result;
-      const parsedPoints = parseGpxFromText(xml);
-      setPoints(parsedPoints);
-    };
-    reader.readAsText(file);
-  };
-
-  const parseGpxFromText = (xml) => {
-    const points = [];
-    const trkptRegex = /<trkpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-    let match;
-    
-    while ((match = trkptRegex.exec(xml)) !== null) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
+    // Use readAsDataURL for base64 encoding
+    try {
+      const reader = new FileReader();
       
-      let ele = null;
-      let time = null;
+      reader.onload = (event) => {
+        console.log('FileReader loaded successfully');
+        const result = event.target.result;
+        console.log('Result type:', typeof result, 'length:', result?.length);
+        setImportedFileBase64(result);
+        toast.success('File loaded: ' + file.name);
+      };
       
-      const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-      if (eleMatch) ele = parseFloat(eleMatch[1]);
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        console.error('Error code:', reader.error?.code);
+        console.error('Error message:', reader.error?.message);
+        toast.error('Failed to read file: ' + (reader.error?.message || 'unknown error'));
+      };
       
-      const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-      if (timeMatch) time = timeMatch[1];
+      reader.onabort = () => {
+        console.log('FileReader aborted');
+        toast.error('File read cancelled');
+      };
       
-      if (!isNaN(lat) && !isNaN(lng)) {
-        points.push({ lat, lng, ele, time });
-      }
+      console.log('Starting readAsDataURL...');
+      reader.readAsDataURL(file);
+      console.log('readAsDataURL called, readyState:', reader.readyState);
+      
+    } catch (err) {
+      console.error('Exception in FileReader:', err);
+      toast.error('Error reading file: ' + err.message);
     }
-    
-    const rteptRegex = /<rtept[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-    while ((match = rteptRegex.exec(xml)) !== null) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
-      
-      let ele = null;
-      let time = null;
-      
-      const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-      if (eleMatch) ele = parseFloat(eleMatch[1]);
-      
-      const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-      if (timeMatch) time = timeMatch[1];
-      
-      if (!isNaN(lat) && !isNaN(lng)) {
-        points.push({ lat, lng, ele, time });
-      }
-    }
-
-    return points;
   };
 
   const handleSave = async () => {
@@ -286,44 +329,65 @@ const GpxEditorModal = ({
       return;
     }
 
-    if (points.length < 2) {
-      alert('Track must have at least 2 points');
+    let allPoints;
+    if (mode === 'route') {
+      allPoints = newPoints.length > 0 ? newPoints : routingWaypoints;
+    } else {
+      allPoints = [...existingPoints, ...newPoints];
+    }
+
+    if (allPoints.length < 2 && !importedFileBase64) {
+      alert('Track must have at least 2 points or a GPX file');
       return;
     }
 
     setSaving(true);
     try {
-      const trackData = {
-        name: name.trim(),
-        type: trackType,
-        color: color,
-        data: points,
-        adventure_id: adventureId
-      };
-
       let result;
-      if (existingTrack) {
+      let savedTrack;
+      
+      if (isNewTrack && mode === 'import' && importedFileBase64) {
+        result = await api.uploadGpxBase64(adventureId, importedFileBase64, name.trim(), trackType);
+        savedTrack = result.data.gpxTrack || result.data;
+      } else if (existingTrack) {
+        const trackData = {
+          name: name.trim(),
+          type: trackType,
+          color: color,
+          data: allPoints,
+          adventure_id: adventureId
+        };
         result = await api.updateGpx(existingTrack.id, trackData);
+        savedTrack = result.data;
       } else {
-        const formData = new FormData();
-        formData.append('name', name.trim());
-        formData.append('type', trackType);
-        formData.append('adventure_id', adventureId);
-        result = await api.post('/gpx/upload', formData, true);
+        const trackData = {
+          name: name.trim(),
+          type: trackType,
+          color: color,
+          data: allPoints,
+          adventure_id: adventureId
+        };
+        result = await api.createGpxFromPoints(trackData);
+        savedTrack = result.data.gpxTrack || result.data;
       }
 
-      onSave(result.data.gpxTrack || result.data);
+      onSave(savedTrack);
       onClose();
     } catch (err) {
-      console.error('Failed to save track:', err);
-      alert('Failed to save track: ' + err.message);
+      toast.error('Failed to save track: ' + (err.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
   };
 
   const getMapCenter = () => {
-    const currentPoints = activeTab === 'route' ? routingWaypoints : points;
+    let currentPoints = [];
+    if (mode === 'route') {
+      currentPoints = routingWaypoints;
+    } else if (mode === 'edit' || mode === 'draw') {
+      currentPoints = [...existingPoints, ...newPoints];
+    }
+    
     if (currentPoints.length > 0) {
       const avgLat = currentPoints.reduce((sum, p) => sum + p.lat, 0) / currentPoints.length;
       const avgLng = currentPoints.reduce((sum, p) => sum + p.lng, 0) / currentPoints.length;
@@ -341,9 +405,7 @@ const GpxEditorModal = ({
     return ROUTING_MODES.find(m => m.value === routingMode)?.color || '#FC5C65';
   };
 
-  if (!isOpen) return null;
-
-  const currentPoints = activeTab === 'route' ? routingWaypoints : points;
+  const allPoints = [...existingPoints, ...newPoints];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -351,30 +413,41 @@ const GpxEditorModal = ({
         <h3>{existingTrack ? 'Edit Track' : 'Create Track'}</h3>
         
         <div className="gpx-editor-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'draw' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('draw'); setDrawing(true); }}
-          >
-            Draw
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'route' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('route'); setDrawing(false); }}
-          >
-            Route
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'import' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('import'); setDrawing(false); }}
-          >
-            Import
-          </button>
-          {existingTrack && (
+          {isNewTrack ? (
+            <>
+              <button 
+                className={`tab-btn ${mode === 'import' ? 'active' : ''}`}
+                onClick={() => { setMode('import'); }}
+              >
+                Import
+              </button>
+              <button 
+                className={`tab-btn ${mode === 'route' ? 'active' : ''}`}
+                onClick={() => { setMode('route'); }}
+              >
+                Route
+              </button>
+              <button 
+                className={`tab-btn ${mode === 'draw' ? 'active' : ''}`}
+                onClick={() => { setMode('draw'); }}
+              >
+                Draw
+              </button>
+            </>
+          ) : (
             <button 
-              className={`tab-btn ${activeTab === 'edit' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('edit'); setDrawing(false); }}
+              className={`tab-btn active`}
+              onClick={() => { setMode('edit'); }}
             >
               Edit
+            </button>
+          )}
+          {!isNewTrack && (
+            <button 
+              className={`tab-btn ${mode === 'route' ? 'active' : ''}`}
+              onClick={() => { setMode('route'); }}
+            >
+              Route
             </button>
           )}
         </div>
@@ -383,102 +456,140 @@ const GpxEditorModal = ({
           <MapContainer
             ref={mapRef}
             center={getMapCenter()}
-            zoom={currentPoints.length > 0 ? 12 : 5}
+            zoom={allPoints.length > 0 ? 12 : 5}
             style={{ height: '400px', width: '100%' }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            {points.length > 0 && (
+            
+            {allPoints.length > 0 && (
               <Polyline
-                positions={points.map(p => [p.lat, p.lng])}
+                positions={allPoints.map(p => [p.lat, p.lng])}
                 pathOptions={{ color: color, weight: 4 }}
               />
             )}
+            
             {routingWaypoints.length > 0 && (
               <Polyline
                 positions={routingWaypoints.map(p => [p.lat, p.lng])}
                 pathOptions={{ color: getRoutingModeColor(), weight: 3, dashArray: '5, 10' }}
               />
             )}
-            {(activeTab === 'route' ? routingWaypoints : points).map((point, index) => (
+            
+            {existingPoints.map((point, index) => (
               <Marker
-                key={index}
+                key={`existing-${index}`}
                 position={[point.lat, point.lng]}
-                icon={activeTab === 'route' ? createPointIcon(getRoutingModeColor(), true) : createPointIcon()}
+                icon={createPointIcon(color, 14, false)}
+                draggable={true}
                 eventHandlers={{
-                  click: () => handleRemovePoint(index)
+                  click: () => handleRemovePoint('existing', index, point),
+                  dragend: (e) => {
+                    const newPos = e.target.getLatLng();
+                    handleDragEnd('existing', index, { lat: newPos.lat, lng: newPos.lng, ele: point.ele, time: point.time });
+                  }
                 }}
               />
             ))}
-            <MapBoundsFitter points={currentPoints} />
-            <MapClickHandler onMapClick={handleMapClick} enabled={activeTab === 'draw' || activeTab === 'route'} />
+            
+            {newPoints.map((point, index) => (
+              <Marker
+                key={`new-${index}`}
+                position={[point.lat, point.lng]}
+                icon={createPointIcon(color, 16, true)}
+                draggable={true}
+                eventHandlers={{
+                  click: () => handleRemovePoint('new', index, point),
+                  dragend: (e) => {
+                    const newPos = e.target.getLatLng();
+                    handleDragEnd('new', index, { lat: newPos.lat, lng: newPos.lng, ele: point.ele, time: point.time });
+                  }
+                }}
+              />
+            ))}
+            
+            {mode === 'route' && routingWaypoints.map((point, index) => (
+              <Marker
+                key={`route-${index}`}
+                position={[point.lat, point.lng]}
+                icon={createWaypointIcon(getRoutingModeColor())}
+                draggable={true}
+                eventHandlers={{
+                  click: () => handleRemoveWaypoint(index),
+                  dragend: (e) => {
+                    const newPos = e.target.getLatLng();
+                    const newArr = [...routingWaypoints];
+                    newArr[index] = { lat: newPos.lat, lng: newPos.lng, ele: null, time: null };
+                    setRoutingWaypoints(newArr);
+                  }
+                }}
+              />
+            ))}
+            
+            <MapBoundsFitter points={allPoints} runOnce={!!existingTrack} />
+            <MapClickHandler onMapClick={handleMapClick} enabled={mode === 'draw' || mode === 'edit' || mode === 'route'} />
           </MapContainer>
-          {activeTab === 'draw' && (
-            <div className="map-hint">
-              Click on the map to add points. Click a point to remove it.
-            </div>
-          )}
-          {activeTab === 'route' && (
-            <div className="map-hint">
-              Click on the map to add waypoints ({routingWaypoints.length} added). Click a marker to remove it.
-            </div>
-          )}
+          
+          <div className="map-hint">
+            {isNewTrack && mode === 'draw' && 'Click on the map to add points. Click a point to remove it. Drag to move.'}
+            {existingTrack && mode === 'edit' && 'Click on points to remove them. Drag to move points.'}
+            {mode === 'route' && `Click on the map to add waypoints (${routingWaypoints.length} added). Click a marker to remove it.`}
+            {mode === 'import' && 'Select a GPX file below to import'}
+          </div>
         </div>
 
-        {activeTab === 'route' && (
-          <div className="routing-section">
-            <div className="form-row">
-              <div className="form-group">
-                <label>Transportation Mode</label>
-                <select value={routingMode} onChange={(e) => setRoutingMode(e.target.value)}>
-                  {ROUTING_MODES.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
+        <div className="routing-section" style={{ display: mode === 'route' ? 'block' : 'none' }}>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Transportation Mode</label>
+              <select value={routingMode} onChange={(e) => setRoutingMode(e.target.value)}>
+                {ROUTING_MODES.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
             </div>
-            
-            <div className="waypoints-info">
-              <span>{routingWaypoints.length} waypoint{routingWaypoints.length !== 1 ? 's' : ''}</span>
-              {routingWaypoints.length > 2 && (
-                <button type="button" className="btn-link" onClick={handleReverse}>
-                  Reverse
-                </button>
-              )}
-              {routingWaypoints.length > 0 && (
-                <button type="button" className="btn-link" onClick={handleClearAll}>
-                  Clear All
-                </button>
-              )}
-            </div>
-
-            {routingWaypoints.length >= 2 && (
-              <button 
-                type="button" 
-                className="btn btn-primary"
-                onClick={handleCalculateRoute}
-                disabled={routingLoading}
-                style={{ width: '100%', marginTop: '10px' }}
-              >
-                {routingLoading ? 'Calculating...' : 'Calculate Route'}
+          </div>
+          
+          <div className="waypoints-info">
+            <span>{routingWaypoints.length} waypoint{routingWaypoints.length !== 1 ? 's' : ''}</span>
+            {routingWaypoints.length > 2 && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
+                Reverse
               </button>
             )}
-
-            {routingError && (
-              <div className="error-message" style={{ color: 'red', marginTop: '10px', fontSize: '14px' }}>
-                {routingError}
-              </div>
-            )}
-
-            {routingWaypoints.length < 2 && (
-              <p className="map-hint" style={{ marginTop: '10px' }}>
-                Add at least 2 waypoints to calculate a route
-              </p>
+            {routingWaypoints.length > 0 && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
+                Clear All
+              </button>
             )}
           </div>
-        )}
+
+          {routingWaypoints.length >= 2 && (
+            <button 
+              type="button" 
+              className="btn btn-primary"
+              onClick={handleCalculateRoute}
+              disabled={routingLoading}
+              style={{ width: '100%', marginTop: '10px' }}
+            >
+              {routingLoading ? 'Calculating...' : 'Calculate Route'}
+            </button>
+          )}
+
+          {routingError && (
+            <div className="error-message" style={{ color: 'red', marginTop: '10px', fontSize: '14px' }}>
+              {routingError}
+            </div>
+          )}
+
+          {routingWaypoints.length < 2 && (
+            <p className="map-hint" style={{ marginTop: '10px' }}>
+              Add at least 2 waypoints to calculate a route
+            </p>
+          )}
+        </div>
 
         <div className="gpx-editor-form">
           <div className="form-row">
@@ -513,20 +624,28 @@ const GpxEditorModal = ({
           </div>
 
           <div className="points-info">
-            {points.length} point{points.length !== 1 ? 's' : ''}
-            {points.length > 1 && (
-              <button type="button" className="btn-link" onClick={handleReverse}>
+            <span>
+              {allPoints.length} point{allPoints.length !== 1 ? 's' : ''}
+              {existingTrack && newPoints.length > 0 && ` (+ ${newPoints.length} new)`}
+            </span>
+            {lastRemoved && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleUndo}>
+                ↩ Undo
+              </button>
+            )}
+            {allPoints.length > 1 && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleReverse}>
                 Reverse
               </button>
             )}
-            {points.length > 0 && activeTab !== 'route' && (
-              <button type="button" className="btn-link" onClick={handleClearAll}>
+            {allPoints.length > 0 && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleClearAll}>
                 Clear All
               </button>
             )}
           </div>
 
-          {activeTab === 'import' && (
+          {mode === 'import' && (
             <div className="import-section">
               <input
                 type="file"
@@ -546,7 +665,7 @@ const GpxEditorModal = ({
           <button 
             onClick={handleSave} 
             className="btn btn-primary"
-            disabled={saving || points.length < 2}
+            disabled={saving || (allPoints.length < 2 && !importedFileBase64)}
           >
             {saving ? 'Saving...' : 'Save'}
           </button>

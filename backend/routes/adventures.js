@@ -1,12 +1,42 @@
 const express = require('express');
 const fs = require('fs');
+const multer = require('multer');
+const path = require('path');
 const xml2js = require('xml2js');
+const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
+const { validate } = require('../middleware/validation');
+const { handleError, logger } = require('../middleware/errorHandler');
 const { Op, Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 
 const router = express.Router();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/gpx+xml' || file.originalname.endsWith('.gpx')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only GPX files are allowed'), false);
+    }
+  }
+});
 
 const getAdventureAccess = async (adventureId, userId) => {
   const adventure = await Adventure.findByPk(adventureId);
@@ -96,18 +126,25 @@ const parseGpx = async (filePath) => {
 };
 
 const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
+  walking: '#DC2626',
+  hiking: '#EA580C',
+  cycling: '#65A30D',
+  bus: '#2563EB',
+  metro: '#DB2777',
+  train: '#0891B2',
+  boat: '#4F46E5',
+  car: '#52525B',
+  plane: '#6366F1',
+  other: '#0D9488'
 };
 
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddleware, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('sort').optional().isIn(['adventure_date', 'createdAt', 'name']).withMessage('Invalid sort field'),
+  query('order').optional().isIn(['ASC', 'DESC']).withMessage('Order must be ASC or DESC'),
+  validate
+], async (req, res) => {
   try {
     const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
@@ -118,14 +155,11 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const myAdventures = await Adventure.findAll({
       where: { user_id: req.user.id },
+      attributes: { include: [[sequelize.col('preview_picture_id'), 'preview_picture_id']] },
       include: [
         {
           model: GpxTrack,
           attributes: ['id', 'name', 'type', 'color']
-        },
-        {
-          model: Picture,
-          attributes: ['id', 'filename', 'thumbnail_url']
         },
         {
           model: Waypoint,
@@ -151,14 +185,11 @@ router.get('/', authMiddleware, async (req, res) => {
     if (sharedIds.length > 0) {
       sharedAdventures = await Adventure.findAll({
         where: { id: sharedIds },
+        attributes: { include: [[sequelize.col('preview_picture_id'), 'preview_picture_id']] },
         include: [
           {
             model: GpxTrack,
             attributes: ['id', 'name', 'type', 'color']
-          },
-          {
-            model: Picture,
-            attributes: ['id', 'filename', 'thumbnail_url']
           },
           {
             model: Waypoint,
@@ -212,9 +243,46 @@ router.get('/', authMiddleware, async (req, res) => {
       return aVal < bVal ? 1 : -1;
     });
 
+    const allAdventureIds = allAdventures.map(a => a.id);
+
+    let previewPictures = {};
+    let pictureCounts = {};
+    let firstPictures = {};
+
+    if (allAdventureIds.length > 0) {
+      const allPictures = await Picture.findAll({
+        where: { adventure_id: allAdventureIds },
+        attributes: ['id', 'adventure_id', 'thumbnail_url'],
+        order: [['id', 'ASC']]
+      });
+
+      const picByAdventure = {};
+      allPictures.forEach(p => {
+        if (!picByAdventure[p.adventure_id]) {
+          picByAdventure[p.adventure_id] = [];
+        }
+        picByAdventure[p.adventure_id].push(p);
+      });
+
+      Object.keys(picByAdventure).forEach(advId => {
+        pictureCounts[advId] = picByAdventure[advId].length;
+        if (picByAdventure[advId].length > 0) {
+          firstPictures[advId] = { id: picByAdventure[advId][0].id, thumbnail_url: picByAdventure[advId][0].thumbnail_url };
+        }
+      });
+
+      allPictures.forEach(p => {
+        const adventure = allAdventures.find(a => a.id === p.adventure_id);
+        if (adventure && p.id === adventure.preview_picture_id) {
+          previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+        }
+      });
+    }
+
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
-      const pictures = adventure.Pictures || [];
+      const previewPic = previewPictures[adventure.preview_picture_id] || firstPictures[adventure.id] || null;
+      const pictureCount = pictureCounts[adventure.id] || 0;
 
       const gpxByType = gpxTracks.reduce((acc, track) => {
         acc[track.type] = (acc[track.type] || 0) + 1;
@@ -257,47 +325,146 @@ router.get('/', authMiddleware, async (req, res) => {
         center_lng,
         zoom,
         gpxCount: gpxTracks.length,
-        pictureCount: pictures.length,
+        pictureCount: pictureCount,
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,
-        preview_picture: (adventure.preview_picture_id 
-          ? pictures.find(p => p.id === adventure.preview_picture_id)
-          : (pictures.length > 0 ? pictures[0] : null)
-        ) ? {
-          id: (adventure.preview_picture_id 
-            ? pictures.find(p => p.id === adventure.preview_picture_id)
-            : pictures[0]
-          ).id,
-          thumbnail_url: (adventure.preview_picture_id 
-            ? pictures.find(p => p.id === adventure.preview_picture_id)
-            : pictures[0]
-          ).thumbnail_url
-        } : null,
+        preview_picture: previewPic,
         tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt
       };
     });
 
-    res.json({ adventures: adventuresWithStats });
+    res.json({ 
+      adventures: adventuresWithStats
+    });
   } catch (error) {
-    console.error('Get adventures error:', error);
-    res.status(500).json({ error: 'Failed to get adventures' });
+    return handleError(error, res, { operation: 'getAdventures' });
   }
 });
 
-router.get('/users', authMiddleware, async (req, res) => {
+router.get('/users', authMiddleware, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  validate
+], async (req, res) => {
   try {
-    const users = await User.findAll({
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    
+    const { count, rows } = await User.findAndCountAll({
       where: { id: { [Op.ne]: req.user.id } },
-      attributes: ['id', 'username']
+      attributes: ['id', 'username'],
+      limit,
+      offset
     });
 
-    res.json({ users });
+    res.json({ 
+      users: rows,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ error: 'Failed to get users' });
+    return handleError(error, res, { operation: 'getUsers' });
+  }
+});
+
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const { view = 'all' } = req.query;
+    
+    let adventureIds;
+    let ownedIds;
+    
+    if (view === 'owned') {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      adventureIds = owned.map(a => a.id);
+    } else if (view === 'shared') {
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      adventureIds = shared.map(s => s.AdventureId);
+      ownedIds = [];
+    } else {
+      const owned = await Adventure.findAll({
+        where: { user_id: req.user.id },
+        attributes: ['id']
+      });
+      const shared = await AdventureShare.findAll({
+        where: { UserId: req.user.id },
+        attributes: ['AdventureId']
+      });
+      ownedIds = owned.map(a => a.id);
+      adventureIds = [...ownedIds, ...shared.map(s => s.AdventureId)];
+    }
+
+    if (adventureIds.length === 0) {
+      return res.json({
+        overview: { adventures: 0, photos: 0, waypoints: 0, tracks: 0, distance: 0 },
+        byYear: [],
+        byTransport: []
+      });
+    }
+
+    const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance] = await Promise.all([
+      Adventure.count({ where: { id: { [Op.in]: adventureIds } } }),
+      Picture.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      Waypoint.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
+      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: adventureIds } } })
+    ]);
+
+    const tracksByType = await GpxTrack.findAll({
+      where: { adventure_id: { [Op.in]: adventureIds } },
+      attributes: ['type', [sequelize.fn('SUM', sequelize.col('distance')), 'totalDistance'], [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['type'],
+      raw: true
+    });
+
+    const adventuresWithDates = await Adventure.findAll({
+      where: { id: { [Op.in]: adventureIds }, adventure_date: { [Op.ne]: null } },
+      attributes: ['id', 'adventure_date']
+    });
+
+    const byYear = {};
+    for (const adv of adventuresWithDates) {
+      const year = new Date(adv.adventure_date).getFullYear();
+      byYear[year] = (byYear[year] || 0) + 1;
+    }
+
+    const yearStats = Object.entries(byYear)
+      .map(([year, count]) => ({ year: parseInt(year), count }))
+      .sort((a, b) => b.year - a.year);
+
+    const transportStats = tracksByType.map(t => ({
+      type: t.type,
+      count: parseInt(t.count),
+      distance: parseFloat(t.totalDistance) || 0
+    }));
+
+    res.json({
+      overview: {
+        adventures: totalAdventures || 0,
+        photos: totalPhotos || 0,
+        waypoints: totalWaypoints || 0,
+        tracks: totalTracks || 0,
+        distance: totalDistance || 0
+      },
+      byYear: yearStats,
+      byTransport: transportStats
+    });
+  } catch (error) {
+    return handleError(error, res, { operation: 'getStats' });
   }
 });
 
@@ -372,8 +539,7 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
 
     res.json({ tracks });
   } catch (error) {
-    console.error('Get all GPX error:', error);
-    res.status(500).json({ error: 'Failed to get GPX tracks' });
+    return handleError(error, res, { operation: 'getAllGpx' });
   }
 });
 
@@ -390,18 +556,18 @@ router.get('/tags', authMiddleware, async (req, res) => {
     }));
     res.json({ tags: tagsWithCategory });
   } catch (error) {
-    console.error('Get tags error:', error);
-    res.status(500).json({ error: 'Failed to get tags' });
+    return handleError(error, res, { operation: 'getTags' });
   }
 });
 
-router.post('/tags', authMiddleware, async (req, res) => {
+router.post('/tags', authMiddleware, [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 50 }).withMessage('Name must be 50 characters or less'),
+  body('category').optional().trim().isLength({ max: 30 }).withMessage('Category must be 30 characters or less'),
+  validate
+], async (req, res) => {
   try {
+    console.log('Create tag request - body:', req.body, 'user:', req.user?.username);
     const { name, category } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
 
     const existingTag = await Tag.findOne({ where: { name } });
     if (existingTag) {
@@ -418,12 +584,14 @@ router.post('/tags', authMiddleware, async (req, res) => {
 
     res.json({ tag: { id: tag.id, name: tag.name, color: tag.color, category: tag.type } });
   } catch (error) {
-    console.error('Create tag error:', error);
-    res.status(500).json({ error: 'Failed to create tag' });
+    return handleError(error, res, { operation: 'createTag' });
   }
 });
 
-router.delete('/tags/:id', authMiddleware, async (req, res) => {
+router.delete('/tags/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid tag ID'),
+  validate
+], async (req, res) => {
   try {
     const tag = await Tag.findByPk(req.params.id);
     
@@ -435,8 +603,7 @@ router.delete('/tags/:id', authMiddleware, async (req, res) => {
     
     res.json({ message: 'Tag deleted successfully' });
   } catch (error) {
-    console.error('Delete tag error:', error);
-    res.status(500).json({ error: 'Failed to delete tag' });
+    return handleError(error, res, { operation: 'deleteTag' });
   }
 });
 
@@ -547,7 +714,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
                 thumbnails[assetId] = `data:${contentType};base64,${base64}`;
               }
             } catch (e) {
-              console.error(`Failed to fetch preview for ${assetId}:`, e);
+              logger.warn(`Failed to fetch preview for ${assetId}: ${e.message}`);
             }
           })
         );
@@ -579,26 +746,21 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     res.json({ adventure: adventureData });
   } catch (error) {
-    console.error('Get adventure error:', error);
-    res.status(500).json({ error: 'Failed to get adventure' });
+    return handleError(error, res, { operation: 'getAdventure' });
   }
 });
 
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('description').optional().isLength({ max: 5000 }).withMessage('Description must be 5000 characters or less'),
+  body('adventure_date').optional().isISO8601().withMessage('Invalid date format'),
+  body('center_lat').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('center_lng').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('zoom').optional().isInt({ min: 1, max: 18 }).withMessage('Zoom must be between 1 and 18'),
+  validate
+], async (req, res) => {
   try {
     const { name, description, adventure_date, center_lat, center_lng, zoom } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
-
-    if (name.length > 100) {
-      return res.status(400).json({ error: 'Name must be 100 characters or less' });
-    }
-
-    if (description && description.length > 5000) {
-      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
-    }
 
     const adventure = await Adventure.create({
       name,
@@ -612,12 +774,21 @@ router.post('/', authMiddleware, async (req, res) => {
 
     res.status(201).json({ adventure });
   } catch (error) {
-    console.error('Create adventure error:', error);
-    res.status(500).json({ error: 'Failed to create adventure' });
+    return handleError(error, res, { operation: 'createAdventure' });
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('description').optional().isLength({ max: 5000 }).withMessage('Description must be 5000 characters or less'),
+  body('adventure_date').optional().isISO8601().withMessage('Invalid date format'),
+  body('center_lat').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('center_lng').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('zoom').optional().isInt({ min: 1, max: 18 }).withMessage('Zoom must be between 1 and 18'),
+  body('preview_picture_id').optional().isUUID().withMessage('Invalid picture ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -631,14 +802,6 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const { name, description, adventure_date, center_lat, center_lng, zoom, preview_picture_id } = req.body;
 
-    if (name !== undefined && name.length > 100) {
-      return res.status(400).json({ error: 'Name must be 100 characters or less' });
-    }
-
-    if (description !== undefined && description.length > 5000) {
-      return res.status(400).json({ error: 'Description must be 5000 characters or less' });
-    }
-
     if (name !== undefined) adventure.name = name;
     if (description !== undefined) adventure.description = description;
     if (adventure_date !== undefined) adventure.adventure_date = adventure_date;
@@ -651,8 +814,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     res.json({ adventure });
   } catch (error) {
-    console.error('Update adventure error:', error);
-    res.status(500).json({ error: 'Failed to update adventure' });
+    return handleError(error, res, { operation: 'updateAdventure' });
   }
 });
 
@@ -673,13 +835,29 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Adventure deleted' });
   } catch (error) {
-    console.error('Delete adventure error:', error);
-    res.status(500).json({ error: 'Failed to delete adventure' });
+    return handleError(error, res, { operation: 'deleteAdventure' });
   }
 });
 
-router.post('/:id/gpx', authMiddleware, async (req, res) => {
+// Multer error handler for file uploads
+const handleMulterError = (err, req, res, next) => {
+  if (err) {
+    console.log('Multer error:', err.message);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large' });
+    }
+    return res.status(400).json({ error: 'File upload error: ' + err.message });
+  }
+  next();
+};
+
+router.post('/:id/gpx', upload.single('file'), handleMulterError, authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  validate
+], async (req, res) => {
   try {
+    console.log('GPX upload START - params:', req.params, 'body:', req.body, 'file:', req.file ? 'present' : 'missing');
+    
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
     if (!adventure) {
@@ -713,12 +891,171 @@ router.post('/:id/gpx', authMiddleware, async (req, res) => {
 
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.error('Upload GPX error:', error);
-    res.status(500).json({ error: 'Failed to upload GPX' });
+    return handleError(error, res, { operation: 'uploadGpx' });
   }
 });
 
-router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
+router.post('/gpx/from-points', authMiddleware, [
+  body('name').notEmpty().withMessage('Track name is required'),
+  body('adventure_id').isUUID().withMessage('Valid adventure ID is required'),
+  validate
+], async (req, res) => {
+  try {
+    const { name, type, color, data, adventure_id } = req.body;
+    
+    const { adventure, canEdit } = await getAdventureAccess(adventure_id, req.user.id);
+    
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const gpxType = type || 'hiking';
+    const trackColor = color || TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    const gpxTrack = await GpxTrack.create({
+      name: name.trim(),
+      type: gpxType,
+      color: trackColor,
+      data: data || [],
+      adventure_id: adventure.id
+    });
+
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    return handleError(error, res, { operation: 'createGpxFromPoints' });
+  }
+});
+
+router.post('/:id/gpx-base64', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('file').notEmpty().withMessage('GPX file is required'),
+  validate
+], async (req, res) => {
+  try {
+    console.log('GPX base64 upload START - params:', req.params, 'body keys:', Object.keys(req.body));
+    
+    const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
+    
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'You do not have permission to edit this adventure' });
+    }
+
+    const { file: base64Data, name, type } = req.body;
+    
+    if (!base64Data) {
+      return res.status(400).json({ error: 'GPX file is required' });
+    }
+
+    // Parse base64 data URL
+    const base64Match = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!base64Match) {
+      return res.status(400).json({ error: 'Invalid base64 data format' });
+    }
+
+    const xmlContent = Buffer.from(base64Match[2], 'base64').toString('utf-8');
+    console.log('GPX XML parsed, length:', xmlContent.length);
+
+    const gpxData = parseGpxFromText(xmlContent);
+    console.log('GPX points parsed:', gpxData.length);
+
+    const gpxType = type || 'hiking';
+    const color = TYPE_COLORS[gpxType] || TYPE_COLORS.other;
+
+    const gpxTrack = await GpxTrack.create({
+      name: name || 'Imported GPX',
+      type: gpxType,
+      color,
+      data: gpxData,
+      adventure_id: adventure.id
+    });
+
+    console.log('GPX track created:', gpxTrack.id, 'points:', gpxData.length);
+    res.status(201).json({ gpxTrack });
+  } catch (error) {
+    console.log('GPX base64 error:', error.message);
+    return handleError(error, res, { operation: 'uploadGpxBase64' });
+  }
+});
+
+// parse GPX from text (same logic as parseGpx but synchronous)
+const parseGpxFromText = (xml) => {
+  const points = [];
+  
+  const trkptRegex = /<trkpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  let match;
+  
+  while ((match = trkptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+  
+  const rteptRegex = /<rtept[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  while ((match = rteptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+  
+  const wptRegex = /<wpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
+  while ((match = wptRegex.exec(xml)) !== null) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    
+    let ele = null;
+    let time = null;
+    
+    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
+    if (eleMatch) ele = parseFloat(eleMatch[1]);
+    
+    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
+    if (timeMatch) time = timeMatch[1];
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      points.push({ lat, lng, ele, time });
+    }
+  }
+
+  return points;
+};
+
+router.delete('/:id/gpx/:gpxId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('gpxId').isUUID().withMessage('Invalid GPX ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -747,7 +1084,7 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
           fs.unlinkSync(gpxTrack.file_path);
         }
       } catch (err) {
-        console.error('Failed to delete GPX file:', err);
+        logger.warn(`Failed to delete GPX file: ${err.message}`);
       }
     }
 
@@ -755,12 +1092,18 @@ router.delete('/:id/gpx/:gpxId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'GPX track deleted' });
   } catch (error) {
-    console.error('Delete GPX error:', error);
-    res.status(500).json({ error: 'Failed to delete GPX' });
+    return handleError(error, res, { operation: 'deleteGpx' });
   }
 });
 
-router.post('/:id/pictures', authMiddleware, async (req, res) => {
+router.post('/:id/pictures', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('immich_asset_id').optional().trim(),
+  body('filename').optional().trim().isLength({ max: 255 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -786,12 +1129,15 @@ router.post('/:id/pictures', authMiddleware, async (req, res) => {
 
     res.status(201).json({ picture });
   } catch (error) {
-    console.error('Add picture error:', error);
-    res.status(500).json({ error: 'Failed to add picture' });
+    return handleError(error, res, { operation: 'addPicture' });
   }
 });
 
-router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
+router.delete('/:id/pictures/:pictureId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('pictureId').isUUID().withMessage('Invalid picture ID'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -818,8 +1164,7 @@ router.delete('/:id/pictures/:pictureId', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Picture deleted' });
   } catch (error) {
-    console.error('Delete picture error:', error);
-    res.status(500).json({ error: 'Failed to delete picture' });
+    return handleError(error, res, { operation: 'deletePicture' });
   }
 });
 
@@ -845,12 +1190,16 @@ router.get('/:id/share', authMiddleware, async (req, res) => {
       permission: s.permission
     })) });
   } catch (error) {
-    console.error('Get shares error:', error);
-    res.status(500).json({ error: 'Failed to get shares' });
+    return handleError(error, res, { operation: 'getShares' });
   }
 });
 
-router.post('/:id/share', authMiddleware, async (req, res) => {
+router.post('/:id/share', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('username').notEmpty().withMessage('Username is required').trim(),
+  body('permission').optional().isIn(['view', 'edit']).withMessage('Permission must be view or edit'),
+  validate
+], async (req, res) => {
   try {
     const adventure = await Adventure.findOne({
       where: { id: req.params.id, user_id: req.user.id }
@@ -861,10 +1210,6 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
     }
 
     const { username, permission } = req.body;
-
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
-    }
 
     const user = await User.findOne({ where: { username } });
 
@@ -893,12 +1238,15 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Share adventure error:', error);
-    res.status(500).json({ error: 'Failed to share adventure' });
+    return handleError(error, res, { operation: 'shareAdventure' });
   }
 });
 
-router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
+router.delete('/:id/share/:shareId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('shareId').isUUID().withMessage('Invalid share ID'),
+  validate
+], async (req, res) => {
   try {
     const adventure = await Adventure.findOne({
       where: { id: req.params.id, user_id: req.user.id }
@@ -920,12 +1268,18 @@ router.delete('/:id/share/:shareId', authMiddleware, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Remove share error:', error);
-    res.status(500).json({ error: 'Failed to remove share' });
+    return handleError(error, res, { operation: 'removeShare' });
   }
 });
 
-router.post('/:id/waypoints', authMiddleware, async (req, res) => {
+router.post('/:id/waypoints', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('latitude').notEmpty().withMessage('Latitude is required').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('longitude').notEmpty().withMessage('Longitude is required').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
+  body('icon').optional().trim().isLength({ max: 10 }).withMessage('Icon must be 10 characters or less'),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -933,17 +1287,6 @@ router.post('/:id/waypoints', authMiddleware, async (req, res) => {
     }
 
     const { name, icon, latitude, longitude } = req.body;
-
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: 'Latitude and longitude are required' });
-    }
-
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
-
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ error: 'Invalid coordinates' });
-    }
 
     const waypoint = await Waypoint.create({
       name: name || '',
@@ -955,12 +1298,19 @@ router.post('/:id/waypoints', authMiddleware, async (req, res) => {
 
     res.status(201).json({ waypoint });
   } catch (error) {
-    console.error('Create waypoint error:', error);
-    res.status(500).json({ error: 'Failed to create waypoint' });
+    return handleError(error, res, { operation: 'createWaypoint' });
   }
 });
 
-router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.put('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  body('name').optional().trim().isLength({ max: 100 }),
+  body('icon').optional().trim().isLength({ max: 10 }),
+  body('latitude').optional().isFloat({ min: -90, max: 90 }),
+  body('longitude').optional().isFloat({ min: -180, max: 180 }),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -984,12 +1334,15 @@ router.put('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
 
     res.json({ waypoint });
   } catch (error) {
-    console.error('Update waypoint error:', error);
-    res.status(500).json({ error: 'Failed to update waypoint' });
+    return handleError(error, res, { operation: 'updateWaypoint' });
   }
 });
 
-router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => {
+router.delete('/:id/waypoints/:waypointId', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  param('waypointId').isUUID().withMessage('Invalid waypoint ID'),
+  validate
+], async (req, res) => {
   try {
     const { canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     if (!canEdit) {
@@ -1008,12 +1361,15 @@ router.delete('/:id/waypoints/:waypointId', authMiddleware, async (req, res) => 
 
     res.json({ message: 'Waypoint deleted successfully' });
   } catch (error) {
-    console.error('Delete waypoint error:', error);
-    res.status(500).json({ error: 'Failed to delete waypoint' });
+    return handleError(error, res, { operation: 'deleteWaypoint' });
   }
 });
 
-router.put('/:id/tags', authMiddleware, async (req, res) => {
+router.put('/:id/tags', authMiddleware, [
+  param('id').isUUID().withMessage('Invalid adventure ID'),
+  body('tagIds').isArray().withMessage('tagIds must be an array').custom(val => val.every(id => typeof id === 'string' && id.match(/^[0-9a-f-]+$/))).withMessage('Invalid tag IDs'),
+  validate
+], async (req, res) => {
   try {
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
@@ -1026,10 +1382,6 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     }
 
     const { tagIds } = req.body;
-    
-    if (!Array.isArray(tagIds)) {
-      return res.status(400).json({ error: 'tagIds must be an array' });
-    }
 
     const tags = await Tag.findAll({
       where: { id: tagIds }
@@ -1040,8 +1392,7 @@ router.put('/:id/tags', authMiddleware, async (req, res) => {
     const updatedTags = await adventure.getTags();
     res.json({ tags: updatedTags.map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })) });
   } catch (error) {
-    console.error('Update tags error:', error);
-    res.status(500).json({ error: 'Failed to update tags' });
+    return handleError(error, res, { operation: 'updateTags' });
   }
 });
 

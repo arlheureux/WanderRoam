@@ -1,25 +1,26 @@
 const express = require('express');
 const axios = require('axios');
 const { authMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
 const ROUTING_PROFILES = {
   car: 'car-vario',
   bike: 'trekking',
-  foot: 'hiking',
+  foot: 'trekking',
   boat: 'river',
   train: 'rail',
   metro: 'rail'
 };
 
 const TYPE_COLORS = {
-  car: '#FC5C65',
-  bike: '#4ECDC4',
-  foot: '#FF9F43',
-  boat: '#2D98DA',
-  train: '#45B7D1',
-  metro: '#A55EEA'
+  car: '#52525B',
+  bike: '#65A30D',
+  foot: '#EA580C',
+  boat: '#4F46E5',
+  train: '#0891B2',
+  metro: '#DB2777'
 };
 
 function calculateDistance(points) {
@@ -119,16 +120,7 @@ router.post('/route', authMiddleware, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Routing error:', error.message);
-    
-    if (error.code === 'ECONNREFUSED') {
-      return res.status(503).json({ error: 'Routing service unavailable' });
-    }
-    if (error.response) {
-      return res.status(error.response.status).json({ error: error.response.data });
-    }
-    
-    res.status(500).json({ error: error.message || 'Failed to calculate route' });
+    return handleError(error, res, { operation: 'calculateRoute' });
   }
 });
 

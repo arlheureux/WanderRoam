@@ -1,4 +1,4 @@
-# docker-compose.yml - Production (pulls stable from Docker Hub)
+# docker-compose.yml - Production version (direct ports)
 # Run with: docker-compose up -d
 
 services:
@@ -8,15 +8,15 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${DB_USER:-wanderroam}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-wanderroam_password}
-      POSTGRES_DB: ${DB_NAME:-wanderroam}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - wanderroam-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-wanderroam}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,9 +28,12 @@ services:
     env_file:
       - .env
     environment:
+      - TAG=stable
       - BROUTER_URL=http://wanderroam-brouter:17777/brouter
     volumes:
       - upload_data:/app/uploads
+    networks:
+      - wanderroam-internal
     ports:
       - "5000:5000"
     depends_on:
@@ -38,29 +41,58 @@ services:
         condition: service_healthy
       brouter:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   frontend:
     image: arlheureux/wanderroam-frontend:stable
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_VERSION: 0.7.1
+        REACT_APP_CHANNEL: stable
+        REACT_APP_GIT_COMMIT: ${GIT_COMMIT:-9e16433}
     container_name: wanderroam-frontend
+    networks:
+      - wanderroam-internal
     ports:
       - "3000:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   admin:
     image: arlheureux/wanderroam-admin:stable
     container_name: wanderroam-admin
+    networks:
+      - wanderroam-internal
     ports:
       - "4000:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   brouter:
     image: arlheureux/wanderroam-brouter:stable
     container_name: wanderroam-brouter
+    networks:
+      - wanderroam-internal
     ports:
       - "17777:17777"
     environment:
@@ -80,5 +112,5 @@ volumes:
   brouter_data:
 
 networks:
-  default:
-    name: wanderroam-network
+  wanderroam-internal:
+    name: wanderroam-internal

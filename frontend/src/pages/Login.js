@@ -36,7 +36,19 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-logo">
+          <svg width="48" height="48" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g transform="rotate(45 16 16)">
+              <rect x="5" y="5" width="10" height="10" fill="var(--accent)"/>
+              <rect x="5" y="17" width="10" height="10" fill="var(--accent)"/>
+              <rect x="17" y="5" width="10" height="10" fill="var(--accent)"/>
+              <rect x="17" y="17" width="10" height="10" fill="var(--accent)"/>
+            </g>
+          </svg>
+        </div>
+        
         <h2>Welcome Back</h2>
+        <p className="auth-subtitle">Sign in to continue your adventures</p>
         
         {error && <div className="error-message">{error}</div>}
 
@@ -47,6 +59,7 @@ const Login = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
               required
             />
           </div>
@@ -57,18 +70,19 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               required
             />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         {registrationEnabled && (
           <p style={{ textAlign: 'center', marginTop: '16px', color: 'var(--text-light)' }}>
-            Don't have an account? <Link to="/register">Register</Link>
+            Don't have an account? <Link to="/register">Create one</Link>
           </p>
         )}
       </div>

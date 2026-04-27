@@ -1,27 +1,40 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const winston = require('winston');
 const { sequelize, Tag } = require('./models');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
-const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
+const seriesRoutes = require('./routes/series');
+const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-const VERSION = 'v0.4.1';
-const TAG = process.env.TAG || 'stable';
+app.set('trust proxy', 1);
 
-app.get('/api/version', (req, res) => {
-  res.json({ version: VERSION, tag: TAG });
-});
+const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'http://frontend:3000'
@@ -29,59 +42,45 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-app.use((req, res, next) => {
-  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-    next();
-  } else {
-    express.json({ limit: '10mb' })(req, res, next);
-  }
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1000,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
+app.use('/api/', globalLimiter);
+
+const adventureLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1000,
+  message: { error: 'Too many adventure requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-const uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/gpx+xml' || 
-        file.originalname.endsWith('.gpx')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only GPX files are allowed'));
-    }
-  }
-});
-
-app.use('/uploads', express.static(uploadDir));
-
-app.use('/api/auth', authRoutes);
-app.use('/api/adventures', adventuresRoutes);
-app.use('/api/gpx', gpxRoutes);
-app.use('/api/routing', routingRoutes);
-app.use('/api/immich', immichRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/auth', sanitizeInput, authRoutes);
+app.use('/api/adventures', sanitizeInput, adventureLimiter, adventuresRoutes);
+app.use('/api/routing', sanitizeInput, routingRoutes);
+app.use('/api/immich', sanitizeInput, immichRoutes);
+app.use('/api/admin', sanitizeInput, adminRoutes);
+app.use('/api/series', sanitizeInput, seriesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error('Unhandled error', { 
+    error: err.message, 
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
   res.status(500).json({ error: 'Something went wrong!' });
 });
 

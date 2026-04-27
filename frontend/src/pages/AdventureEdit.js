@@ -1,24 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import 'react-leaflet-fullscreen/styles.css';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 import GpxEditorModal from '../components/GpxEditorModal';
 
 const TYPE_COLORS = {
-  walking: '#FF6B6B',
-  hiking: '#FF9F43',
-  cycling: '#4ECDC4',
-  bus: '#A55EEA',
-  metro: '#26DE81',
-  train: '#45B7D1',
-  boat: '#2D98DA',
-  car: '#FC5C65',
-  other: '#9B59B6'
+  walking: '#DC2626',
+  hiking: '#EA580C',
+  cycling: '#65A30D',
+  bus: '#2563EB',
+  metro: '#DB2777',
+  train: '#0891B2',
+  boat: '#4F46E5',
+  car: '#52525B',
+  other: '#0D9488'
 };
 
-const WAYPOINT_ICONS = ['📍', '🏃', '🍽️', '📸', '🚿', '🏔️', '⚠️', '⛺', '🅿️', '💧', '🔍'];
+const WAYPOINT_ICONS = [
+  '📍', '🏃', '🍽️', '📸', '🚿', '🏔️', '⚠️', '⛺', '🅿️', '💧', '🔍',
+  '🏕️', '⛰️', '🌲', '🧭', '🌊', '🏠', '🏰', '🗼', '🍺', '☕',
+  '🚗', '🚲', '🚌', '🚉', '🧗', '⛷️', '🏊', '🎣', '📷', '🔭',
+  '⛽', '🔧', '🏥', '✅', '❌'
+];
 
 const fixLeafletIcons = () => {
   delete L.Icon.Default.prototype._getIconUrl;
@@ -49,46 +58,40 @@ const createCustomIcon = (color, scale = 1) => {
 };
 
 const createWaypointIcon = (icon, scale = 1) => {
-  const size = 23 * scale; // 25% smaller (28 * 0.75)
+  const size = 32 * scale;
+  const half = size / 2;
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<div style="
-      position: relative;
       width: ${size}px;
-      height: ${size * 1.4}px;
+      height: ${size}px;
+      background: #FFFDD0;
+      border-radius: 50%;
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      border: 2px solid #ddd;
     ">
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        background: #FF6B6B;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-      ">
-        <span style="
-          transform: rotate(45deg);
-          font-size: ${size * 0.55}px;
-          line-height: 1;
-        ">${icon}</span>
-      </div>
-      <div style="
-        width: 0;
-        height: 0;
-        border-left: ${size * 0.2}px solid transparent;
-        border-right: ${size * 0.2}px solid transparent;
-        border-top: ${size * 0.3}px solid #FF6B6B;
-      "></div>
+      <span style="
+        font-size: ${size * 0.5}px;
+        line-height: 1;
+      ">${icon}</span>
     </div>`,
-    iconSize: [size, size * 1.4],
-    iconAnchor: [size/2, size * 1.4],
-    popupAnchor: [0, -size * 1.2]
+    iconSize: [size, size],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half]
   });
+};
+
+const waypointIconCache = {};
+
+const getWaypointIcon = (icon, scale = 1) => {
+  const key = `${icon}-${scale}`;
+  if (!waypointIconCache[key]) {
+    waypointIconCache[key] = createWaypointIcon(icon, scale);
+  }
+  return waypointIconCache[key];
 };
 
 const MapBounds = ({ tracks, pictures, waypoints }) => {
@@ -140,10 +143,6 @@ const AdventureEdit = () => {
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingGpx, setUploadingGpx] = useState(false);
-  const [gpxFile, setGpxFile] = useState(null);
-  const [gpxName, setGpxName] = useState('');
-  const [gpxType, setGpxType] = useState('hiking');
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showImmichBrowser, setShowImmichBrowser] = useState(false);
   const [immichAlbums, setImmichAlbums] = useState([]);
@@ -173,7 +172,6 @@ const AdventureEdit = () => {
   const [creatingTag, setCreatingTag] = useState(false);
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
-  const [mapFullscreen, setMapFullscreen] = useState(false);
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -199,7 +197,7 @@ const AdventureEdit = () => {
       setAdventure(res.data.adventure);
       setSelectedTags(res.data.adventure.tags || []);
     } catch (err) {
-      console.error('Failed to load adventure:', err);
+      toast.error('Failed to load adventure');
       navigate('/');
       return;
     }
@@ -208,7 +206,7 @@ const AdventureEdit = () => {
       const tagsRes = await api.getTags();
       setAllTags(tagsRes.data.tags || []);
     } catch (err) {
-      console.error('Failed to load tags:', err);
+      toast.error('Failed to load tags');
     } finally {
       setLoading(false);
     }
@@ -220,7 +218,7 @@ const AdventureEdit = () => {
       const res = await api.get(`/adventures/${id}/share`);
       setShares(res.data.shares || []);
     } catch (err) {
-      console.error('Failed to load shares:', err);
+      toast.error('Failed to load shares');
     } finally {
       setLoadingShares(false);
     }
@@ -231,7 +229,7 @@ const AdventureEdit = () => {
       const res = await api.get('/adventures/users');
       setUsers(res.data.users || []);
     } catch (err) {
-      console.error('Failed to load users:', err);
+      toast.error('Failed to load users');
     }
   };
 
@@ -251,7 +249,7 @@ const AdventureEdit = () => {
       setShareUsername('');
       await loadShares();
     } catch (err) {
-      console.error('Failed to share:', err);
+      toast.error('Failed to share adventure');
       alert(err.message || 'Failed to share adventure');
     }
   };
@@ -262,7 +260,7 @@ const AdventureEdit = () => {
       await api.delete(`/adventures/${id}/share/${shareId}`);
       await loadShares();
     } catch (err) {
-      console.error('Failed to remove share:', err);
+      toast.error('Failed to remove share:', err);
     }
   };
 
@@ -272,7 +270,7 @@ const AdventureEdit = () => {
       const res = await api.put(`/adventures/${id}`, updates);
       setAdventure({ ...adventure, ...res.data.adventure });
     } catch (err) {
-      console.error('Failed to update adventure:', err);
+      toast.error('Failed to update adventure:', err);
     } finally {
       setSaving(false);
     }
@@ -285,7 +283,7 @@ const AdventureEdit = () => {
       setSelectedTags(res.data.tags || []);
       setAdventure({ ...adventure, tags: res.data.tags || [] });
     } catch (err) {
-      console.error('Failed to save tags:', err);
+      toast.error('Failed to save tags:', err);
     } finally {
       setSaving(false);
     }
@@ -309,7 +307,7 @@ const AdventureEdit = () => {
       setSelectedTags(selectedTags.filter(t => t.id !== tagId));
       await saveTags(selectedTags.filter(t => t.id !== tagId).map(t => t.id));
     } catch (err) {
-      console.error('Failed to delete tag:', err);
+      toast.error('Failed to delete tag:', err);
       alert(err.response?.data?.error || 'Failed to delete tag');
     }
   };
@@ -332,39 +330,10 @@ const AdventureEdit = () => {
       setNewTagName('');
       setNewTagCategory('');
     } catch (err) {
-      console.error('Failed to create tag:', err);
+      toast.error('Failed to create tag:', err);
       alert(err.response?.data?.error || 'Failed to create tag');
     } finally {
       setCreatingTag(false);
-    }
-  };
-
-  const handleGpxUpload = async (e) => {
-    e.preventDefault();
-    if (!gpxFile) return;
-
-    setUploadingGpx(true);
-    try {
-      const formData = new FormData();
-      formData.append('gpx', gpxFile);
-      formData.append('name', gpxName || gpxFile.name.replace('.gpx', ''));
-      formData.append('type', gpxType);
-      formData.append('adventure_id', id);
-
-      const res = await api.post(`/gpx/upload`, formData, true);
-      
-      setAdventure({
-        ...adventure,
-        GpxTracks: [...(adventure.GpxTracks || []), res.data.gpxTrack]
-      });
-      setMapKey(mapKey + 1);
-      
-      setGpxFile(null);
-      setGpxName('');
-    } catch (err) {
-      console.error('Failed to upload GPX:', err);
-    } finally {
-      setUploadingGpx(false);
     }
   };
 
@@ -379,7 +348,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to delete GPX:', err);
+      toast.error('Failed to delete GPX:', err);
     }
   };
 
@@ -402,7 +371,7 @@ const AdventureEdit = () => {
       setWaypointName('');
       setWaypointIcon('📍');
     } catch (err) {
-      console.error('Failed to add waypoint:', err);
+      toast.error('Failed to add waypoint:', err);
     }
   };
 
@@ -423,7 +392,7 @@ const AdventureEdit = () => {
       setWaypointName('');
       setWaypointIcon('📍');
     } catch (err) {
-      console.error('Failed to update waypoint:', err);
+      toast.error('Failed to update waypoint:', err);
     }
   };
 
@@ -438,7 +407,7 @@ const AdventureEdit = () => {
       });
       setEditingWaypoint(null);
     } catch (err) {
-      console.error('Failed to delete waypoint:', err);
+      toast.error('Failed to delete waypoint:', err);
     }
   };
 
@@ -459,7 +428,7 @@ const AdventureEdit = () => {
         })));
       }
     } catch (err) {
-      console.error('Failed to load Immich assets:', err);
+      toast.error('Failed to load Immich assets:', err);
     } finally {
       setLoadingAssets(false);
     }
@@ -480,7 +449,7 @@ const AdventureEdit = () => {
         setAlbumThumbnails(thumbRes.data.thumbnails || {});
       }
     } catch (err) {
-      console.error('Failed to load Immich albums:', err);
+      toast.error('Failed to load Immich albums:', err);
     }
   };
 
@@ -531,7 +500,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to add picture:', err);
+      toast.error('Failed to add picture:', err);
     }
   };
 
@@ -547,7 +516,7 @@ const AdventureEdit = () => {
         });
         setMapKey(mapKey + 1);
       } catch (err) {
-        console.error('Failed to remove picture:', err);
+        toast.error('Failed to remove picture:', err);
       }
     } else {
       addPicture(asset);
@@ -565,7 +534,7 @@ const AdventureEdit = () => {
       });
       setMapKey(mapKey + 1);
     } catch (err) {
-      console.error('Failed to delete picture:', err);
+      toast.error('Failed to delete picture:', err);
     }
   };
 
@@ -641,21 +610,7 @@ const AdventureEdit = () => {
 
       <div className="container">
         <div className="adventure-detail">
-          <div className={`adventure-map-container ${mapFullscreen ? 'fullscreen' : ''}`}>
-            <button 
-              className="fullscreen-btn" 
-              onClick={() => {
-                setMapFullscreen(!mapFullscreen);
-                setTimeout(() => {
-                  if (mapRef.current) {
-                    mapRef.current.invalidateSize();
-                  }
-                }, 100);
-              }}
-              title={mapFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              {mapFullscreen ? '⛶' : '⛶'}
-            </button>
+          <div className="adventure-map-container">
             <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
               Click on map to add waypoint
             </div>
@@ -664,8 +619,9 @@ const AdventureEdit = () => {
               key={mapKey}
               center={defaultCenter} 
               zoom={defaultZoom} 
-              style={{ height: mapFullscreen ? '100vh' : '100%', width: mapFullscreen ? '100vw' : '100%' }}
+              style={{ height: '100%', width: '100%' }}
             >
+              <FullscreenControl position="topright" />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -686,7 +642,7 @@ const AdventureEdit = () => {
                 />
               ))}
 
-              {pictures.map(picture => (
+              {pictures.map((picture) => (
                 picture.latitude && picture.longitude && (
                   <Marker
                     key={picture.id}
@@ -711,7 +667,7 @@ const AdventureEdit = () => {
                 <Marker
                   key={waypoint.id}
                   position={[waypoint.latitude, waypoint.longitude]}
-                  icon={createWaypointIcon(waypoint.icon)}
+                  icon={getWaypointIcon(waypoint.icon)}
                   eventHandlers={{
                     click: () => {
                       setEditingWaypoint(waypoint);
@@ -739,9 +695,58 @@ const AdventureEdit = () => {
             </MapContainer>
           </div>
 
+          <div className="sidebar-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <div>
+                <h3>Transportation ({gpxTracks.length})</h3>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '-4px' }}>
+                  Click a track to edit, add points, or view on map
+                </p>
+              </div>
+              <button 
+                onClick={() => openGpxEditor(null)}
+                className="btn btn-primary btn-sm"
+              >
+                + New GPX Track
+              </button>
+            </div>
+            {gpxTracks.length === 0 ? (
+              <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
+            ) : (
+              <div className="gpx-list">
+                {gpxTracks.map(track => (
+                  <div 
+                    key={track.id} 
+                    className="gpx-item"
+                    style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
+                    onClick={() => openGpxEditor(track)}
+                  >
+                    <div>
+                      <div className="gpx-item-name">{track.name}</div>
+                      <div className="gpx-item-type">{track.type}</div>
+                      {track.distance > 0 && (
+                        <div className="gpx-item-stats">
+                          {track.distance.toFixed(1)} km
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
+                      className="btn btn-danger btn-sm"
+                      title="Delete"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {newWaypoint && (
             <div className="modal-overlay" onClick={() => setNewWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setNewWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Add Waypoint</h3>
                 <form onSubmit={addWaypoint}>
                   <div className="form-group">
@@ -755,28 +760,21 @@ const AdventureEdit = () => {
                   </div>
                   <div className="form-group">
                     <label>Icon</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div className="icon-grid">
                       {WAYPOINT_ICONS.map(icon => (
                         <button
                           key={icon}
                           type="button"
                           onClick={() => setWaypointIcon(icon)}
-                          style={{
-                            fontSize: '1.5rem',
-                            padding: '8px',
-                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
-                            borderRadius: '4px',
-                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
-                            cursor: 'pointer'
-                          }}
+                          className={waypointIcon === icon ? 'selected' : ''}
                         >
                           {icon}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn" onClick={() => setNewWaypoint(null)}>Cancel</button>
+                  <div className="modal-actions">
+                    <button type="button" className="btn btn-outline" onClick={() => setNewWaypoint(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary">Add Waypoint</button>
                   </div>
                 </form>
@@ -787,6 +785,7 @@ const AdventureEdit = () => {
           {editingWaypoint && (
             <div className="modal-overlay" onClick={() => setEditingWaypoint(null)}>
               <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setEditingWaypoint(null)} className="btn btn-outline btn-sm" style={{ position: 'absolute', top: '8px', right: '8px' }}>&times;</button>
                 <h3>Edit Waypoint</h3>
                 <form onSubmit={updateWaypoint}>
                   <div className="form-group">
@@ -800,39 +799,30 @@ const AdventureEdit = () => {
                   </div>
                   <div className="form-group">
                     <label>Icon</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div className="icon-grid">
                       {WAYPOINT_ICONS.map(icon => (
                         <button
                           key={icon}
                           type="button"
                           onClick={() => setWaypointIcon(icon)}
-                          style={{
-                            fontSize: '1.5rem',
-                            padding: '8px',
-                            border: waypointIcon === icon ? '2px solid #2196F3' : '1px solid #ddd',
-                            borderRadius: '4px',
-                            background: waypointIcon === icon ? '#E3F2FD' : '#fff',
-                            cursor: 'pointer'
-                          }}
+                          className={waypointIcon === icon ? 'selected' : ''}
                         >
                           {icon}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                  <div className="modal-actions">
                     <button
                       type="button"
                       className="btn"
-                      style={{ background: '#f44336', color: 'white' }}
+                      style={{ background: '#f44336', color: 'white', marginRight: 'auto' }}
                       onClick={() => deleteWaypoint(editingWaypoint.id)}
                     >
                       Delete
                     </button>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button type="button" className="btn" onClick={() => setEditingWaypoint(null)}>Cancel</button>
-                      <button type="submit" className="btn btn-primary">Save</button>
-                    </div>
+                    <button type="button" className="btn btn-outline" onClick={() => setEditingWaypoint(null)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">Save</button>
                   </div>
                 </form>
               </div>
@@ -840,48 +830,6 @@ const AdventureEdit = () => {
           )}
 
           <div className="adventure-sidebar">
-            <div className="sidebar-section">
-              <h3>Upload GPX</h3>
-              <form onSubmit={handleGpxUpload}>
-                <div className="form-group">
-                  <input
-                    type="file"
-                    accept=".gpx"
-                    onChange={(e) => setGpxFile(e.target.files[0])}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <input
-                    type="text"
-                    placeholder="Track name (optional)"
-                    value={gpxName}
-                    onChange={(e) => setGpxName(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <select value={gpxType} onChange={(e) => setGpxType(e.target.value)}>
-                    <option value="walking">Walking</option>
-                    <option value="hiking">Hiking</option>
-                    <option value="cycling">Cycling</option>
-                    <option value="bus">Bus</option>
-                    <option value="metro">Metro</option>
-                    <option value="train">Train</option>
-                    <option value="boat">Boat</option>
-                    <option value="car">Car</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ width: '100%' }}
-                  disabled={uploadingGpx || !gpxFile}
-                >
-                  {uploadingGpx ? 'Uploading...' : 'Upload GPX'}
-                </button>
-              </form>
-            </div>
 
             <div className="sidebar-section">
               <h3>Date</h3>
@@ -898,6 +846,27 @@ const AdventureEdit = () => {
                   color: 'var(--text)',
                   fontFamily: 'inherit',
                   fontSize: '0.9rem'
+                }}
+              />
+            </div>
+
+            <div className="sidebar-section">
+              <h3>Description</h3>
+              <textarea
+                value={adventure.description || ''}
+                onChange={(e) => updateAdventure({ description: e.target.value })}
+                placeholder="Add a description..."
+                style={{
+                  width: '100%',
+                  minHeight: '80px',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--background)',
+                  color: 'var(--text)',
+                  fontFamily: 'inherit',
+                  fontSize: '0.9rem',
+                  resize: 'vertical'
                 }}
               />
             </div>
@@ -978,69 +947,6 @@ const AdventureEdit = () => {
               </button>
             </div>
 
-            <div className="sidebar-section">
-              <h3>Description</h3>
-              <textarea
-                value={adventure.description || ''}
-                onChange={(e) => updateAdventure({ description: e.target.value })}
-                placeholder="Add a description..."
-                style={{
-                  width: '100%',
-                  minHeight: '80px',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  color: 'var(--text)',
-                  fontFamily: 'inherit',
-                  fontSize: '0.9rem',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            <div className="sidebar-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3>Transportation ({gpxTracks.length})</h3>
-                <button 
-                  onClick={() => openGpxEditor(null)}
-                  className="btn btn-primary btn-sm"
-                >
-                  + Draw Track
-                </button>
-              </div>
-              {gpxTracks.length === 0 ? (
-                <p style={{ color: 'var(--text-light)' }}>No tracks yet</p>
-              ) : (
-                <div className="gpx-list">
-                  {gpxTracks.map(track => (
-                    <div 
-                      key={track.id} 
-                      className="gpx-item"
-                      style={{ borderLeftColor: track.color || TYPE_COLORS[track.type] }}
-                      onClick={() => openGpxEditor(track)}
-                    >
-                      <div>
-                        <div className="gpx-item-name">{track.name}</div>
-                        <div className="gpx-item-type">{track.type}</div>
-                        {track.distance > 0 && (
-                          <div className="gpx-item-stats">
-                            {track.distance.toFixed(1)} km
-                          </div>
-                        )}
-                      </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteGpx(track.id); }}
-                        className="btn btn-danger btn-sm"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {pictures.length > 0 && (
               <div className="sidebar-section">
                 <h3>Preview Picture</h3>
@@ -1105,7 +1011,6 @@ const AdventureEdit = () => {
                       key={picture.id} 
                       className="picture-thumb" 
                       style={{ position: 'relative', cursor: 'pointer', transform: hoveredPictureId === picture.id ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.2s' }}
-                      onClick={() => openPicture(picture, index)}
                       onMouseEnter={() => setHoveredPictureId(picture.id)}
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
@@ -1124,7 +1029,29 @@ const AdventureEdit = () => {
                         </div>
                       )}
                       <button
-                        onClick={() => deletePicture(picture.id)}
+                        onClick={() => openPicture(picture, index)}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px'
+                        }}
+                        title="View"
+                      >
+                        👁
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deletePicture(picture.id); }}
                         style={{
                           position: 'absolute',
                           top: '2px',
@@ -1140,6 +1067,7 @@ const AdventureEdit = () => {
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
+                        title="Delete"
                       >
                         ×
                       </button>
@@ -1457,7 +1385,7 @@ const AdventureEdit = () => {
                 />
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => setShowTagModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-outline" onClick={() => setShowTagModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingTag || !newTagName.trim()}>
                   {creatingTag ? 'Creating...' : 'Create Tag'}
                 </button>

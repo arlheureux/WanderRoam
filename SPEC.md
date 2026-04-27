@@ -14,12 +14,13 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 ## 2. Architecture
 
 ### Tech Stack
-- **Frontend:** React 18 with Leaflet for maps
+- **Frontend:** React 18 with Leaflet for maps, react-map-gl for Mapbox
 - **Backend:** Node.js/Express
 - **Database:** PostgreSQL
 - **File Storage:** Local filesystem with uploaded GPX and images
 - **Photo Management:** Immich (self-hosted photo library)
 - **Containerization:** Docker & Docker Compose
+- **Maps:** OpenStreetMap (default) or Mapbox (optional, with 3D terrain)
 
 ### Services
 1. **Frontend** - React app on port 3000 (nginx)
@@ -44,6 +45,7 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 - `user_id` - foreign key to users
 - `name` - string
 - `description` - text (optional)
+- `adventure_date` - date (optional, for stats grouping)
 - `center_lat` - decimal (map center)
 - `center_lng` - decimal (map center)
 - `zoom` - integer (default 10)
@@ -92,11 +94,20 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 - `id` - UUID primary key
 - `name` - string (unique)
 - `color` - hex string
-- `type` - enum (activity, location)
+- `category` - string (optional, for grouping)
 
 ### Adventure Tags (many-to-many)
 - `adventure_id` - foreign key to adventures
 - `tag_id` - foreign key to tags
+
+### Audit Logs
+- `id` - UUID primary key
+- `action` - string (CREATE_USER, DELETE_USER, RESET_PASSWORD, TOGGLE_ADMIN)
+- `target_user_id` - UUID (optional)
+- `details` - JSON (action-specific data)
+- `ip_address` - string (optional)
+- `admin_user_id` - foreign key to users
+- `created_at` - timestamp
 
 ### Predefined Tags
 | Name | Type | Color |
@@ -179,6 +190,9 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 ### Users
 - `GET /api/adventures/users` - List other users (for sharing)
 
+### Statistics
+- `GET /api/adventures/stats?view=owned|shared|all` - Get adventure statistics (overview, by year, by transport mode)
+
 ### Routing
 - `POST /api/routing/route` - Calculate route using BRouter (requires waypoints and mode)
 
@@ -189,6 +203,8 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 2. **Dashboard** - List of adventures with preview pictures and tag filter
 3. **Adventure Editor** - Edit adventure with map, sidebar panels, tag selector
 4. **Adventure View** - View adventure with map (read-only for shared)
+5. **Statistics** - View adventure statistics by year and transport mode
+6. **Settings** - Configure Immich integration and user preferences
 
 ### Map Features
 - OpenStreetMap base layer
@@ -357,7 +373,14 @@ docker-app/
 
 ### Authentication
 - JWT-based authentication
-- Token expiry: 24 hours
+- Token expiry: 1 hour (configurable via JWT_EXPIRY environment variable)
+
+### Input Validation
+- All API endpoints validated with express-validator
+- Sanitized with sanitize-html to prevent XSS attacks
+
+### Audit Logging
+- Admin actions logged to database (user create, delete, password reset, toggle admin)
 
 ### CORS
 - Configurable via `CORS_ORIGIN` environment variable
@@ -397,3 +420,7 @@ docker-app/
 - [x] Route tab in GPX editor calculates routes for car, bike, foot, boat, train, metro
 - [x] Route waypoints can be added by clicking on map
 - [x] Calculated routes display on map
+- [x] Statistics page shows overview, by year, and by transport mode
+- [x] Statistics can be filtered by owned/shared/all adventures
+- [x] API endpoints have input validation
+- [x] JWT tokens expire after 1 hour (configurable)
