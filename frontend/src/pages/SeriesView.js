@@ -321,7 +321,7 @@ const SeriesView = () => {
                   {showFilters ? '▼' : '▶'} Filters
                 </button>
                 <button onClick={openAdventurePicker} className="btn btn-outline btn-sm">
-                  Reorder Adventures
+                  Add a new adventure
                 </button>
               </div>
             </div>
@@ -532,10 +532,10 @@ const SeriesView = () => {
       {showAdventurePicker && (
         <div className="modal-overlay" onClick={() => setShowAdventurePicker(false)}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <h2>Select Adventures</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '16px' }}>
-              Drag to reorder. Adventures will appear in this order on the series page.
-            </p>
+              <h2>Select Adventures</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '16px' }}>
+                Select adventures to add to this series.
+              </p>
             <div style={{ 
               maxHeight: '300px', 
               overflowY: 'auto', 

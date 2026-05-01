@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { FullscreenControl } from 'react-leaflet-fullscreen';
 import L from 'leaflet';
@@ -140,6 +140,8 @@ const MapClickHandler = ({ onMapClick }) => {
 const AdventureEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const seriesId = searchParams.get('seriesId');
   const [adventure, setAdventure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -579,7 +581,12 @@ const AdventureEdit = () => {
     <div>
       <header className="header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/" className="back-link">← Back</Link>
+          <Link 
+            to={seriesId ? `/series/${seriesId}` : '/'} 
+            className="back-link"
+          >
+            ← Back
+          </Link>
           {!adventure.isOwner && (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
               Read only
@@ -604,7 +611,12 @@ const AdventureEdit = () => {
           {adventure.isOwner && (
             <button onClick={handleOpenShareModal} className="btn btn-outline btn-sm">Share</button>
           )}
-          <Link to={`/adventure/${id}`} className="btn btn-primary btn-sm">View</Link>
+          <Link 
+            to={`/adventure/${id}${seriesId ? `?seriesId=${seriesId}` : ''}`} 
+            className="btn btn-primary btn-sm"
+          >
+            Save
+          </Link>
         </div>
       </header>
 

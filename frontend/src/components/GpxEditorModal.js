@@ -110,7 +110,7 @@ const GpxEditorModal = ({
 }) => {
   const isNewTrack = !existingTrack;
   
-  const [mode, setMode] = useState(isNewTrack ? 'draw' : 'edit');
+  const [mode, setMode] = useState(isNewTrack ? 'import' : 'edit');
   
   const [name, setName] = useState(existingTrack?.name || '');
   const [trackType, setTrackType] = useState(existingTrack?.type || 'hiking');

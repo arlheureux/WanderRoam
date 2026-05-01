@@ -2,7 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const { User, Adventure } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
-const { handleError } = require('../middleware/errorHandler');
+const { handleError, logger } = require('../middleware/errorHandler');
 const { validate } = require('../middleware/validation');
 
 const router = express.Router();
@@ -14,31 +14,8 @@ const fetchWithAuth = async (url, apiKey) => {
       'Content-Type': 'application/json'
     }
   });
-  
-  if (!response.ok) {
-    throw new Error(`Immich API error: ${response.status}`);
-  }
-  
-  return response.json();
+  return response;
 };
-
-const fetchWithAuthPost = async (url, apiKey, body) => {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Immich API error: ${response.status}`);
-  }
-  
-  return response.json();
-};
-
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -52,8 +29,8 @@ router.get('/status', authMiddleware, async (req, res) => {
         `${user.immich_url}/api/albums`,
         user.immich_api_key
       );
-      
-      res.json({ 
+       
+       res.json({
         connected: Array.isArray(result),
         url: user.immich_url
       });
@@ -85,12 +62,12 @@ router.get('/albums', authMiddleware, async (req, res) => {
       let thumbId = album.albumThumbnailAssetId || album.thumbnail?.id;
       
       if (!thumbId && album.assetCount > 0) {
-        try {
-          const albumData = await fetchWithAuth(
-            `${user.immich_url}/api/albums/${album.id}?withoutAssets=false`,
-            user.immich_api_key
-          );
-          if (albumData.assets && albumData.assets.length > 0) {
+      try {
+        const albumData = await fetchWithAuth(
+          `${user.immich_url}/api/albums/${album.id}?withoutAssets=false`,
+          user.immich_api_key
+        );
+        if (albumData.assets && albumData.assets.length > 0) {
             thumbId = albumData.assets[0].id;
           }
         } catch (e) {
