@@ -1397,3 +1397,4 @@ router.put('/:id/tags', authMiddleware, [
 });
 
 module.exports = router;
+module.exports.getAdventureAccess = getAdventureAccess;
