@@ -25,6 +25,7 @@ const logger = winston.createLogger({
 
 const authRoutes = require('./routes/auth');
 const adventuresRoutes = require('./routes/adventures');
+const gpxRoutes = require('./routes/gpx');
 const immichRoutes = require('./routes/immich');
 const adminRoutes = require('./routes/admin');
 const routingRoutes = require('./routes/routing');
@@ -65,6 +66,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use('/api/auth', sanitizeInput, authRoutes);
 app.use('/api/adventures', sanitizeInput, adventureLimiter, adventuresRoutes);
+app.use('/api/gpx', sanitizeInput, gpxRoutes);
 app.use('/api/routing', sanitizeInput, routingRoutes);
 app.use('/api/immich', sanitizeInput, immichRoutes);
 app.use('/api/admin', sanitizeInput, adminRoutes);
