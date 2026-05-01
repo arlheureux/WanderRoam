@@ -470,13 +470,17 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
 router.get('/all-gpx', authMiddleware, async (req, res) => {
   try {
+    const includeData = req.query.full === 'true';
+
     const myAdventures = await Adventure.findAll({
       where: { user_id: req.user.id },
       attributes: ['id', 'name', 'adventure_date', 'user_id'],
       include: [
         {
           model: GpxTrack,
-          attributes: ['id', 'name', 'type', 'color', 'data', 'distance']
+          attributes: includeData
+            ? ['id', 'name', 'type', 'color', 'data', 'distance']
+            : ['id', 'name', 'type', 'color', 'distance']
         }
       ]
     });
@@ -495,7 +499,9 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
         include: [
           {
             model: GpxTrack,
-            attributes: ['id', 'name', 'type', 'color', 'data', 'distance']
+            attributes: includeData
+              ? ['id', 'name', 'type', 'color', 'data', 'distance']
+              : ['id', 'name', 'type', 'color', 'distance']
           },
           {
             model: User,
@@ -518,9 +524,24 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
     allAdventures.forEach((adventure, idx) => {
       const adventureColor = ADVENTURE_COLORS[idx % ADVENTURE_COLORS.length];
       const gpxTracks = adventure.GpxTracks || [];
-      
+
       gpxTracks.forEach(track => {
         if (track.data && track.data.length > 0) {
+          const trackData = {
+            id: track.id,
+            name: track.name,
+            type: track.type,
+            color: adventureColor,
+            adventureId: adventure.id,
+            adventureName: adventure.name,
+            adventureDate: adventure.adventure_date,
+            isOwner: adventure.user_id === req.user.id,
+            ownerName: adventure.owner ? adventure.owner.username : null,
+            distance: track.distance
+          };
+          if (includeData) trackData.data = track.data;
+          tracks.push(trackData);
+        } else if (track.data && track.data.length === 0) {
           tracks.push({
             id: track.id,
             name: track.name,
@@ -531,7 +552,7 @@ router.get('/all-gpx', authMiddleware, async (req, res) => {
             adventureDate: adventure.adventure_date,
             isOwner: adventure.user_id === req.user.id,
             ownerName: adventure.owner ? adventure.owner.username : null,
-            data: track.data
+            distance: track.distance
           });
         }
       });
