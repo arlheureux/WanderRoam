@@ -56,6 +56,7 @@ const Dashboard = () => {
   const [adventures, setAdventures] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingSeries, setLoadingSeries] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newAdventure, setNewAdventure] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
@@ -296,17 +297,23 @@ const createSeries = async (e) => {
           border: '1px solid var(--border)'
         }}>
           <button
-            onClick={() => setActiveTab('adventures')}
-            className={`tab-btn ${activeTab === 'adventures' ? 'active' : ''}`}
-          >
-            📋 Adventures
-          </button>
-          <button
-            onClick={() => setActiveTab('map')}
-            className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
-          >
-            🗺️ All Tracks
-          </button>
+             onClick={() => setActiveTab('adventures')}
+             className={`tab-btn ${activeTab === 'adventures' ? 'active' : ''}`}
+           >
+             📋 Adventures
+           </button>
+           <button
+             onClick={() => setActiveTab('series')}
+             className={`tab-btn ${activeTab === 'series' ? 'active' : ''}`}
+           >
+             📚 Series
+           </button>
+           <button
+             onClick={() => setActiveTab('map')}
+             className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
+           >
+             🗺️ All Tracks
+           </button>
         </div>
       </div>
 
@@ -573,6 +580,54 @@ const createSeries = async (e) => {
                   </div>
                 </div>
               )              )}
+            </div>
+          )}
+        </div>
+      )}
+      {activeTab === 'series' && (
+        <div className="container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+            <h2>My Series</h2>
+            <button onClick={() => setShowSeriesModal(true)} className="btn btn-primary">
+              + New Series
+            </button>
+          </div>
+          
+          {loadingSeries ? (
+            <div className="loading-screen">Loading series...</div>
+          ) : seriesList.length === 0 ? (
+            <p style={{ color: 'var(--text-light)', marginTop: '16px' }}>No series yet. Create one to group your adventures!</p>
+          ) : (
+            <div className="series-grid" style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+              gap: '16px', 
+              marginTop: '16px' 
+            }}>
+              {seriesList.map(series => (
+                <div 
+                  key={series.id} 
+                  className="series-card" 
+                  style={{ 
+                    padding: '16px', 
+                    border: '1px solid var(--border)', 
+                    borderRadius: '8px', 
+                    cursor: 'pointer',
+                    background: 'var(--surface)'
+                  }}
+                  onClick={() => navigate(`/series/${series.id}`)}
+                >
+                  <h3>{series.name}</h3>
+                  {series.description && (
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>
+                      {series.description}
+                    </p>
+                  )}
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '8px' }}>
+                    {series.adventureIds?.length || 0} adventures
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>

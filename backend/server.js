@@ -1,11 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
-const { sequelize, Tag } = require('./models');
+const { sequelize } = require('./models');
 
 const logger = winston.createLogger({
   level: 'info',
@@ -76,7 +74,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { 
     error: err.message, 
     stack: err.stack,

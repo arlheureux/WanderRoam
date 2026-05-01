@@ -1,9 +1,9 @@
 const express = require('express');
-const { body, query, param, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
-const { sequelize, Series, SeriesAdventure, Adventure, GpxTrack, Picture, Waypoint, User } = require('../models');
+const { Series, SeriesAdventure, Adventure, GpxTrack, Picture, Waypoint, User } = require('../models');
 
 const router = express.Router();
 
@@ -42,11 +42,8 @@ router.get('/', async (req, res) => {
       let totalPhotos = 0;
       let startDate = null;
       let endDate = null;
-      let firstAdventure = null;
-
+      
       if (adventuresWithOrder.length > 0) {
-        firstAdventure = adventuresWithOrder[0];
-        
         for (const adv of adventuresWithOrder) {
           const pictures = await Picture.count({ where: { adventure_id: adv.id } });
           totalPhotos += pictures;
@@ -138,7 +135,7 @@ router.get('/:id', async (req, res) => {
     let totalDistance = 0;
     let totalPhotos = 0;
     let totalWaypoints = 0;
-    let allTracks = [];
+    const allTracks = [];
     let minLat = null, maxLat = null, minLng = null, maxLng = null;
 
     for (const adv of adventuresWithDetails) {

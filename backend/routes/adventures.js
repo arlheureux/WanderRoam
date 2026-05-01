@@ -1,14 +1,12 @@
 const express = require('express');
 const fs = require('fs');
 const multer = require('multer');
-const path = require('path');
-const xml2js = require('xml2js');
 const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError, logger } = require('../middleware/errorHandler');
-const { Op, Sequelize } = require('sequelize');
+const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
 const router = express.Router();
@@ -245,9 +243,10 @@ router.get('/', authMiddleware, [
 
     const allAdventureIds = allAdventures.map(a => a.id);
 
-    let previewPictures = {};
-    let pictureCounts = {};
-    let firstPictures = {};
+    const previewPictures = {};
+    const pictureCounts = {};
+    const firstPictures = {};
+    let picByAdventure = {};
 
     if (allAdventureIds.length > 0) {
       const allPictures = await Picture.findAll({
@@ -256,7 +255,7 @@ router.get('/', authMiddleware, [
         order: [['id', 'ASC']]
       });
 
-      const picByAdventure = {};
+      picByAdventure = {};
       allPictures.forEach(p => {
         if (!picByAdventure[p.adventure_id]) {
           picByAdventure[p.adventure_id] = [];
@@ -281,7 +280,27 @@ router.get('/', authMiddleware, [
 
     const adventuresWithStats = allAdventures.map(adventure => {
       const gpxTracks = adventure.GpxTracks || [];
-      const previewPic = previewPictures[adventure.preview_picture_id] || firstPictures[adventure.id] || null;
+      
+      // FIXED: Always get preview picture - use default or first picture
+      let previewPic = null;
+      
+      // Try preview_picture_id first
+      if (adventure.preview_picture_id && previewPictures[adventure.preview_picture_id]) {
+        previewPic = previewPictures[adventure.preview_picture_id];
+      }
+      
+      // Fall back to first picture
+      if (!previewPic && firstPictures[adventure.id]) {
+        previewPic = firstPictures[adventure.id];
+      }
+      
+      // If still null, try to find ANY picture with thumbnail_url
+      if (!previewPic && picByAdventure[adventure.id] && picByAdventure[adventure.id].length > 0) {
+        const firstWithThumb = picByAdventure[adventure.id].find(p => p.thumbnail_url);
+        if (firstWithThumb) {
+          previewPic = { id: firstWithThumb.id, thumbnail_url: firstWithThumb.thumbnail_url };
+        }
+      }
       const pictureCount = pictureCounts[adventure.id] || 0;
 
       const gpxByType = gpxTracks.reduce((acc, track) => {
@@ -710,36 +729,56 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     const pictures = adventure.Pictures || [];
     const thumbnails = {};
-
+    const failedIds = [];
+    
     if (pictures.length > 0) {
       const owner = await User.findByPk(adventure.user_id);
       
       if (owner.immich_url && owner.immich_api_key) {
         const assetIds = pictures.map(p => p.immich_asset_id).filter(Boolean);
         
+        // Add timeout to prevent hanging
+        const fetchWithTimeout = async (url, options, timeout = 5000) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+          
+          try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeoutId);
+            return response;
+          } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
+          }
+        };
+        
         await Promise.all(
           assetIds.map(async (assetId) => {
             try {
-              const response = await fetch(
+              const response = await fetchWithTimeout(
                 `${owner.immich_url}/api/assets/${assetId}/thumbnail?size=preview`,
                 {
                   headers: {
                     'x-api-key': owner.immich_api_key
                   }
-                }
+                },
+                5000
               );
               if (response.ok) {
                 const buffer = await response.arrayBuffer();
                 const base64 = Buffer.from(buffer).toString('base64');
                 const contentType = response.headers.get('content-type') || 'image/jpeg';
                 thumbnails[assetId] = `data:${contentType};base64,${base64}`;
+              } else {
+                failedIds.push(assetId);
               }
             } catch (e) {
+              failedIds.push(assetId);
               logger.warn(`Failed to fetch preview for ${assetId}: ${e.message}`);
             }
           })
         );
-
+        
         await Promise.all(
           pictures.map(async (pic) => {
             if (pic.immich_asset_id && thumbnails[pic.immich_asset_id]) {
@@ -758,13 +797,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
       full_url: p.immich_asset_id ? `/api/immich/full/${p.immich_asset_id}` : null,
       thumbnail_url: p.thumbnail_url || null
     }));
+    adventureData.pictures_loading = failedIds.length > 0;
+    adventureData.pictures_failed_count = failedIds.length;
     adventureData.tags = (adventureData.tags || []).map(t => ({
       id: t.id,
       name: t.name,
       color: t.color,
       category: t.type || 'Custom'
     }));
-
+    
     res.json({ adventure: adventureData });
   } catch (error) {
     return handleError(error, res, { operation: 'getAdventure' });
