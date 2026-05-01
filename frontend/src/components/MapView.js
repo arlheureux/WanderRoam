@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer as LeafletMap, TileLayer as LeafletTileLayer, Polyline as LeafletPolyline, Popup as LeafletPopup, useMap as useLeafletMap } from 'react-leaflet';
 import Map, { Marker, Popup as MapboxPopup, NavigationControl, FullscreenControl, ScaleControl, Source, Layer } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
@@ -29,7 +29,7 @@ const TYPE_COLORS = {
   other: '#0D9488'
 };
 
-const LeafletBounds = ({ bounds, selectedTrack = null, gpxTracks = [] }) => {
+const LeafletBounds = ({ bounds, selectedTrack = null }) => {
   const map = useLeafletMap();
   
   React.useEffect(() => {
@@ -51,7 +51,7 @@ const LeafletBounds = ({ bounds, selectedTrack = null, gpxTracks = [] }) => {
   return null;
 };
 
-const LeafletMapView = ({ center, zoom, children, bounds, onMoveEnd, selectedTrack = null, gpxTracks = [] }) => {
+const LeafletMapView = ({ center, zoom, children, bounds, onMoveEnd, selectedTrack = null }) => {
   return (
     <LeafletMap
       center={center}
@@ -63,13 +63,13 @@ const LeafletMapView = ({ center, zoom, children, bounds, onMoveEnd, selectedTra
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {bounds && <LeafletBounds bounds={bounds} selectedTrack={selectedTrack} gpxTracks={gpxTracks} />}
+      {bounds && <LeafletBounds bounds={bounds} selectedTrack={selectedTrack} />}
       {children}
     </LeafletMap>
   );
 };
 
-const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd, mapboxPictures = [], mapboxWaypoints = [], hoveredPictureId, selectedTrack = null, gpxTracks = [] }) => {
+const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd, mapboxPictures = [], mapboxWaypoints = [], hoveredPictureId, selectedTrack = null }) => {
   const mapRef = useRef(null);
   const [viewState, setViewState] = React.useState({
     longitude: center[1],
@@ -245,32 +245,7 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
           />
         </Source>
       )}
-
-      {polylines.map((polyline, idx) => (
-        <Source 
-          key={polyline.key || `polyline-${idx}`}
-          id={`polyline-${idx}`}
-          type="geojson"
-          data={{
-            type: 'Feature',
-            properties: { color: polyline.pathOptions?.color || TYPE_COLORS.other },
-            geometry: {
-              type: 'LineString',
-              coordinates: polyline.positions.map(p => [p[1], p[0]])
-            }
-          }}
-        >
-          <Layer
-            type="line"
-            paint={{
-              'line-color': [ 'get', 'color' ],
-              'line-width': 3,
-              'line-opacity': 0.8
-            }}
-          />
-        </Source>
-      ))}
-      
+       
       {mapboxPictures.map((pic) => {
         if (!pic.latitude || !pic.longitude) return null;
         const isHovered = hoveredPictureId === pic.id;
@@ -390,7 +365,6 @@ export const MapView = ({
   mapboxWaypoints = [],
   hoveredPictureId = null,
   selectedTrack = null,
-  gpxTracks = []
 }) => {
   const containerStyle = style || { height: '100%', width: '100%' };
   
@@ -407,7 +381,6 @@ export const MapView = ({
         mapboxWaypoints={mapboxWaypoints}
         hoveredPictureId={hoveredPictureId}
         selectedTrack={selectedTrack}
-        gpxTracks={gpxTracks}
       >
         {children}
       </MapboxMapView>
@@ -422,7 +395,6 @@ export const MapView = ({
       onMoveEnd={onMoveEnd}
       style={containerStyle}
       selectedTrack={selectedTrack}
-      gpxTracks={gpxTracks}
     >
       {children}
     </LeafletMapView>

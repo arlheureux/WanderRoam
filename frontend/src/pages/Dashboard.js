@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -6,9 +6,10 @@ import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { useAuth } from '../services/AuthContext';
 import { useMapContext } from '../contexts/MapContext';
-import { MapView, TYPE_COLORS } from '../components/MapView';
+import { MapView } from '../components/MapView';
 import api from '../services/api';
 import { VERSION, GIT_COMMIT } from '../version';
+import { simplifyTracks } from '../utils/gpxSimplify';
 
 const Logo = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '12px' }}>
@@ -34,18 +35,19 @@ fixLeafletIcons();
 const MapBounds = ({ tracks }) => {
   const map = useMap();
 
-  useEffect(() => {
-    if (tracks && tracks.length > 0) {
-      const allPoints = tracks
-        .filter(t => t.data && t.data.length > 0)
-        .flatMap(t => t.data.map(p => [p.lat, p.lng]));
+  const allPositions = useMemo(() => 
+    tracks
+      .filter(t => t.data && t.data.length > 0)
+      .flatMap(t => t.data.map(p => [p.lat, p.lng])),
+    [tracks]
+  );
 
-      if (allPoints.length > 0) {
-        const bounds = L.latLngBounds(allPoints);
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
+  useEffect(() => {
+    if (allPositions.length > 0) {
+      const bounds = L.latLngBounds(allPositions);
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [tracks, map]);
+  }, [allPositions, map]);
 
   return null;
 };
@@ -142,11 +144,14 @@ const Dashboard = () => {
 
 const loadAllTracks = async () => {
     try {
-      const res = await api.get('/adventures/all-gpx');
-      setAllTracks(res.data.tracks);
+      const res = await api.get('/adventures/all-gpx?full=true');
+      const tracks = res.data.tracks || [];
+      // Simplify tracks for initial display (zoom level 5)
+      const simplified = simplifyTracks(tracks, 5);
+      setAllTracks(simplified);
       
       const adventures = {};
-      res.data.tracks.forEach(t => {
+      tracks.forEach(t => {
         adventures[t.adventureId] = true;
       });
       setVisibleAdventures(adventures);
