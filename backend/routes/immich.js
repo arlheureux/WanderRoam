@@ -14,7 +14,11 @@ const fetchWithAuth = async (url, apiKey) => {
       'Content-Type': 'application/json'
     }
   });
-  return response;
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Immich API request failed: ${response.status} ${errorText}`);
+  }
+  return response.json();
 };
 router.get('/status', authMiddleware, async (req, res) => {
   try {
