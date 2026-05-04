@@ -199,13 +199,13 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
       <FullscreenControl position="top-right" />
       <ScaleControl />
       
-      <button
-        onClick={() => setTerrainEnabled(!terrainEnabled)}
-        style={{
-          position: 'absolute',
-          top: '50px',
-          right: '10px',
-          zIndex: 10,
+       <button
+         onClick={() => setTerrainEnabled(!terrainEnabled)}
+         style={{
+           position: 'absolute',
+           top: '50px',
+           left: '10px',
+           zIndex: 10,
           padding: '8px 12px',
           background: terrainEnabled ? 'var(--primary)' : 'var(--surface)',
           color: terrainEnabled ? 'white' : 'var(--text)',

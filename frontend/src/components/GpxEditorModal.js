@@ -255,11 +255,11 @@ const GpxEditorModal = ({
 
       const data = await response.json();
       
-      if (data.coordinates && data.coordinates.length > 0) {
-        const routePoints = data.coordinates.map(c => ({
-          lat: c[1],
-          lng: c[0],
-          ele: null,
+      if (data.points && data.points.length > 0) {
+        const routePoints = data.points.map(p => ({
+          lat: p.lat,
+          lng: p.lng,
+          ele: p.ele || null,
           time: null
         }));
         setNewPoints(routePoints);
