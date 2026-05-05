@@ -1,0 +1,16 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4

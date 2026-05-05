@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - master   # → pushes :stable
-      - dev      # → pushes :latest
+    tags:
+      - 'v*'     # → pushes versioned + :stable
   workflow_dispatch:
 
 jobs:
@@ -30,19 +31,22 @@ jobs:
       - name: Determine tags
         id: tags
         run: |
-          VERSION=$(node -p "require('./backend/package.json').version" | sed 's/^/v/')
-          if [ "${{ github.ref_name }}" = "master" ]; then
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # Version tag push (e.g., v0.7.2)
+            VERSION=${{ github.ref_name }}
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "tag=stable" >> $GITHUB_OUTPUT
             echo "tags=arlheureux/wanderroam-backend:$VERSION,arlheureux/wanderroam-backend:stable" >> $GITHUB_OUTPUT
             echo "frontend_tags=arlheureux/wanderroam-frontend:$VERSION,arlheureux/wanderroam-frontend:stable" >> $GITHUB_OUTPUT
             echo "admin_tags=arlheureux/wanderroam-admin:$VERSION,arlheureux/wanderroam-admin:stable" >> $GITHUB_OUTPUT
           else
+            # Master push
+            VERSION=$(node -p "require('./backend/package.json').version" | sed 's/^/v/')
             echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "tag=latest" >> $GITHUB_OUTPUT
-            echo "tags=arlheureux/wanderroam-backend:latest" >> $GITHUB_OUTPUT
-            echo "frontend_tags=arlheureux/wanderroam-frontend:latest" >> $GITHUB_OUTPUT
-            echo "admin_tags=arlheureux/wanderroam-admin:latest" >> $GITHUB_OUTPUT
+            echo "tag=stable" >> $GITHUB_OUTPUT
+            echo "tags=arlheureux/wanderroam-backend:stable" >> $GITHUB_OUTPUT
+            echo "frontend_tags=arlheureux/wanderroam-frontend:stable" >> $GITHUB_OUTPUT
+            echo "admin_tags=arlheureux/wanderroam-admin:stable" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push backend
