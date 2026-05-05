@@ -1,6 +1,6 @@
 {
   "name": "wanderroam-frontend",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "private": true,
   "dependencies": {
     "@react-leaflet/core": "^2.1.0",

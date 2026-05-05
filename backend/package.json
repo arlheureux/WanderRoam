@@ -1,6 +1,6 @@
 {
   "name": "wanderroam-backend",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Backend API for WanderRoam",
   "main": "server.js",
   "scripts": {
