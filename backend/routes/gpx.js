@@ -11,7 +11,7 @@ const router = express.Router();
 router.put('/:id', authMiddleware, [
   param('id').isUUID().withMessage('Invalid GPX track ID'),
   body('name').optional().trim().isLength({ max: 100 }).withMessage('Name must be 100 characters or less'),
-  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'other']).withMessage('Invalid track type'),
+  body('type').optional().isIn(['walking', 'hiking', 'cycling', 'bus', 'metro', 'train', 'boat', 'car', 'plane', 'other']).withMessage('Invalid track type'),
   body('color').optional().isHexColor().withMessage('Invalid color format'),
   body('data').optional().isArray().withMessage('Data must be an array'),
   body('adventure_id').optional().isUUID().withMessage('Invalid adventure ID'),
