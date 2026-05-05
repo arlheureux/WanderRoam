@@ -136,10 +136,6 @@ BRouter is a self-hosted routing engine that calculates routes between waypoints
 
 BRouter requires segment files (`.rd5`) which contain the routing data. These are downloaded automatically based on the `COUNTRIES` environment variable.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `COUNTRIES` | france,denmark | Comma-separated list of countries to download segments for |
-
 Available segments:
 - **France**: E0_N40 to W10_N55 (17 segments)
 - **Denmark**: E0_N55, E5_N55, W5_N55, W10_N55 (4 segments)
@@ -156,21 +152,15 @@ The segment files are downloaded from `https://brouter.de/brouter/segments4/` an
 | Boat | river | #2D98DA |
 | Train | rail | #45B7D1 |
 | Metro | rail | #26DE81 |
-
-#### Reproduce the BRouter Setup
+| Plane | fastbike | #9B59B6 |
 
 The BRouter image is pre-built and available on Docker Hub. When you start the services, it will automatically download the segment files for the configured countries.
 
-```bash
-# Clone the repository
-git clone -b dev https://github.com/arlheureux/WanderRoam.git
-cd WanderRoam
-
-# Start services (brouter will download segments automatically)
-docker compose -f docker-compose.dev.yml up -d
-```
-
-The BRouter service will be available at `http://localhost:17777`
+Services (development):
+- Frontend with live reload: http://localhost:3000
+- Backend with live reload: http://localhost:5000
+- Admin with live reload: http://localhost:4000
+- BRouter: http://localhost:17777
 
 #### Disabling BRouter
 

@@ -1,16 +1,16 @@
 FROM node:18-alpine
 
+RUN apk add --no-cache postgresql-client
+
 WORKDIR /app
 
 COPY package*.json ./
-
-RUN apk add --no-cache wget
 
 RUN npm install --production
 
 COPY . .
 
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads /app/backups
 
 EXPOSE 5000
 

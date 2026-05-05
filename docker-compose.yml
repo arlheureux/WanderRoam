@@ -33,6 +33,7 @@ services:
       - BROUTER_URL=http://wanderroam-brouter:17777/brouter
     volumes:
       - upload_data:/app/uploads
+      - ./backups:/app/backups
     networks:
       - wanderroam-internal
     ports:
@@ -111,6 +112,7 @@ volumes:
   postgres_data:
   upload_data:
   brouter_data:
+  backups:
 
 networks:
   wanderroam-internal:

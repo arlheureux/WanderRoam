@@ -98,6 +98,15 @@ body {
   color: white;
 }
 
+.btn-warning {
+  background: #FFA502;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #E59400;
+}
+
 .btn-outline {
   background: transparent;
   border: 1px solid var(--border);

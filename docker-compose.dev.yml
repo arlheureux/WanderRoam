@@ -34,7 +34,9 @@ services:
       - BROUTER_URL=http://wanderroam-brouter:17777/brouter
     volumes:
       - ./backend:/app
+      - /app/node_modules
       - upload_data:/app/uploads
+      - ./backups:/app/backups
     networks:
       - wanderroam-internal
     ports:

@@ -5,8 +5,25 @@ const { User, Adventure, GpxTrack, Picture, AdventureShare, AuditLog } = require
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError, logError } = require('../middleware/errorHandler');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const os = require('os');
+const multer = require('multer');
 
 const router = express.Router();
+
+const BACKUP_DIR = path.join(__dirname, '..', 'backups');
+const UPLOAD_DIR = path.join(os.tmpdir(), 'wanderroam-restore');
+
+const upload = multer({ dest: UPLOAD_DIR, limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB limit
+
+if (!fs.existsSync(BACKUP_DIR)) {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 const logAudit = async (adminUserId, action, targetUserId, details, req) => {
   try {
@@ -209,6 +226,230 @@ router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, [
     });
   } catch (error) {
     return handleError(error, res, { operation: 'toggleAdmin' });
+  }
+});
+
+router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFilename = `wanderroam_backup_${timestamp}.tar.gz`;
+    const backupPath = path.join(BACKUP_DIR, backupFilename);
+    const tempDir = path.join(os.tmpdir(), `backup-${timestamp}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+    const dbDumpPath = path.join(tempDir, 'database.dump');
+    await new Promise((resolve, reject) => {
+      exec(`/usr/bin/pg_dump "${dbConnectionString}" -F c -f "${dbDumpPath}"`, (error, stdout, stderr) => {
+        if (error) return reject(new Error(`Database backup failed: ${stderr}`));
+        resolve();
+      });
+    });
+
+    const uploadsSrc = path.join(__dirname, '..', 'uploads');
+    const uploadsBackupPath = path.join(tempDir, 'uploads');
+    if (fs.existsSync(uploadsSrc)) {
+      fs.cpSync(uploadsSrc, uploadsBackupPath, { recursive: true });
+    }
+
+    const envSrc = path.join(__dirname, '..', '.env');
+    const envBackupPath = path.join(tempDir, '.env');
+    if (fs.existsSync(envSrc)) {
+      fs.copyFileSync(envSrc, envBackupPath);
+    }
+
+    await new Promise((resolve, reject) => {
+      exec(`tar -czf "${backupPath}" -C "${tempDir}" .`, (error, stdout, stderr) => {
+        if (error) return reject(new Error(`Archive creation failed: ${stderr}`));
+        resolve();
+      });
+    });
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+
+    res.json({ message: 'Backup created successfully', filename: backupFilename });
+  } catch (error) {
+    return handleError(error, res, { operation: 'createBackup' });
+  }
+});
+
+router.get('/backups', [
+  query('token').optional()
+], async (req, res) => {
+  try {
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.tar.gz'));
+    const backups = files.map(f => {
+      const filePath = path.join(BACKUP_DIR, f);
+      const stats = fs.statSync(filePath);
+      return { filename: f, size: stats.size, createdAt: stats.birthtime };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ backups });
+  } catch (error) {
+    return handleError(error, res, { operation: 'listBackups' });
+  }
+});
+
+router.get('/backups/:filename', [
+  param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
+  validate
+], async (req, res) => {
+  try {
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const filePath = path.join(BACKUP_DIR, req.params.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+    res.download(filePath, req.params.filename);
+  } catch (error) {
+    return handleError(error, res, { operation: 'downloadBackup' });
+  }
+});
+
+router.post('/restore/existing', [
+  query('token').optional()
+], async (req, res) => {
+  try {
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    if (!req.body.filename) {
+      return res.status(400).json({ error: 'No backup filename provided' });
+    }
+
+    const backupFilePath = path.join(BACKUP_DIR, req.body.filename);
+    if (!fs.existsSync(backupFilePath)) return res.status(404).json({ error: 'Backup not found' });
+
+    const tempDir = path.join(os.tmpdir(), `restore-${Date.now()}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    await new Promise((resolve, reject) => {
+      exec(`tar -xzf "${backupFilePath}" -C "${tempDir}"`, (error, stdout, stderr) => {
+        if (error) return reject(new Error(`Extract failed: ${stderr}`));
+        resolve();
+      });
+    });
+
+    const dbDumpPath = path.join(tempDir, 'database.dump');
+    if (fs.existsSync(dbDumpPath)) {
+      const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+      await new Promise((resolve, reject) => {
+        exec(`/usr/bin/pg_restore -d "${dbConnectionString}" -c --no-comments "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`, (error, stdout, stderr) => {
+          if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
+          resolve();
+        });
+      });
+    }
+
+    const uploadsSrc = path.join(tempDir, 'uploads');
+    const uploadsDest = path.join(__dirname, '..', 'uploads');
+    if (fs.existsSync(uploadsSrc)) {
+      fs.readdirSync(uploadsSrc).forEach(file => {
+        fs.cpSync(path.join(uploadsSrc, file), path.join(uploadsDest, file), { recursive: true, force: true });
+      });
+    }
+
+    const envSrc = path.join(tempDir, '.env');
+    const envDest = path.join(__dirname, '..', '.env');
+    if (fs.existsSync(envSrc)) fs.copyFileSync(envSrc, envDest);
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+
+    res.json({
+      message: 'Restore completed. Please restart the stack to apply new configuration.',
+      warning: 'Database credentials from backup have been applied. This is intended for new/empty instances.'
+    });
+  } catch (error) {
+    return handleError(error, res, { operation: 'restoreBackup' });
+  }
+});
+
+router.post('/restore/upload', upload.single('backup'), [
+  query('token').optional()
+], async (req, res) => {
+  try {
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No backup file uploaded' });
+    }
+
+    const backupFilePath = req.file.path;
+    const tempDir = path.join(os.tmpdir(), `restore-${Date.now()}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    await new Promise((resolve, reject) => {
+      exec(`tar -xzf "${backupFilePath}" -C "${tempDir}"`, (error, stdout, stderr) => {
+        if (error) return reject(new Error(`Extract failed: ${stderr}`));
+        resolve();
+      });
+    });
+
+    const dbDumpPath = path.join(tempDir, 'database.dump');
+    if (fs.existsSync(dbDumpPath)) {
+      const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+      await new Promise((resolve, reject) => {
+        exec(`/usr/bin/pg_restore -d "${dbConnectionString}" -c --no-comments "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`, (error, stdout, stderr) => {
+          if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
+          resolve();
+        });
+      });
+    }
+
+    const uploadsSrc = path.join(tempDir, 'uploads');
+    const uploadsDest = path.join(__dirname, '..', 'uploads');
+    if (fs.existsSync(uploadsSrc)) {
+      fs.readdirSync(uploadsSrc).forEach(file => {
+        fs.cpSync(path.join(uploadsSrc, file), path.join(uploadsDest, file), { recursive: true, force: true });
+      });
+    }
+
+    const envSrc = path.join(tempDir, '.env');
+    const envDest = path.join(__dirname, '..', '.env');
+    if (fs.existsSync(envSrc)) fs.copyFileSync(envSrc, envDest);
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      message: 'Restore completed. Please restart the stack to apply new configuration.',
+      warning: 'Database credentials from backup have been applied. This is intended for new/empty instances.'
+    });
+  } catch (error) {
+    return handleError(error, res, { operation: 'restoreBackup' });
   }
 });
 

@@ -84,6 +84,13 @@ const AdminDashboard = () => {
   const [appVersion, setAppVersion] = useState({ version: '', tag: '' });
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [notification, setNotification] = useState(null);
+  const [activeTab, setActiveTab] = useState('users'); // 'users' or 'backup'
+  const [backups, setBackups] = useState([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null);
+  const [restoreFile, setRestoreFile] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -94,6 +101,7 @@ const AdminDashboard = () => {
     }
     loadUsers();
     api.get('/version').then(v => setAppVersion(v)).catch(() => {});
+    loadBackups();
   }, []);
 
   const loadUsers = async (page = 1) => {
@@ -117,6 +125,18 @@ const AdminDashboard = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBackups = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await api.get('/admin/backups', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setBackups(res.backups || []);
+    } catch (err) {
+      console.error('Failed to load backups');
     }
   };
 
@@ -184,12 +204,67 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.post('/admin/backup', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showNotification('Backup created successfully');
+      loadBackups();
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Backup failed', 'error');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleDownloadBackup = (filename) => {
+    const token = localStorage.getItem('adminToken');
+    window.open(`/api/admin/backups/${filename}?token=${token}`, '_blank');
+  };
+
+  const confirmRestore = (backup) => {
+    setRestoreTarget(backup);
+    setShowRestoreConfirm(true);
+  };
+
+  const handleRestore = async () => {
+    setRestoreLoading(true);
+    setShowRestoreConfirm(false);
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (restoreFile) {
+        const formData = new FormData();
+        formData.append('backup', restoreFile);
+        await api.post('/admin/restore/upload', formData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } else if (restoreTarget) {
+        await api.post('/admin/restore/existing', { filename: restoreTarget.filename }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      showNotification('Restore completed. Please restart the stack to apply new configuration.');
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Restore failed', 'error');
+    } finally {
+      setRestoreLoading(false);
+      setRestoreTarget(null);
+      setRestoreFile(null);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     navigate('/');
   };
 
-  if (loading) return <div className="loading-screen">Loading...</div>;
+  if (loading && activeTab === 'users') return <div className="loading-screen">Loading...</div>;
 
   return (
     <div>
@@ -213,39 +288,95 @@ const AdminDashboard = () => {
         <button onClick={handleLogout} className="btn btn-outline btn-sm">Logout</button>
       </header>
       <div className="container">
-        <div style={{ marginTop: '24px', marginBottom: '16px' }}>
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">+ Create User</button>
+        <div style={{ marginTop: '24px', marginBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+          <button onClick={() => setActiveTab('users')} className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-outline'}`} style={{ marginRight: '8px' }}>Users</button>
+          <button onClick={() => setActiveTab('backup')} className={`btn ${activeTab === 'backup' ? 'btn-primary' : 'btn-outline'}`}>Backup & Restore</button>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', borderRadius: '8px' }}>
-          <thead>
-            <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '12px', textAlign: 'left' }}>Username</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>Adventures</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>Role</th>
-              <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '12px' }}>{user.username}</td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>{user.adventureCount}</td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  {user.isAdmin && <span style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontSize: '0.75rem' }}>Admin</span>}
-                </td>
-                <td style={{ padding: '12px', textAlign: 'right' }}>
-                  <button onClick={() => { setSelectedUser(user); setShowPasswordModal(true); }} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Reset</button>
-                  <button onClick={() => confirmDeleteUser(user)} className="btn btn-danger btn-sm">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {pagination.totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
-            <button className="btn btn-outline btn-sm" disabled={pagination.page <= 1} onClick={() => loadUsers(pagination.page - 1)}>Previous</button>
-            <span style={{ padding: '8px 16px', color: 'var(--text-light)' }}>Page {pagination.page} of {pagination.totalPages}</span>
-            <button className="btn btn-outline btn-sm" disabled={pagination.page >= pagination.totalPages} onClick={() => loadUsers(pagination.page + 1)}>Next</button>
+
+        {activeTab === 'users' && (
+          <>
+            <div style={{ marginBottom: '16px' }}>
+              <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">+ Create User</button>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', borderRadius: '8px' }}>
+              <thead>
+                <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '12px', textAlign: 'left' }}>Username</th>
+                  <th style={{ padding: '12px', textAlign: 'center' }}>Adventures</th>
+                  <th style={{ padding: '12px', textAlign: 'center' }}>Role</th>
+                  <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(user => (
+                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px' }}>{user.username}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>{user.adventureCount}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      {user.isAdmin && <span style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent)', color: 'white', fontSize: '0.75rem' }}>Admin</span>}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <button onClick={() => { setSelectedUser(user); setShowPasswordModal(true); }} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Reset</button>
+                      <button onClick={() => confirmDeleteUser(user)} className="btn btn-danger btn-sm">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {pagination.totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
+                <button className="btn btn-outline btn-sm" disabled={pagination.page <= 1} onClick={() => loadUsers(pagination.page - 1)}>Previous</button>
+                <span style={{ padding: '8px 16px', color: 'var(--text-light)' }}>Page {pagination.page} of {pagination.totalPages}</span>
+                <button className="btn btn-outline btn-sm" disabled={pagination.page >= pagination.totalPages} onClick={() => loadUsers(pagination.page + 1)}>Next</button>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'backup' && (
+          <div>
+            <div style={{ marginBottom: '24px' }}>
+              <button onClick={handleBackup} className="btn btn-primary" disabled={backupLoading}>
+                {backupLoading ? 'Creating Backup...' : '+ Create Backup'}
+              </button>
+            </div>
+
+            <h3>Existing Backups</h3>
+            {backups.length === 0 ? (
+              <p style={{ color: 'var(--text-light)' }}>No backups found.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', borderRadius: '8px' }}>
+                <thead>
+                  <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '12px', textAlign: 'left' }}>Filename</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Size</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Created</th>
+                    <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backups.map(backup => (
+                    <tr key={backup.filename} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '12px' }}>{backup.filename}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{(backup.size / 1024 / 1024).toFixed(2)} MB</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{new Date(backup.createdAt).toLocaleString()}</td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>
+                        <button onClick={() => handleDownloadBackup(backup.filename)} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Download</button>
+                        <button onClick={() => confirmRestore(backup)} className="btn btn-warning btn-sm">Restore</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div style={{ marginTop: '24px' }}>
+              <h3>Restore from Upload</h3>
+              <input type="file" accept=".tar.gz" onChange={(e) => setRestoreFile(e.target.files[0])} style={{ marginRight: '8px' }} />
+              <button onClick={() => restoreFile && confirmRestore(null)} className="btn btn-warning" disabled={!restoreFile || restoreLoading}>
+                {restoreLoading ? 'Restoring...' : 'Restore Uploaded Backup'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -295,6 +426,22 @@ const AdminDashboard = () => {
             <div className="modal-actions">
               <button type="button" onClick={() => setShowDeleteModal(false)} className="btn btn-outline">Cancel</button>
               <button onClick={handleDeleteUser} className="btn btn-danger" disabled={actionLoading}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRestoreConfirm && (
+        <div className="modal-overlay" onClick={() => setShowRestoreConfirm(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Confirm Restore</h2>
+            <p style={{ marginBottom: '16px', color: 'var(--text-light)' }}>
+              Warning: Restoring this backup will overwrite your current database credentials. 
+              This is intended for new/empty instances. Are you sure you want to proceed?
+            </p>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowRestoreConfirm(false)} className="btn btn-outline">Cancel</button>
+              <button onClick={handleRestore} className="btn btn-warning" disabled={restoreLoading}>Restore</button>
             </div>
           </div>
         </div>
