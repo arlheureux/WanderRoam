@@ -35,8 +35,18 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : ['http://frontend:3000'];
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://frontend:3000'
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  }
 };
 
 app.use(cors(corsOptions));

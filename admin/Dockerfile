@@ -1,6 +1,6 @@
 FROM node:18-alpine AS build
 
-ARG REACT_APP_API_URL=http://wanderroam-backend:5000
+ARG REACT_APP_API_URL=/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
 WORKDIR /app

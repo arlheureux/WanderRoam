@@ -91,17 +91,158 @@ const AdminDashboard = () => {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null);
   const [restoreFile, setRestoreFile] = useState(null);
+  const [showDeleteBackupModal, setShowDeleteBackupModal] = useState(false);
+  const [backupToDelete, setBackupToDelete] = useState(null);
   const navigate = useNavigate();
 
-  const handleDeleteBackup = async (backup) => {
-    if (!window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) return;
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+    loadUsers();
+    api.get('/version').then(v => setAppVersion(v)).catch(() => {});
+    loadBackups();
+  }, []);
+
+  const loadUsers = async (page = 1) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('adminToken');
+      const res = await api.get(`/admin/users?page=${page}&limit=20`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(res.users);
+      setPagination({
+        page: res.pagination.page,
+        limit: res.pagination.limit,
+        total: res.pagination.total,
+        totalPages: res.pagination.totalPages
+      });
+    } catch (err) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('adminToken');
+        navigate('/');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBackups = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/backups/${backup.filename}?token=${token}`);
-      showNotification('Backup deleted successfully');
+      const res = await api.get('/admin/backups', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setBackups(res.backups || []);
+    } catch (err) {
+      console.error('Failed to load backups');
+    }
+  };
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.put(`/admin/users/${selectedUser.id}/reset-password`, { newPassword }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showNotification('Password reset successfully');
+      setShowPasswordModal(false);
+      setNewPassword('');
+      setSelectedUser(null);
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Failed to reset password', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.post('/admin/users', newUser, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showNotification('User created successfully');
+      setShowCreateModal(false);
+      setNewUser({ username: '', password: '' });
+      loadUsers(pagination.page);
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Failed to create user', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const confirmDeleteUser = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.delete(`/admin/users/${userToDelete.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showNotification('User deleted successfully');
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      loadUsers(pagination.page);
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Failed to delete user', 'error');
+    }
+  };
+
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.post('/admin/backup', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showNotification('Backup created successfully');
       loadBackups();
     } catch (err) {
-      showNotification(err.response?.data?.error || 'Delete failed', 'error');
+      showNotification(err.response?.data?.error || 'Backup failed', 'error');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleDownloadBackup = (filename) => {
+    const token = localStorage.getItem('adminToken');
+    window.open(`/api/admin/backups/${filename}?token=${token}`, '_blank');
+  };
+
+  const confirmDeleteBackup = (backup) => {
+    setBackupToDelete(backup);
+    setShowDeleteBackupModal(true);
+  };
+
+  const handleDeleteBackup = async () => {
+    if (!backupToDelete) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.delete(`/admin/backups/${backupToDelete.filename}?token=${token}`);
+      showNotification('Backup deleted successfully');
+      setShowDeleteBackupModal(false);
+      setBackupToDelete(null);
+      loadBackups();
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Failed to delete backup', 'error');
     }
   };
 
@@ -243,7 +384,7 @@ const AdminDashboard = () => {
                       <td style={{ padding: '12px', textAlign: 'right' }}>
                         <button onClick={() => handleDownloadBackup(backup.filename)} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Download</button>
                         <button onClick={() => confirmRestore(backup)} className="btn btn-warning btn-sm" style={{ marginRight: '8px' }}>Restore</button>
-                        <button onClick={() => handleDeleteBackup(backup)} className="btn btn-danger btn-sm">Delete</button>
+                        <button onClick={() => confirmDeleteBackup(backup)} className="btn btn-danger btn-sm">Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -307,6 +448,22 @@ const AdminDashboard = () => {
             <div className="modal-actions">
               <button type="button" onClick={() => setShowDeleteModal(false)} className="btn btn-outline">Cancel</button>
               <button onClick={handleDeleteUser} className="btn btn-danger" disabled={actionLoading}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteBackupModal && backupToDelete && (
+        <div className="modal-overlay" onClick={() => setShowDeleteBackupModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Delete Backup</h2>
+            <p style={{ marginBottom: '16px', color: 'var(--text-light)' }}>
+              Are you sure you want to delete backup <strong>{backupToDelete.filename}</strong>? 
+              This action cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowDeleteBackupModal(false)} className="btn btn-outline">Cancel</button>
+              <button onClick={handleDeleteBackup} className="btn btn-danger" disabled={actionLoading}>Delete</button>
             </div>
           </div>
         </div>

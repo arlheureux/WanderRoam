@@ -72,7 +72,9 @@ services:
     build:
       context: ./admin
       args:
-        REACT_APP_API_URL: http://wanderroam-backend:5000
+        REACT_APP_API_URL: /api
+      dockerfile: Dockerfile
+    image: wanderroam-admin:dev
     container_name: wanderroam-admin
     volumes:
       - ./admin/src:/app/src
