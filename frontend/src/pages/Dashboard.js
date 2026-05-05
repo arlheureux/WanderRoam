@@ -81,10 +81,32 @@ const Dashboard = () => {
     loadAdventures();
     loadSeries();
     loadTags();
-    if (VERSION) {
-      setAppVersion({ version: VERSION, tag: 'latest', gitCommit: GIT_COMMIT });
-    }
+    fetchGitHubRelease();
   }, [sortBy, sortOrder, selectedTags]);
+
+  const fetchGitHubRelease = async () => {
+    try {
+      const res = await fetch('https://api.github.com/repos/arlheureux/WanderRoam/releases/latest');
+      if (res.ok) {
+        const data = await res.json();
+        setAppVersion({
+          version: data.tag_name || '',
+          tag: data.tag_name ? data.tag_name.replace('v', '') : '',
+          gitCommit: ''
+        });
+      } else {
+        // Fallback to build-time version
+        if (VERSION) {
+          setAppVersion({ version: VERSION, tag: 'stable', gitCommit: '' });
+        }
+      }
+    } catch (err) {
+      // Network error - fallback to build-time version
+      if (VERSION) {
+        setAppVersion({ version: VERSION, tag: 'stable', gitCommit: '' });
+      }
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'map') {
@@ -269,7 +291,7 @@ const createSeries = async (e) => {
           <h1>WanderRoam</h1>
           {appVersion.version && (
             <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-light)', background: 'var(--background)', padding: '4px 8px', borderRadius: '4px' }}>
-              {appVersion.version} ({appVersion.tag}) {appVersion.gitCommit && <span style={{ opacity: 0.7 }}>#{appVersion.gitCommit}</span>}
+              {appVersion.tag || appVersion.version}
             </span>
           )}
         </div>
