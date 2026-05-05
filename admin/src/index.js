@@ -93,149 +93,6 @@ const AdminDashboard = () => {
   const [restoreFile, setRestoreFile] = useState(null);
   const navigate = useNavigate();
 
-  const handleDeleteBackup = async (filename) => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/backups/${filename}?token=${token}`);
-      showNotification('Backup deleted successfully');
-      loadBackups();
-    } catch (err) {
-      showNotification(err.response?.data?.error || 'Delete failed', 'error');
-    }
-  };
-
-  const confirmDeleteBackup = (backup) => {
-    if (window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) {
-      handleDeleteBackup(backup.filename);
-    }
-  };
-
-  const loadUsers = async (page = 1) => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('adminToken');
-      const res = await api.get(`/admin/users?page=${page}&limit=20`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUsers(res.users);
-      setPagination({
-        page: res.pagination.page,
-        limit: res.pagination.limit,
-        total: res.pagination.total,
-        totalPages: res.pagination.totalPages
-      });
-    } catch (err) {
-      if (err.response?.status === 401) {
-        localStorage.removeItem('adminToken');
-        navigate('/');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadBackups = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const res = await api.get('/admin/backups', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setBackups(res.backups || []);
-    } catch (err) {
-      console.error('Failed to load backups');
-    }
-  };
-
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setActionLoading(true);
-    try {
-      const token = localStorage.getItem('adminToken');
-      await api.put(`/admin/users/${selectedUser.id}/reset-password`, { newPassword }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showNotification('Password reset successfully');
-      setShowPasswordModal(false);
-      setNewPassword('');
-      setSelectedUser(null);
-    } catch (err) {
-      showNotification(err.response?.data?.error || 'Failed to reset password', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    setActionLoading(true);
-    try {
-      const token = localStorage.getItem('adminToken');
-      await api.post('/admin/users', newUser, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showNotification('User created successfully');
-      setShowCreateModal(false);
-      setNewUser({ username: '', password: '' });
-      loadUsers(pagination.page);
-    } catch (err) {
-      showNotification(err.response?.data?.error || 'Failed to create user', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const confirmDeleteUser = (user) => {
-    setUserToDelete(user);
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
-    try {
-      const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/users/${userToDelete.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showNotification('User deleted successfully');
-      setShowDeleteModal(false);
-      setUserToDelete(null);
-      loadUsers(pagination.page);
-    } catch (err) {
-      showNotification(err.response?.data?.error || 'Failed to delete user', 'error');
-    }
-  };
-
-  const handleBackup = async () => {
-    setBackupLoading(true);
-    try {
-      const token = localStorage.getItem('adminToken');
-      await api.post('/admin/backup', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      showNotification('Backup created successfully');
-      loadBackups();
-    } catch (err) {
-      showNotification(err.response?.data?.error || 'Backup failed', 'error');
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
-  const handleDownloadBackup = (filename) => {
-    const token = localStorage.getItem('adminToken');
-    window.open(`/api/admin/backups/${filename}?token=${token}`, '_blank');
-  };
-
-  const confirmRestore = (backup) => {
-    setRestoreTarget(backup);
-    setShowRestoreConfirm(true);
-  };
-
   const handleDeleteBackup = async (backup) => {
     if (!window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) return;
     try {
@@ -246,6 +103,11 @@ const AdminDashboard = () => {
     } catch (err) {
       showNotification(err.response?.data?.error || 'Delete failed', 'error');
     }
+  };
+
+  const confirmRestore = (backup) => {
+    setRestoreTarget(backup);
+    setShowRestoreConfirm(true);
   };
 
   const handleRestore = async () => {
