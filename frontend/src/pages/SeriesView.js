@@ -274,7 +274,7 @@ const SeriesView = () => {
               <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Adventures</div>
             </div>
             <div style={{ padding: '16px', background: 'var(--surface)', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{(series.stats.totalDistance / 1000).toFixed(1)} km</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{series.stats.totalDistance.toFixed(1)} km</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Total Distance</div>
             </div>
             <div style={{ padding: '16px', background: 'var(--surface)', borderRadius: '8px', textAlign: 'center' }}>
@@ -443,9 +443,7 @@ const SeriesView = () => {
                       )}
                       <div className="adventure-stats">
                         <span className="stat">📷 {adventure.pictureCount} photos</span>
-                        {adventure.distance > 0 && (
-                          <span className="stat">📏 {(adventure.distance / 1000).toFixed(1)} km</span>
-                        )}
+
                         {adventure.GpxTracks?.map(t => (
                           <span 
                             key={t.id}
