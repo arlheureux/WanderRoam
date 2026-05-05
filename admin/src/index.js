@@ -93,16 +93,22 @@ const AdminDashboard = () => {
   const [restoreFile, setRestoreFile] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
-      navigate('/');
-      return;
+  const handleDeleteBackup = async (filename) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.delete(`/admin/backups/${filename}?token=${token}`);
+      showNotification('Backup deleted successfully');
+      loadBackups();
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Delete failed', 'error');
     }
-    loadUsers();
-    api.get('/version').then(v => setAppVersion(v)).catch(() => {});
-    loadBackups();
-  }, []);
+  };
+
+  const confirmDeleteBackup = (backup) => {
+    if (window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) {
+      handleDeleteBackup(backup.filename);
+    }
+  };
 
   const loadUsers = async (page = 1) => {
     try {
@@ -228,6 +234,12 @@ const AdminDashboard = () => {
   const confirmRestore = (backup) => {
     setRestoreTarget(backup);
     setShowRestoreConfirm(true);
+  };
+
+  const confirmDeleteBackup = (backup) => {
+    if (window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) {
+      handleDeleteBackup(backup.filename);
+    }
   };
 
   const handleRestore = async () => {
@@ -362,7 +374,8 @@ const AdminDashboard = () => {
                       <td style={{ padding: '12px', textAlign: 'center' }}>{new Date(backup.createdAt).toLocaleString()}</td>
                       <td style={{ padding: '12px', textAlign: 'right' }}>
                         <button onClick={() => handleDownloadBackup(backup.filename)} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Download</button>
-                        <button onClick={() => confirmRestore(backup)} className="btn btn-warning btn-sm">Restore</button>
+                        <button onClick={() => confirmRestore(backup)} className="btn btn-warning btn-sm" style={{ marginRight: '8px' }}>Restore</button>
+                        <button onClick={() => confirmDeleteBackup(backup)} className="btn btn-danger btn-sm">Delete</button>
                       </td>
                     </tr>
                   ))}

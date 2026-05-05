@@ -74,6 +74,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/version', (req, res) => {
+  const version = require('./package.json').version;
+  const tag = process.env.TAG || 'stable';
+  res.json({ version, tag });
+});
+
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { 
     error: err.message, 

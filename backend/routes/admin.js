@@ -237,10 +237,14 @@ router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
     const tempDir = path.join(os.tmpdir(), `backup-${timestamp}`);
     fs.mkdirSync(tempDir, { recursive: true });
 
-    const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+    const dbHost = process.env.DB_HOST || 'postgres';
+    const dbPort = process.env.DB_PORT || '5432';
+    const dbUser = process.env.DB_USER;
+    const dbName = process.env.DB_NAME;
     const dbDumpPath = path.join(tempDir, 'database.dump');
     await new Promise((resolve, reject) => {
-      exec(`/usr/bin/pg_dump "${dbConnectionString}" -F c -f "${dbDumpPath}"`, (error, stdout, stderr) => {
+      const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F c -f "${dbDumpPath}"`;
+      exec(cmd, (error, stdout, stderr) => {
         if (error) return reject(new Error(`Database backup failed: ${stderr}`));
         resolve();
       });
@@ -322,6 +326,30 @@ router.get('/backups/:filename', [
   }
 });
 
+router.delete('/backups/:filename', [
+  param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
+  query('token').optional()
+], async (req, res) => {
+  try {
+    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findByPk(decoded.id);
+      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const filePath = path.join(BACKUP_DIR, req.params.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+    fs.unlinkSync(filePath);
+    res.json({ message: 'Backup deleted successfully' });
+  } catch (error) {
+    return handleError(error, res, { operation: 'deleteBackup' });
+  }
+});
+
 router.post('/restore/existing', [
   query('token').optional()
 ], async (req, res) => {
@@ -356,9 +384,13 @@ router.post('/restore/existing', [
 
     const dbDumpPath = path.join(tempDir, 'database.dump');
     if (fs.existsSync(dbDumpPath)) {
-      const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+      const dbHost = process.env.DB_HOST || 'postgres';
+      const dbPort = process.env.DB_PORT || '5432';
+      const dbUser = process.env.DB_USER;
+      const dbName = process.env.DB_NAME;
       await new Promise((resolve, reject) => {
-        exec(`/usr/bin/pg_restore -d "${dbConnectionString}" -c --no-comments "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`, (error, stdout, stderr) => {
+        const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_restore -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -c "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
+        exec(cmd, (error, stdout, stderr) => {
           if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
           resolve();
         });
@@ -420,9 +452,13 @@ router.post('/restore/upload', upload.single('backup'), [
 
     const dbDumpPath = path.join(tempDir, 'database.dump');
     if (fs.existsSync(dbDumpPath)) {
-      const dbConnectionString = `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST || 'postgres'}:5432/${process.env.DB_NAME}`;
+      const dbHost = process.env.DB_HOST || 'postgres';
+      const dbPort = process.env.DB_PORT || '5432';
+      const dbUser = process.env.DB_USER;
+      const dbName = process.env.DB_NAME;
       await new Promise((resolve, reject) => {
-        exec(`/usr/bin/pg_restore -d "${dbConnectionString}" -c --no-comments "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`, (error, stdout, stderr) => {
+        const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_restore -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -c "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
+        exec(cmd, (error, stdout, stderr) => {
           if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
           resolve();
         });
