@@ -236,9 +236,15 @@ const AdminDashboard = () => {
     setShowRestoreConfirm(true);
   };
 
-  const confirmDeleteBackup = (backup) => {
-    if (window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) {
-      handleDeleteBackup(backup.filename);
+  const handleDeleteBackup = async (backup) => {
+    if (!window.confirm(`Are you sure you want to delete backup "${backup.filename}"?`)) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await api.delete(`/admin/backups/${backup.filename}?token=${token}`);
+      showNotification('Backup deleted successfully');
+      loadBackups();
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Delete failed', 'error');
     }
   };
 
@@ -375,7 +381,7 @@ const AdminDashboard = () => {
                       <td style={{ padding: '12px', textAlign: 'right' }}>
                         <button onClick={() => handleDownloadBackup(backup.filename)} className="btn btn-outline btn-sm" style={{ marginRight: '8px' }}>Download</button>
                         <button onClick={() => confirmRestore(backup)} className="btn btn-warning btn-sm" style={{ marginRight: '8px' }}>Restore</button>
-                        <button onClick={() => confirmDeleteBackup(backup)} className="btn btn-danger btn-sm">Delete</button>
+                        <button onClick={() => handleDeleteBackup(backup)} className="btn btn-danger btn-sm">Delete</button>
                       </td>
                     </tr>
                   ))}
