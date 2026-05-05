@@ -24,12 +24,12 @@ services:
     restart: always
 
   backend:
-    image: arlheureux/wanderroam-backend:stable
+    image: arlheureux/wanderroam-backend:${TAG:-stable}
     container_name: wanderroam-backend
     env_file:
       - .env
     environment:
-      - TAG=stable
+      - TAG=${TAG:-stable}
       - BROUTER_URL=http://wanderroam-brouter:17777/brouter
     volumes:
       - upload_data:/app/uploads
@@ -51,14 +51,14 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: arlheureux/wanderroam-frontend:stable
+    image: arlheureux/wanderroam-frontend:${TAG:-stable}
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_VERSION: 0.7.1
-        REACT_APP_CHANNEL: stable
-        REACT_APP_GIT_COMMIT: ${GIT_COMMIT:-9e16433}
+        REACT_APP_VERSION: ${TAG:-stable}
+        REACT_APP_CHANNEL: ${CHANNEL:-stable}
+        REACT_APP_GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: wanderroam-frontend
     networks:
       - wanderroam-internal
@@ -74,7 +74,7 @@ services:
     restart: unless-stopped
 
   admin:
-    image: arlheureux/wanderroam-admin:stable
+    image: arlheureux/wanderroam-admin:${TAG:-stable}
     container_name: wanderroam-admin
     networks:
       - wanderroam-internal
@@ -90,7 +90,7 @@ services:
     restart: unless-stopped
 
   brouter:
-    image: arlheureux/wanderroam-brouter:stable
+    image: arlheureux/wanderroam-brouter:${TAG:-stable}
     container_name: wanderroam-brouter
     networks:
       - wanderroam-internal
