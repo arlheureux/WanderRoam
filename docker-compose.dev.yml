@@ -71,9 +71,9 @@ services:
   admin:
     build:
       context: ./admin
+      args:
+        REACT_APP_API_URL: http://wanderroam-backend:5000
     container_name: wanderroam-admin
-    environment:
-      - REACT_APP_API_URL=http://wanderroam-backend:5000
     volumes:
       - ./admin/src:/app/src
     networks:

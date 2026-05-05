@@ -77,8 +77,10 @@ services:
   admin:
     image: arlheureux/wanderroam-admin:${TAG:-stable}
     container_name: wanderroam-admin
-    environment:
-      - REACT_APP_API_URL=http://wanderroam-backend:5000
+    build:
+      context: ./admin
+      args:
+        REACT_APP_API_URL: http://wanderroam-backend:5000
     networks:
       - wanderroam-internal
     ports:
