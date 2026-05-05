@@ -1,0 +1,103 @@
+# docker-compose.dev.yml - Development version (local testing with live reload)
+# Run with: docker compose -f docker-compose.dev.yml up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: wanderroam-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wanderroam-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+    container_name: wanderroam-backend
+    env_file:
+      - .env
+    environment:
+      - TAG=dev
+      - BROUTER_URL=http://wanderroam-brouter:17777/brouter
+    volumes:
+      - ./backend:/app
+      - upload_data:/app/uploads
+    networks:
+      - wanderroam-internal
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      brouter:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_VERSION: dev
+        REACT_APP_CHANNEL: dev
+        REACT_APP_GIT_COMMIT: local
+    container_name: wanderroam-frontend
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    networks:
+      - wanderroam-internal
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ./admin
+    container_name: wanderroam-admin
+    volumes:
+      - ./admin/src:/app/src
+    networks:
+      - wanderroam-internal
+    ports:
+      - "4000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  brouter:
+    image: arlheureux/wanderroam-brouter:stable
+    container_name: wanderroam-brouter
+    networks:
+      - wanderroam-internal
+    ports:
+      - "17777:17777"
+    environment:
+      - COUNTRIES=france,denmark
+    volumes:
+      - brouter_data:/segments4
+    restart: on-failure
+
+volumes:
+  postgres_data:
+  upload_data:
+  brouter_data:
+
+networks:
+  wanderroam-internal:
+    name: wanderroam-internal

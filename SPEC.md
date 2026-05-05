@@ -294,14 +294,25 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 ## 8. Release & Deployment
 
 ### Branches
-| Branch | Docker Tag | Description |
-|--------|------------|-------------|
-| `master` | `:stable`, `:v0.x` | Stable production version |
-| `dev` | `:latest` | Development version for testing |
+| Branch | Description |
+|--------|-------------|
+| `master` | Stable production version (images built on release tags) |
+| `dev` | Development version (local testing with docker-compose.dev.yml) |
 
 ### Docker Compose Files
-- `docker-compose.yml` - Stable version (pulls :stable images)
-- `docker-compose.dev.yml` - Development version (pulls :latest images)
+- `docker-compose.yml` - Production version (pulls `:stable` or versioned images from Docker Hub)
+- `docker-compose.dev.yml` - Development version (local builds with live reload)
+
+### Release Process
+1. Develop on `dev` branch
+2. Test locally with: `docker compose -f docker-compose.dev.yml up -d`
+3. Merge to `master` (no Docker build triggered)
+4. Create release tag: `git tag v0.7.x && git push origin v0.7.x`
+5. GitHub Actions builds and pushes:
+   - `arlheureux/wanderroam-backend:v0.7.x` + `:stable`
+   - `arlheureux/wanderroam-frontend:v0.7.x` + `:stable`
+   - `arlheureux/wanderroam-admin:v0.7.x` + `:stable`
+6. Deploy: `docker compose up -d` (pulls `:stable` or `:v0.7.x`)
 
 ### File Structure
 

@@ -2,10 +2,8 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches:
-      - master   # → pushes :stable
     tags:
-      - 'v*'     # → pushes versioned + :stable
+      - 'v*'     # Only build on version tags
   workflow_dispatch:
 
 jobs:

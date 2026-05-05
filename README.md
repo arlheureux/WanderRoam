@@ -64,10 +64,10 @@
 
 ### Branches
 
-| Branch | Docker Tag | Description |
-|--------|------------|-------------|
-| `master` | `:stable` | Stable production version |
-| `dev` | `:latest` | Development version for testing |
+| Branch | Description |
+|--------|-------------|
+| `master` | Stable production version (images built on release tags) |
+| `dev` | Development version (local testing with docker-compose.dev.yml) |
 
 ### Stable Version (recommended)
 ```bash
@@ -75,29 +75,37 @@
 wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/master/docker-compose.yml
 wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env.example
 
-# Start services
+# Start services (pulls :stable images)
 docker compose up -d
 ```
 
-### Development Version (testing new features)
+### Local Development (testing new features)
 ```bash
-# Fetch the docker-compose file and environment template
-wget -O docker-compose.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.dev.yml
-wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
+# Clone the repository
+git clone -b dev https://github.com/arlheureux/WanderRoam.git
+cd WanderRoam
 
-# Start services
-docker compose up -d
+# Copy environment template
+cp .env.example .env
+
+# Start services with live reload (local builds)
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 Docker Hub images:
 - **Stable**: `arlheureux/wanderroam-{service}:stable`
-- **Development**: `arlheureux/wanderroam-{service}:latest`
+- **Release tags**: `arlheureux/wanderroam-{service}:v0.7.x` (created on GitHub releases)
 
-Services:
+Services (production):
 - Main App: http://localhost:3000
 - Admin Panel: http://localhost:4000
 - API: http://localhost:5000
 - BRouter: http://localhost:17777
+
+Services (development):
+- Frontend with live reload: http://localhost:3000
+- Backend with live reload: http://localhost:5000
+- Admin with live reload: http://localhost:4000
 
 ## Configuration
 
