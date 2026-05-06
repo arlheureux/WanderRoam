@@ -13,6 +13,16 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'build'
+    outDir: 'build',
+    terserOptions: {
+      compress: {
+        dead_code: false,
+        drop_console: false
+      },
+      mangle: false
+    },
+    rollupOptions: {
+      treeshake: false
+    }
   }
 })

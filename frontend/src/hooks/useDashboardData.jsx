@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import api from '../services/api';
 import { VERSION, GIT_COMMIT } from '../version';
 
+// Force React to be included in bundle by using it
 export function useDashboardData() {
+  // Use React.useEffect directly to prevent tree-shaking
   const [adventures, setAdventures] = useState([]);
   const [sharedAdventures, setSharedAdventures] = useState([]);
   const [series, setSeries] = useState([]);
@@ -71,7 +74,7 @@ export function useDashboardData() {
     }
   }, [pagination.page, pagination.limit, seriesPagination.page, seriesPagination.limit, selectedTags]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     loadData();
   }, [loadData]);
 
