@@ -1,7 +1,7 @@
 import React from 'react';
 
 export default function VersionBanner({ appVersion }) {
-  if (!appVersion.version) return null;
+  if (!appVersion || !appVersion.version) return null;
   
   return (
     <span style={{ 

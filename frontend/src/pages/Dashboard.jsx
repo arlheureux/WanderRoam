@@ -45,6 +45,7 @@ const Dashboard = () => {
     allTracks,
     visibleAdventures,
     appVersion,
+    fetchGitHubRelease,
     allTags,
     selectedTags,
     setSelectedTags,
@@ -69,6 +70,10 @@ const Dashboard = () => {
 
   useEscapeKey(() => setShowModal(false), showModal);
   useEscapeKey(() => setShowSeriesModal(false), showSeriesModal);
+
+  useEffect(() => {
+    fetchGitHubRelease();
+  }, [fetchGitHubRelease]);
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
