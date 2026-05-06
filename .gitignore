@@ -32,3 +32,4 @@ uploads/
 postgres_data/
 .env
 backups/*.tar.gz
+wanderer/
