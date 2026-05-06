@@ -8,6 +8,7 @@ const api = {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include' // Required for CORS with cookies
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -25,6 +26,7 @@ const api = {
         ...options.headers,
       },
       body: JSON.stringify(data),
+      credentials: 'include' // Required for CORS with cookies
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -42,6 +44,7 @@ const api = {
         ...options.headers,
       },
       body: JSON.stringify(data),
+      credentials: 'include' // Required for CORS with cookies
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -58,6 +61,7 @@ const api = {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include' // Required for CORS with cookies
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));

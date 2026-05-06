@@ -141,7 +141,8 @@ GNU General Public License v3.0 (GPLv3) - see [LICENSE](LICENSE) for details.
 
 ### Authentication
 - `POST /api/auth/register` - Create new user (can be disabled via ENABLE_REGISTRATION)
-- `POST /api/auth/login` - Login and get JWT
+- `POST /api/auth/login` - Login and set httpOnly cookie
+- `POST /api/auth/logout` - Clear auth cookie
 - `GET /api/auth/me` - Get current user
 - `GET /api/auth/config` - Get registration status
 
@@ -372,6 +373,7 @@ docker-app/
 - `UPLOAD_DIR` - Upload directory
 - `ENABLE_REGISTRATION` - Enable/disable registration (default true)
 - `BROUTER_URL` - BRouter service URL (default http://brouter:17777/brouter)
+- `IMMICH_ENCRYPTION_KEY` - 32-byte hex key for Immich API key encryption (generate with `openssl rand -hex 32`)
 
 ### Frontend
 - `REACT_APP_API_URL` - Backend API URL (default /api via nginx proxy)
@@ -383,7 +385,7 @@ docker-app/
 - Returns 429 status with error message when exceeded
 
 ### Authentication
-- JWT-based authentication
+- HttpOnly cookie-based authentication (prevents JavaScript access to JWT)
 - Token expiry: 1 hour (configurable via JWT_EXPIRY environment variable)
 
 ### Input Validation
@@ -396,6 +398,11 @@ docker-app/
 ### CORS
 - Configurable via `CORS_ORIGIN` environment variable
 - Default: `http://frontend:3000`
+
+### Encrypted Storage
+- Immich API keys encrypted at rest using AES-256-GCM
+- Encryption key stored in environment variable (IMMICH_ENCRYPTION_KEY)
+- Automatic migration from plaintext to encrypted storage
 
 ## 11. Acceptance Criteria
 

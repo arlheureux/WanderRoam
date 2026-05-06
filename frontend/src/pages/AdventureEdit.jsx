@@ -9,6 +9,7 @@ import 'react-leaflet-fullscreen/styles.css';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import GpxEditorModal from '../components/GpxEditorModal';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 const TYPE_COLORS = {
   walking: '#DC2626',
@@ -28,15 +29,6 @@ const WAYPOINT_ICONS = [
   '🚗', '🚲', '🚌', '🚉', '🧗', '⛷️', '🏊', '🎣', '📷', '🔭',
   '⛽', '🔧', '🏥', '✅', '❌'
 ];
-
-const fixLeafletIcons = () => {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  });
-};
 
 const createCustomIcon = (color, scale = 1) => {
   const size = 26 * scale;
@@ -175,10 +167,23 @@ const AdventureEdit = () => {
   const [showGpxEditor, setShowGpxEditor] = useState(false);
   const [editingGpxTrack, setEditingGpxTrack] = useState(null);
   const mapRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  useEscapeKey(() => setNewWaypoint(null), !!newWaypoint);
+  useEscapeKey(() => setEditingWaypoint(null), !!editingWaypoint);
+  useEscapeKey(() => setShowShareModal(false), showShareModal);
+  useEscapeKey(() => setShowImmichBrowser(false), showImmichBrowser);
+  useEscapeKey(() => setShowTagModal(false), showTagModal);
+  useEscapeKey(() => { setShowGpxEditor(false); setEditingGpxTrack(null); }, showGpxEditor);
 
   useEffect(() => {
-    fixLeafletIcons();
-    loadAdventure();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    loadAdventure(abortController.signal);
+    return () => abortController.abort();
   }, [id]);
 
   useEffect(() => {
@@ -193,21 +198,23 @@ const AdventureEdit = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewingPicture, pictureIndex]);
 
-  const loadAdventure = async () => {
+  const loadAdventure = async (signal) => {
     try {
-      const res = await api.get(`/adventures/${id}`);
+      const res = await api.get(`/adventures/${id}`, { signal });
       setAdventure(res.data.adventure);
       setSelectedTags(res.data.adventure.tags || []);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       toast.error('Failed to load adventure');
       navigate('/');
       return;
     }
 
     try {
-      const tagsRes = await api.getTags();
+      const tagsRes = await api.getTags({ signal });
       setAllTags(tagsRes.data.tags || []);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       toast.error('Failed to load tags');
     } finally {
       setLoading(false);
@@ -228,7 +235,7 @@ const AdventureEdit = () => {
 
   const loadUsers = async () => {
     try {
-      const res = await api.get('/adventures/users');
+      const res = await api.get('/admin/users');
       setUsers(res.data.users || []);
     } catch (err) {
       toast.error('Failed to load users');

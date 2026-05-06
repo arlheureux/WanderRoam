@@ -8,6 +8,7 @@ const { validate } = require('../middleware/validation');
 const { handleError, logger } = require('../middleware/errorHandler');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { parseGpxData } = require('../utils/gpxParser');
 
 const router = express.Router();
 
@@ -59,68 +60,7 @@ const getAdventureAccess = async (adventureId, userId) => {
 
 const parseGpx = async (filePath) => {
   const xml = fs.readFileSync(filePath, 'utf-8');
-  const points = [];
-  
-  const trkptRegex = /<trkpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  let match;
-  
-  while ((match = trkptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-  
-  const rteptRegex = /<rtept[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  while ((match = rteptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-  
-  const wptRegex = /<wpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  while ((match = wptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-
-  return points;
+  return parseGpxData(xml);
 };
 
 const TYPE_COLORS = {
@@ -396,7 +336,7 @@ router.get('/users', authMiddleware, [
 
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
-    const { view = 'all' } = req.query;
+    const { view = 'all', startDate, endDate } = req.query;
     
     let adventureIds;
     let ownedIds;
@@ -431,34 +371,62 @@ router.get('/stats', authMiddleware, async (req, res) => {
       return res.json({
         overview: { adventures: 0, photos: 0, waypoints: 0, tracks: 0, distance: 0 },
         byYear: [],
-        byTransport: []
+        byTransport: [],
+        byDate: []
+      });
+    }
+
+    const adventureWhere = { id: { [Op.in]: adventureIds } };
+    if (startDate || endDate) {
+      adventureWhere.adventure_date = {};
+      if (startDate) adventureWhere.adventure_date[Op.gte] = startDate;
+      if (endDate) adventureWhere.adventure_date[Op.lte] = endDate;
+    }
+
+    const filteredAdventures = await Adventure.findAll({
+      where: adventureWhere,
+      attributes: ['id']
+    });
+    const filteredIds = filteredAdventures.map(a => a.id);
+
+    if (filteredIds.length === 0) {
+      return res.json({
+        overview: { adventures: 0, photos: 0, waypoints: 0, tracks: 0, distance: 0 },
+        byYear: [],
+        byTransport: [],
+        byDate: []
       });
     }
 
     const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance] = await Promise.all([
-      Adventure.count({ where: { id: { [Op.in]: adventureIds } } }),
-      Picture.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
-      Waypoint.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
-      GpxTrack.count({ where: { adventure_id: { [Op.in]: adventureIds } } }),
-      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: adventureIds } } })
+      Adventure.count({ where: { id: { [Op.in]: filteredIds } } }),
+      Picture.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
+      Waypoint.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
+      GpxTrack.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
+      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: filteredIds } } })
     ]);
 
     const tracksByType = await GpxTrack.findAll({
-      where: { adventure_id: { [Op.in]: adventureIds } },
+      where: { adventure_id: { [Op.in]: filteredIds } },
       attributes: ['type', [sequelize.fn('SUM', sequelize.col('distance')), 'totalDistance'], [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       group: ['type'],
       raw: true
     });
 
     const adventuresWithDates = await Adventure.findAll({
-      where: { id: { [Op.in]: adventureIds }, adventure_date: { [Op.ne]: null } },
-      attributes: ['id', 'adventure_date']
+      where: { id: { [Op.in]: filteredIds }, adventure_date: { [Op.ne]: null } },
+      attributes: ['id', 'adventure_date'],
+      order: [['adventure_date', 'ASC']]
     });
 
     const byYear = {};
+    const byDate = {};
     for (const adv of adventuresWithDates) {
-      const year = new Date(adv.adventure_date).getFullYear();
+      const date = new Date(adv.adventure_date);
+      const year = date.getFullYear();
+      const dateStr = date.toISOString().split('T')[0];
       byYear[year] = (byYear[year] || 0) + 1;
+      byDate[dateStr] = (byDate[dateStr] || 0) + 1;
     }
 
     const yearStats = Object.entries(byYear)
@@ -471,6 +439,10 @@ router.get('/stats', authMiddleware, async (req, res) => {
       distance: parseFloat(t.totalDistance) || 0
     }));
 
+    const byDateArray = Object.entries(byDate)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     res.json({
       overview: {
         adventures: totalAdventures || 0,
@@ -480,7 +452,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
         distance: totalDistance || 0
       },
       byYear: yearStats,
-      byTransport: transportStats
+      byTransport: transportStats,
+      byDate: byDateArray
     });
   } catch (error) {
     return handleError(error, res, { operation: 'getStats' });
@@ -1048,70 +1021,7 @@ router.post('/:id/gpx-base64', authMiddleware, [
 });
 
 // parse GPX from text (same logic as parseGpx but synchronous)
-const parseGpxFromText = (xml) => {
-  const points = [];
-  
-  const trkptRegex = /<trkpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  let match;
-  
-  while ((match = trkptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-  
-  const rteptRegex = /<rtept[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  while ((match = rteptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-  
-  const wptRegex = /<wpt[^>]*lat="([^"]+)"[^>]*lon="([^"]+)"[^>]*>/g;
-  while ((match = wptRegex.exec(xml)) !== null) {
-    const lat = parseFloat(match[1]);
-    const lng = parseFloat(match[2]);
-    
-    let ele = null;
-    let time = null;
-    
-    const eleMatch = xml.substring(match.index, match.index + 500).match(/<ele>([^<]+)<\/ele>/);
-    if (eleMatch) ele = parseFloat(eleMatch[1]);
-    
-    const timeMatch = xml.substring(match.index, match.index + 500).match(/<time>([^<]+)<\/time>/);
-    if (timeMatch) time = timeMatch[1];
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      points.push({ lat, lng, ele, time });
-    }
-  }
-
-  return points;
-};
+const parseGpxFromText = (xml) => parseGpxData(xml);
 
 router.delete('/:id/gpx/:gpxId', authMiddleware, [
   param('id').isUUID().withMessage('Invalid adventure ID'),

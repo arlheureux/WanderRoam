@@ -28,14 +28,6 @@ const ROUTING_MODES = [
   { value: 'metro', label: 'Metro', color: '#A55EEA' }
 ];
 
-const fixLeafletIcons = () => {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  });
-};
-
 const MapBoundsFitter = ({ points, runOnce }) => {
   const map = useMap();
   const hasRunRef = useRef(false);
@@ -131,10 +123,6 @@ const GpxEditorModal = ({
   const [routingError, setRoutingError] = useState('');
   
   const mapRef = useRef(null);
-
-  useEffect(() => {
-    fixLeafletIcons();
-  }, []);
 
   useEffect(() => {
     if (isOpen) {

@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const { encrypt, decrypt } = require('../utils/crypto');
 
 const User = sequelize.define('User', {
   id: {
@@ -26,7 +27,21 @@ const User = sequelize.define('User', {
   },
   immich_api_key: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: true,
+    set(value) {
+      if (value) {
+        this.setDataValue('immich_api_key', encrypt(value));
+      } else {
+        this.setDataValue('immich_api_key', null);
+      }
+    },
+    get() {
+      const value = this.getDataValue('immich_api_key');
+      if (value) {
+        return decrypt(value);
+      }
+      return null;
+    }
   }
 }, {
   indexes: [

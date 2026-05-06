@@ -94,6 +94,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .loading-screen {
   display: flex;
   justify-content: center;
@@ -1164,6 +1168,83 @@ body {
 .adventure-name a {
   white-space: nowrap;
 }
+.elevation-profile-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.elevation-profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.elevation-profile-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.elevation-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.elevation-stat {
+  text-align: center;
+}
+
+.elevation-stat-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.elevation-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.elevation-profile-chart {
+  width: 100%;
+}
+
+.elevation-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.elevation-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.elevation-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* Dashboard grid */
 .adventure-grid {
   display: grid;

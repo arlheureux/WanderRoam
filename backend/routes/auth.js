@@ -82,9 +82,15 @@ router.post('/register', [
     });
 
     const token = generateToken(user);
-
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 3600000 // 1 hour
+    });
+    
     res.status(201).json({
-      token,
       user: { id: user.id, username: user.username, isAdmin: user.isAdmin }
     });
   } catch (error) {
@@ -129,7 +135,14 @@ router.post('/login', [
     resetFailedAttempts(clientIp);
 
     const token = generateToken(user);
-
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 3600000 // 1 hour
+    });
+    
     res.json({
       user: {
         id: user.id,
@@ -137,8 +150,7 @@ router.post('/login', [
         isAdmin: user.isAdmin,
         immich_url: user.immich_url,
         immich_api_key: user.immich_api_key ? '***' : null
-      },
-      token
+      }
     });
   } catch (error) {
     return handleError(error, res, { operation: 'login' });
@@ -192,6 +204,11 @@ router.put('/settings', authMiddleware, [
   } catch (error) {
     return handleError(error, res, { operation: 'updateSettings' });
   }
+});
+
+router.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;

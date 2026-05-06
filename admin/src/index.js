@@ -23,8 +23,8 @@ const AdminLogin = () => {
         setError('Access denied. Admin only.');
         return;
       }
-
-      localStorage.setItem('adminToken', res.token);
+      
+      // Token is now in httpOnly cookie, no need to store in localStorage
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials');
@@ -96,23 +96,24 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (!token) {
+    // Cookies are sent automatically, check if user is authenticated
+    api.get('/auth/me').then(res => {
+      if (!res.user?.isAdmin) {
+        navigate('/');
+      } else {
+        loadUsers();
+        api.get('/version').then(v => setAppVersion(v)).catch(() => {});
+        loadBackups();
+      }
+    }).catch(() => {
       navigate('/');
-      return;
-    }
-    loadUsers();
-    api.get('/version').then(v => setAppVersion(v)).catch(() => {});
-    loadBackups();
+    });
   }, []);
 
   const loadUsers = async (page = 1) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('adminToken');
-      const res = await api.get(`/admin/users?page=${page}&limit=20`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/admin/users?page=${page}&limit=20`);
       setUsers(res.users);
       setPagination({
         page: res.pagination.page,
@@ -122,7 +123,6 @@ const AdminDashboard = () => {
       });
     } catch (err) {
       if (err.response?.status === 401) {
-        localStorage.removeItem('adminToken');
         navigate('/');
       }
     } finally {
@@ -132,10 +132,7 @@ const AdminDashboard = () => {
 
   const loadBackups = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const res = await api.get('/admin/backups', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/admin/backups');
       setBackups(res.backups || []);
     } catch (err) {
       console.error('Failed to load backups');
@@ -151,10 +148,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      await api.put(`/admin/users/${selectedUser.id}/reset-password`, { newPassword }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put(`/admin/users/${selectedUser.id}/reset-password`, { newPassword });
       showNotification('Password reset successfully');
       setShowPasswordModal(false);
       setNewPassword('');
@@ -170,10 +164,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      await api.post('/admin/users', newUser, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/admin/users', newUser);
       showNotification('User created successfully');
       setShowCreateModal(false);
       setNewUser({ username: '', password: '' });
@@ -193,10 +184,7 @@ const AdminDashboard = () => {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     try {
-      const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/users/${userToDelete.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/admin/users/${userToDelete.id}`);
       showNotification('User deleted successfully');
       setShowDeleteModal(false);
       setUserToDelete(null);
@@ -209,10 +197,7 @@ const AdminDashboard = () => {
   const handleBackup = async () => {
     setBackupLoading(true);
     try {
-      const token = localStorage.getItem('adminToken');
-      await api.post('/admin/backup', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/admin/backup', {});
       showNotification('Backup created successfully');
       loadBackups();
     } catch (err) {
@@ -223,8 +208,7 @@ const AdminDashboard = () => {
   };
 
   const handleDownloadBackup = (filename) => {
-    const token = localStorage.getItem('adminToken');
-    window.open(`/api/admin/backups/${filename}?token=${token}`, '_blank');
+    window.open(`/api/admin/backups/${filename}`, '_blank');
   };
 
   const confirmDeleteBackup = (backup) => {
@@ -235,8 +219,7 @@ const AdminDashboard = () => {
   const handleDeleteBackup = async () => {
     if (!backupToDelete) return;
     try {
-      const token = localStorage.getItem('adminToken');
-      await api.delete(`/admin/backups/${backupToDelete.filename}?token=${token}`);
+      await api.delete(`/admin/backups/${backupToDelete.filename}`);
       showNotification('Backup deleted successfully');
       setShowDeleteBackupModal(false);
       setBackupToDelete(null);
@@ -252,23 +235,15 @@ const AdminDashboard = () => {
   };
 
   const handleRestore = async () => {
-    setRestoreLoading(true);
-    setShowRestoreConfirm(false);
+    if (!restoreTarget && !restoreFile) return;
     try {
-      const token = localStorage.getItem('adminToken');
+      setRestoreLoading(true);
       if (restoreFile) {
         const formData = new FormData();
         formData.append('backup', restoreFile);
-        await api.post('/admin/restore/upload', formData, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        await api.post('/admin/restore/upload', formData);
       } else if (restoreTarget) {
-        await api.post('/admin/restore/existing', { filename: restoreTarget.filename }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post('/admin/restore/existing', { filename: restoreTarget.filename });
       }
       showNotification('Restore completed. Please restart the stack to apply new configuration.');
     } catch (err) {
@@ -280,8 +255,8 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
+  const handleLogout = async () => {
+    await api.post('/auth/logout'); // Clear httpOnly cookie
     navigate('/');
   };
 

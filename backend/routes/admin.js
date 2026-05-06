@@ -1,17 +1,31 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const { body, param, query } = require('express-validator');
-const { User, Adventure, GpxTrack, Picture, AdventureShare, AuditLog } = require('../models');
-const { authMiddleware } = require('../middleware/auth');
-const { validate } = require('../middleware/validation');
-const { handleError, logError } = require('../middleware/errorHandler');
-const fs = require('fs');
+const router = express.Router();
 const path = require('path');
+const fs = require('fs');
 const { exec } = require('child_process');
+const bcrypt = require('bcryptjs');
+const { User, Adventure, GpxTrack, Picture, AdventureShare } = require('../models');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { handleError } = require('../middleware/errorHandler');
+const { query, body, param, validationResult } = require('express-validator');
+
+// Middleware to check validation results
+const checkValidation = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+
+// Escape shell arguments to prevent command injection
+function escapeShellArg(arg) {
+  if (typeof arg !== 'string') arg = String(arg);
+  // Remove or escape shell metacharacters
+  return arg.replace(/[\"\'\\`$(){}\[\]*?~<>|&;!#\n\r\x0B\x1B]/g, '');
+}
 const os = require('os');
 const multer = require('multer');
-
-const router = express.Router();
 
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 const UPLOAD_DIR = path.join(os.tmpdir(), 'wanderroam-restore');
@@ -35,22 +49,20 @@ const logAudit = async (adminUserId, action, targetUserId, details, req) => {
       adminUserId
     });
   } catch (err) {
-    logError(err, '[AuditLog]');
+    console.error('[AuditLog]', err);
   }
-};
-
-const adminMiddleware = async (req, res, next) => {
-  const user = await User.findByPk(req.user.id);
-  if (!user || !user.isAdmin) {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
 };
 
 router.get('/users', authMiddleware, adminMiddleware, [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-  validate
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -92,7 +104,13 @@ router.get('/users', authMiddleware, adminMiddleware, [
 router.post('/users', authMiddleware, adminMiddleware, [
   body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
   body('password').notEmpty().withMessage('Password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  validate
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -128,7 +146,13 @@ router.post('/users', authMiddleware, adminMiddleware, [
 
 router.delete('/users/:id', authMiddleware, adminMiddleware, [
   param('id').isUUID().withMessage('Invalid user ID'),
-  validate
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
     const userId = req.params.id;
@@ -167,8 +191,14 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, [
 
 router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, [
   param('id').isUUID().withMessage('Invalid user ID'),
-  body('password').notEmpty().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  validate
+  body('newPassword').notEmpty().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
     const userId = req.params.id;
@@ -197,7 +227,13 @@ router.put('/users/:id/reset-password', authMiddleware, adminMiddleware, [
 
 router.put('/users/:id/toggle-admin', authMiddleware, adminMiddleware, [
   param('id').isUUID().withMessage('Invalid user ID'),
-  validate
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
     const userId = req.params.id;
@@ -243,7 +279,7 @@ router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
     const dbName = process.env.DB_NAME;
     const dbDumpPath = path.join(tempDir, 'database.dump');
     await new Promise((resolve, reject) => {
-      const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F c -f "${dbDumpPath}"`;
+      const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_dump -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -F c -f ${escapeShellArg(dbDumpPath)}`;
       exec(cmd, (error, stdout, stderr) => {
         if (error) return reject(new Error(`Database backup failed: ${stderr}`));
         resolve();
@@ -277,20 +313,8 @@ router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-router.get('/backups', [
-  query('token').optional()
-], async (req, res) => {
+router.get('/backups', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
     const files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.tar.gz'));
     const backups = files.map(f => {
       const filePath = path.join(BACKUP_DIR, f);
@@ -303,21 +327,17 @@ router.get('/backups', [
   }
 });
 
-router.get('/backups/:filename', [
+router.get('/backups/:filename', authMiddleware, adminMiddleware, [
   param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
-  validate
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
-    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
     const filePath = path.join(BACKUP_DIR, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
     res.download(filePath, req.params.filename);
@@ -326,21 +346,17 @@ router.get('/backups/:filename', [
   }
 });
 
-router.delete('/backups/:filename', [
+router.delete('/backups/:filename', authMiddleware, adminMiddleware, [
   param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
-  query('token').optional()
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
-    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
     const filePath = path.join(BACKUP_DIR, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
     fs.unlinkSync(filePath);
@@ -350,20 +366,10 @@ router.delete('/backups/:filename', [
   }
 });
 
-router.post('/restore/existing', [
+router.post('/restore/existing', authMiddleware, adminMiddleware, [
   query('token').optional()
 ], async (req, res) => {
   try {
-    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
 
     if (!req.body.filename) {
       return res.status(400).json({ error: 'No backup filename provided' });
@@ -389,7 +395,7 @@ router.post('/restore/existing', [
       const dbUser = process.env.DB_USER;
       const dbName = process.env.DB_NAME;
       await new Promise((resolve, reject) => {
-        const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_restore -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -c "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
+        const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_restore -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -c ${escapeShellArg(dbDumpPath)} 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
         exec(cmd, (error, stdout, stderr) => {
           if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
           resolve();
@@ -420,20 +426,10 @@ router.post('/restore/existing', [
   }
 });
 
-router.post('/restore/upload', upload.single('backup'), [
+router.post('/restore/upload', authMiddleware, adminMiddleware, upload.single('backup'), [
   query('token').optional()
 ], async (req, res) => {
   try {
-    const token = req.query.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
 
     if (!req.file) {
       return res.status(400).json({ error: 'No backup file uploaded' });
@@ -457,7 +453,7 @@ router.post('/restore/upload', upload.single('backup'), [
       const dbUser = process.env.DB_USER;
       const dbName = process.env.DB_NAME;
       await new Promise((resolve, reject) => {
-        const cmd = `PGPASSWORD="${process.env.DB_PASSWORD}" /usr/bin/pg_restore -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -c "${dbDumpPath}" 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
+        const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_restore -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -c ${escapeShellArg(dbDumpPath)} 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
         exec(cmd, (error, stdout, stderr) => {
           if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
           resolve();

@@ -7,17 +7,6 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../services/AuthContext';
 
-const fixLeafletIcons = () => {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  });
-};
-
-fixLeafletIcons();
-
 const MapBounds = ({ tracks }) => {
   const map = useMap();
 
@@ -45,14 +34,21 @@ const GpxMap = () => {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
-    loadTracks();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    loadTracks(abortController.signal);
+    return () => abortController.abort();
   }, []);
 
-  const loadTracks = async () => {
+  const loadTracks = async (signal) => {
     try {
-      const res = await api.get('/adventures/all-gpx');
+      const res = await api.get('/adventures/all-gpx', { signal });
       setTracks(res.data.tracks);
       
       const adventures = {};
@@ -61,6 +57,7 @@ const GpxMap = () => {
       });
       setVisibleAdventures(adventures);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       toast.error('Failed to load tracks');
     } finally {
       setLoading(false);

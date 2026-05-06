@@ -6,16 +6,6 @@ import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
-const fixLeafletIcons = () => {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  });
-};
-fixLeafletIcons();
-
 const MapBounds = ({ tracks }) => {
   const map = useMap();
 
@@ -47,15 +37,22 @@ const Series = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('DESC');
   const navigate = useNavigate();
+  const abortControllerRef = useRef(null);
 
   useEffect(() => {
-    loadSeries();
-    loadAllAdventures();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    loadSeries(abortController.signal);
+    loadAllAdventures(abortController.signal);
+    return () => abortController.abort();
   }, [sortBy, sortOrder]);
 
-  const loadSeries = async () => {
+  const loadSeries = async (signal) => {
     try {
-      const res = await api.getSeries();
+      const res = await api.getSeries({ signal });
       let series = res.data.series || [];
       
       series = series.sort((a, b) => {
@@ -70,16 +67,18 @@ const Series = () => {
       setSeriesList(series);
       setLoading(false);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       toast.error('Failed to load series');
       setLoading(false);
     }
   };
 
-  const loadAllAdventures = async () => {
+  const loadAllAdventures = async (signal) => {
     try {
-      const res = await api.get('/adventures?sort=adventure_date&order=DESC');
+      const res = await api.get('/adventures?sort=adventure_date&order=DESC', { signal });
       setAllAdventures(res.data.adventures || []);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to load adventures', err);
     }
   };

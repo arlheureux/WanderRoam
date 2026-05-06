@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Polyline, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -6,17 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { useMapContext } from '../contexts/MapContext';
 import { MapView, TYPE_COLORS } from '../components/MapView';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import api from '../services/api';
-
-const fixLeafletIcons = () => {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  });
-};
-fixLeafletIcons();
 
 const SeriesView = () => {
   const { id } = useParams();
@@ -38,28 +29,41 @@ const SeriesView = () => {
   const [showAddAdventureModal, setShowAddAdventureModal] = useState(false);
   const [addingAdventures, setAddingAdventures] = useState([]);
   const { mapProvider, mapboxToken } = useMapContext();
+  const abortControllerRef = useRef(null);
+
+  useEscapeKey(() => setShowEditModal(false), showEditModal);
+  useEscapeKey(() => setShowAdventurePicker(false), showAdventurePicker);
+  useEscapeKey(() => setShowAddAdventureModal(false), showAddAdventureModal);
 
   useEffect(() => {
-    loadSeries();
-    loadTags();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    loadSeries(abortController.signal);
+    loadTags(abortController.signal);
+    return () => abortController.abort();
   }, [id]);
 
-  const loadSeries = async () => {
+  const loadSeries = async (signal) => {
     try {
-      const res = await api.getSeriesById(id);
+      const res = await api.getSeriesById(id, { signal });
       setSeries(res.data.series);
       setLoading(false);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       toast.error('Failed to load series');
       navigate('/series');
     }
   };
 
-  const loadTags = async () => {
+  const loadTags = async (signal) => {
     try {
-      const res = await api.getTags();
+      const res = await api.getTags({ signal });
       setAllTags(res.data.tags || []);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to load tags');
     }
   };

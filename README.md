@@ -40,11 +40,13 @@
 ## Security
 
 - **Rate Limiting** - Auth endpoints limited to 5 attempts per 60 minutes per IP
-- **JWT Authentication** - Token-based authentication (1h expiry, configurable via JWT_EXPIRY)
+- **JWT Authentication** - HttpOnly cookie-based authentication (1h expiry, configurable via JWT_EXPIRY)
 - **CORS configurable** - Restrict access by origin
 - **Input Validation** - All API endpoints validated with express-validator
 - **XSS Protection** - All user input sanitized with sanitize-html
 - **Admin Audit Logging** - All admin actions logged to database
+- **HttpOnly Cookies** - JWT tokens stored in httpOnly cookies (prevents XSS token theft)
+- **Encrypted Storage** - Immich API keys encrypted at rest in database (AES-256-GCM)
 
 ## Tech Stack
 

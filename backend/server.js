@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
 const { sequelize } = require('./models');
@@ -46,10 +47,12 @@ const corsOptions = {
     } else {
       callback(null, false);
     }
-  }
+  },
+  credentials: true
 };
 
 app.use(cors(corsOptions));
+app.use(cookieParser());
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -105,8 +108,13 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connection established successfully.');
     
-    await sequelize.sync({ alter: true });
-    console.log('Database synchronized.');
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Running in production - skipping sequelize.sync()');
+      console.log('Database synchronized (using migrations).');
+    } else {
+      await sequelize.sync({ alter: true });
+      console.log('Database synchronized.');
+    }
     console.log('Tags seeded.');
     
     app.listen(PORT, '0.0.0.0', () => {

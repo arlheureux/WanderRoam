@@ -9,14 +9,14 @@ if (!JWT_SECRET) {
 
 const authMiddleware = (req, res, next) => {
   console.log('Auth middleware - path:', req.path, 'method:', req.method);
-  const authHeader = req.headers.authorization;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Try cookie first, then header (backward compatible)
+  const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
+  
+  if (!token) {
     console.log('Auth middleware - No token');
     return res.status(401).json({ error: 'No token provided' });
   }
-
-  const token = authHeader.substring(7);
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -29,9 +29,16 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const adminMiddleware = (req, res, next) => {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, username: user.username },
+    { id: user.id, username: user.username, isAdmin: user.isAdmin },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRY }
   );
@@ -39,6 +46,6 @@ const generateToken = (user) => {
 
 module.exports = {
   authMiddleware,
-  generateToken,
-  JWT_SECRET
+  adminMiddleware,
+  generateToken
 };

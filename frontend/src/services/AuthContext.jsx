@@ -16,39 +16,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.get('/auth/me')
-        .then(res => {
-          setUser(res.data.user);
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+    // Cookies are sent automatically with /api/auth/me
+    api.get('/auth/me')
+      .then(res => {
+        setUser(res.data.user);
+      })
+      .catch(() => {
+        // Stay logged out
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
-    localStorage.setItem('token', res.data.token);
+    // Token is now in httpOnly cookie, no need to store in localStorage
     setUser(res.data.user);
     return res.data;
   };
 
   const register = async (username, password) => {
     const res = await api.post('/auth/register', { username, password });
-    localStorage.setItem('token', res.data.token);
+    // Token is now in httpOnly cookie, no need to store in localStorage
     setUser(res.data.user);
     return res.data;
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    await api.post('/auth/logout'); // Call backend to clear cookie
     setUser(null);
   };
 
