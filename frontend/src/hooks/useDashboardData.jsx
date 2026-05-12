@@ -1,39 +1,67 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import React from 'react';
 import api from '../services/api';
 import { VERSION, GIT_COMMIT } from '../version';
+import { useAuth } from '../services/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Force React to be included in bundle by using it
+const getTypeColor = (type) => {
+  const colors = {
+    hiking: 'var(--gpx-hiking)',
+    cycling: 'var(--gpx-cycling)',
+    running: 'var(--gpx-running)',
+    climbing: 'var(--gpx-climbing)',
+    other: 'var(--gpx-other)'
+  };
+  return colors[type] || colors.other;
+};
+
 export function useDashboardData() {
-  // Use React.useEffect directly to prevent tree-shaking
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
   const [adventures, setAdventures] = useState([]);
   const [sharedAdventures, setSharedAdventures] = useState([]);
-  const [series, setSeries] = useState([]);
+  const [seriesList, setSeriesList] = useState([]);
   const [users, setUsers] = useState([]);
-  const [tags, setTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingSeries, setLoadingSeries] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
+  const [sortOrder, setSortOrder] = useState('DESC');
+  const [activeTab, setActiveTab] = useState('adventures');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedMapTag, setSelectedMapTag] = useState(null);
+  const [toggleState, setToggleState] = useState({});
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [seriesPagination, setSeriesPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [appVersion, setAppVersion] = useState({ version: '', tag: '', gitCommit: '' });
- 
+
+  const [showModal, setShowModal] = useState(false);
+  const [newAdventure, setNewAdventure] = useState({ name: '', description: '' });
+  const [creating, setCreating] = useState(false);
+
+  const [showSeriesModal, setShowSeriesModal] = useState(false);
+  const [newSeries, setNewSeries] = useState({ name: '', description: '' });
+  const [creatingSeries, setCreatingSeries] = useState(false);
+
   const fetchGitHubRelease = async () => {
     try {
       const cached = localStorage.getItem('wanderroam_release_cache');
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 3600000) { // 1 hour cache
+        if (Date.now() - timestamp < 3600000) {
           setAppVersion(data);
           return;
         }
       }
 
       if (VERSION) {
-        setAppVersion({ version: VERSION, tag: 'stable', gitCommit: GIT_COMMIT });
+        setAppVersion({ version: VERSION, tag: VERSION, gitCommit: GIT_COMMIT });
         return;
       }
 
@@ -61,8 +89,8 @@ export function useDashboardData() {
 
       setAdventures(advRes.data.adventures || []);
       setSharedAdventures(sharedRes.data.adventures || []);
-      setSeries(seriesRes.data.series || []);
-      setTags(tagsRes.data.tags || []);
+      setSeriesList(seriesRes.data.series || []);
+      setAllTags(tagsRes.data.tags || []);
       setPagination(prev => ({ ...prev, total: advRes.data.total || 0 }));
       setSeriesPagination(prev => ({ ...prev, total: seriesRes.data.total || 0 }));
       setError(null);
@@ -71,10 +99,11 @@ export function useDashboardData() {
       console.error(err);
     } finally {
       setLoading(false);
+      setLoadingSeries(false);
     }
   }, [pagination.page, pagination.limit, seriesPagination.page, seriesPagination.limit, selectedTags]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadData();
   }, [loadData]);
 
@@ -87,22 +116,103 @@ export function useDashboardData() {
     }
   };
 
+  const createAdventure = async () => {
+    if (!newAdventure.name.trim()) return;
+    try {
+      setCreating(true);
+      await api.post('/adventures', {
+        name: newAdventure.name,
+        description: newAdventure.description || ''
+      });
+      setNewAdventure({ name: '', description: '' });
+      setShowModal(false);
+      loadData();
+    } catch (err) {
+      console.error('Failed to create adventure', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const createSeries = async () => {
+    if (!newSeries.name.trim()) return;
+    try {
+      setCreatingSeries(true);
+      await api.post('/series', {
+        name: newSeries.name,
+        description: newSeries.description || ''
+      });
+      setNewSeries({ name: '', description: '' });
+      setShowSeriesModal(false);
+      loadData();
+    } catch (err) {
+      console.error('Failed to create series', err);
+    } finally {
+      setCreatingSeries(false);
+    }
+  };
+
+  const toggleAdventure = (id) => {
+    setToggleState(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const toggleAll = () => {
+    const allVisible = Object.values(toggleState).every(v => v);
+    const newState = {};
+    adventures.forEach(a => {
+      newState[a.id] = !allVisible;
+    });
+    setToggleState(newState);
+  };
+
+  const allTracks = useMemo(() => {
+    return adventures.filter(a => a.GpxTracks && a.GpxTracks.length > 0);
+  }, [adventures]);
+
+  const visibleAdventures = toggleState;
+
+  const uniqueAdventures = useMemo(() => {
+    return [...new Set(adventures.map(a => a.id))];
+  }, [adventures]);
+
+  const allUniqueAdventures = uniqueAdventures;
+
+  const combinedItems = useMemo(() => {
+    const items = [
+      ...adventures.map(a => ({ type: 'adventure', data: a })),
+      ...seriesList.map(s => ({ type: 'series', data: s }))
+    ];
+    return items;
+  }, [adventures, seriesList]);
+
   return {
     adventures,
     sharedAdventures,
-    series,
+    seriesList,
     users,
-    tags,
+    allTags,
     selectedTags,
     setSelectedTags,
     loading,
+    loadingSeries,
     error,
-    search,
-    setSearch,
+    searchQuery,
+    setSearchQuery,
     showArchived,
     setShowArchived,
     sortBy,
     setSortBy,
+    sortOrder,
+    setSortOrder,
+    activeTab,
+    setActiveTab,
+    showFilters,
+    setShowFilters,
+    selectedMapTag,
+    setSelectedMapTag,
     pagination,
     setPagination,
     seriesPagination,
@@ -110,6 +220,29 @@ export function useDashboardData() {
     loadData,
     loadUsers,
     fetchGitHubRelease,
-    appVersion
+    appVersion,
+    showModal,
+    setShowModal,
+    newAdventure,
+    setNewAdventure,
+    creating,
+    showSeriesModal,
+    setShowSeriesModal,
+    newSeries,
+    setNewSeries,
+    creatingSeries,
+    user,
+    logout,
+    navigate,
+    createAdventure,
+    createSeries,
+    toggleAdventure,
+    toggleAll,
+    getTypeColor,
+    allTracks,
+    visibleAdventures,
+    uniqueAdventures,
+    allUniqueAdventures,
+    combinedItems
   };
 }

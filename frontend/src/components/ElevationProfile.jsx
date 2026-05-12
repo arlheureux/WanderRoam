@@ -16,11 +16,18 @@ const TYPE_COLORS = {
   other: '#0D9488'
 };
 
+const ELEVATION_TYPES = ['car', 'walking', 'hiking', 'cycling'];
+
 const ElevationProfile = ({ tracks, onHover }) => {
   const [activeIndex, setActiveIndex] = useState(null);
 
+  const filteredTracks = useMemo(() => {
+    if (!tracks) return [];
+    return tracks.filter(t => ELEVATION_TYPES.includes(t.type));
+  }, [tracks]);
+
   const { chartData, trackMeta, minEle, maxEle, totalGain, totalLoss, maxDist } = useMemo(() => {
-    if (!tracks || tracks.length === 0) {
+    if (!filteredTracks || filteredTracks.length === 0) {
       return { chartData: [], trackMeta: [], minEle: 0, maxEle: 0, totalGain: 0, totalLoss: 0, maxDist: 0 };
     }
 
@@ -28,7 +35,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
     const meta = [];
     const allElevations = [];
 
-    tracks.forEach((track, ti) => {
+    filteredTracks.forEach((track, ti) => {
       const points = track.data || [];
       const color = track.color || TYPE_COLORS[track.type] || TYPE_COLORS.other;
       const key = `t${ti}`;
@@ -84,7 +91,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
       totalLoss: Math.round(loss),
       maxDist: chartRows[chartRows.length - 1].distance
     };
-  }, [tracks]);
+  }, [filteredTracks]);
 
   const handleMouseMove = useCallback((state) => {
     if (!state?.activePayload?.[0]?.payload) {
