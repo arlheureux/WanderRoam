@@ -39,6 +39,13 @@ router.get('/', async (req, res) => {
         order: sa.order
       })).filter(a => a.id);
 
+      let totalDistance = 0;
+      if (adventureIds.length > 0) {
+        totalDistance = (await GpxTrack.sum('distance', {
+          where: { adventure_id: { [Op.in]: adventureIds } }
+        })) || 0;
+      }
+
       let totalPhotos = 0;
       let startDate = null;
       let endDate = null;
@@ -68,6 +75,7 @@ router.get('/', async (req, res) => {
         adventureCount: adventuresWithOrder.length,
         adventureIds: adventureIds,
         totalPhotos,
+        totalDistance: Math.round(totalDistance * 100) / 100,
         isOwner: s.user_id === req.user.id,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt

@@ -8,7 +8,7 @@ const { validate } = require('../middleware/validation');
 const { handleError, logger } = require('../middleware/errorHandler');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
-const { parseGpxData } = require('../utils/gpxParser');
+const { parseGpxData, computeDistanceKm } = require('../utils/gpxParser');
 
 const router = express.Router();
 
@@ -854,6 +854,7 @@ router.post('/:id/gpx', upload.single('file'), handleMulterError, authMiddleware
       color,
       file_path: gpxFile.path,
       data: gpxData,
+      distance: computeDistanceKm(gpxData),
       adventure_id: adventure.id
     });
 
@@ -889,6 +890,7 @@ router.post('/gpx/from-points', authMiddleware, [
       type: gpxType,
       color: trackColor,
       data: data || [],
+      distance: computeDistanceKm(data || []),
       adventure_id: adventure.id
     });
 
@@ -942,6 +944,7 @@ router.post('/:id/gpx-base64', authMiddleware, [
       type: gpxType,
       color,
       data: gpxData,
+      distance: computeDistanceKm(gpxData),
       adventure_id: adventure.id
     });
 

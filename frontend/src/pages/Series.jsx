@@ -238,7 +238,7 @@ const Series = () => {
                   )}
                   <div className="adventure-stats">
                     <span className="stat">📷 {series.totalPhotos} photos</span>
-                    <span className="stat">📏 {series.totalDistance ? (series.totalDistance / 1000).toFixed(1) : 0} km</span>
+                    <span className="stat">📏 {series.totalDistance ? series.totalDistance.toFixed(1) : 0} km</span>
                   </div>
                 </div>
                 <button 

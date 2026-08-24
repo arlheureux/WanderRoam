@@ -1,4 +1,5 @@
 const { haversine, calculateGpxMetadata } = require('./gpxUtils');
+const { computeDistanceKm } = require('../utils/gpxParser');
 
 describe('haversine', () => {
   test('should return 0 for same coordinates', () => {
@@ -53,5 +54,43 @@ describe('calculateGpxMetadata', () => {
     ];
     const result = calculateGpxMetadata(points);
     expect(result.distance).toBeGreaterThan(1.8);
+  });
+});
+
+describe('computeDistanceKm', () => {
+  test('should return 0 for null, empty or single-point input', () => {
+    expect(computeDistanceKm(null)).toBe(0);
+    expect(computeDistanceKm([])).toBe(0);
+    expect(computeDistanceKm([{ lat: 48.8566, lng: 2.3522 }])).toBe(0);
+  });
+
+  test('should return kilometers between Paris and Berlin (~878 km)', () => {
+    const distance = computeDistanceKm([
+      { lat: 48.8566, lng: 2.3522 },
+      { lat: 52.5200, lng: 13.4050 }
+    ]);
+    expect(distance).toBeGreaterThan(850);
+    expect(distance).toBeLessThan(900);
+  });
+
+  test('should sum segments and round to 2 decimals', () => {
+    const distance = computeDistanceKm([
+      { lat: 48.8566, lng: 2.3522 },
+      { lat: 48.8656, lng: 2.3522 },
+      { lat: 48.8746, lng: 2.3522 }
+    ]);
+    expect(distance).toBeGreaterThan(1.8);
+    expect(distance).toBeLessThan(2.1);
+    expect(Number.isInteger(distance * 100)).toBe(true);
+  });
+
+  test('should skip points with missing coordinates', () => {
+    const distance = computeDistanceKm([
+      { lat: 48.8566, lng: 2.3522 },
+      { lat: 48.8600 },
+      { lat: 48.8656, lng: 2.3522 }
+    ]);
+    expect(distance).toBeGreaterThan(0.9);
+    expect(distance).toBeLessThan(1.1);
   });
 });

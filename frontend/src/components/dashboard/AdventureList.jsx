@@ -69,7 +69,7 @@ function SeriesCard({ item, navigate }) {
         )}
         <div className="adventure-stats">
           <span className="stat">📷 {item.data.totalPhotos} photos</span>
-          <span className="stat">📏 {item.data.totalDistance ? (item.data.totalDistance / 1000).toFixed(1) : 0} km</span>
+          <span className="stat">📏 {item.data.totalDistance ? item.data.totalDistance.toFixed(1) : 0} km</span>
         </div>
       </div>
     </div>

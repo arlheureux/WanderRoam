@@ -31,4 +31,26 @@ const parseGpxData = (xml) => {
   return [...trkpts, ...rtepts, ...wpts];
 };
 
-module.exports = { parseGpxData };
+const computeDistanceKm = (points) => {
+  if (!Array.isArray(points) || points.length < 2) return 0;
+
+  let total = 0;
+  let last = null;
+  for (const p of points) {
+    if (p.lat == null || p.lng == null) continue;
+
+    if (last) {
+      const dLat = ((p.lat - last.lat) * Math.PI) / 180;
+      const dLng = ((p.lng - last.lng) * Math.PI) / 180;
+      const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((last.lat * Math.PI) / 180) * Math.cos((p.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+      total += 6371 * 2 * Math.asin(Math.sqrt(h));
+    }
+    last = p;
+  }
+
+  return Math.round(total * 100) / 100;
+};
+
+module.exports = { parseGpxData, computeDistanceKm };

@@ -1,6 +1,7 @@
 const express = require('express');
 const { param, body } = require('express-validator');
 const { GpxTrack } = require('../models');
+const { computeDistanceKm } = require('../utils/gpxParser');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError } = require('../middleware/errorHandler');
@@ -35,7 +36,10 @@ router.put('/:id', authMiddleware, [
     if (name !== undefined) gpxTrack.name = name;
     if (type !== undefined) gpxTrack.type = type;
     if (color !== undefined) gpxTrack.color = color;
-    if (data !== undefined) gpxTrack.data = data;
+    if (data !== undefined) {
+      gpxTrack.data = data;
+      gpxTrack.distance = computeDistanceKm(data);
+    }
     if (adventure_id !== undefined) gpxTrack.adventure_id = adventure_id;
 
     await gpxTrack.save();

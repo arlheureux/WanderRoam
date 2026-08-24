@@ -143,18 +143,6 @@ const AdventureView = () => {
     }
   };
 
-  const calculateTrackDistance = (points) => {
-    let dist = 0;
-    for (let i = 1; i < points.length; i++) {
-      const d = Math.sqrt(
-        Math.pow(points[i].lat - points[i-1].lat, 2) + 
-        Math.pow(points[i].lng - points[i-1].lng, 2)
-      );
-      dist += d * 111000;
-    }
-    return dist;
-  };
-
   const openPicture = (picture, index) => {
     setPictureIndex(index);
     setViewingPicture(picture);

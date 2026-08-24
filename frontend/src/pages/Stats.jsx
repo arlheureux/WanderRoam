@@ -336,7 +336,7 @@ const Stats = () => {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value, name, props) => [formatDistance(value / 1000), props.payload.name]}
+                    formatter={(value, name, props) => [formatDistance(value), props.payload.name]}
                     contentStyle={{
                       background: '#1a1a2e',
                       border: '1px solid #E2E8F0',
