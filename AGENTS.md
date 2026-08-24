@@ -45,3 +45,4 @@ Ops: `scripts/backup.sh` / `restore.sh` (pg_dump + uploads volume + .env); `scri
 ## Gotchas
 
 - `frontend/vite.config.js` intentionally disables tree-shaking/mangling (minification broke prod builds before) — do not re-enable.
+- `GpxTrack.distance` is stored in **kilometres** (haversine via `computeDistanceKm` in `backend/utils/gpxParser.js`). Never divide by 1000 when displaying; `routing.js` also returns km.

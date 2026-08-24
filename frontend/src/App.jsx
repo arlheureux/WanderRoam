@@ -11,6 +11,7 @@ import AdventureEdit from './pages/AdventureEdit';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import SeriesView from './pages/SeriesView';
+import Series from './pages/Series';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -54,6 +55,11 @@ function App() {
           <Route path="/stats" element={
             <ProtectedRoute>
               <Stats />
+            </ProtectedRoute>
+          } />
+          <Route path="/series" element={
+            <ProtectedRoute>
+              <Series />
             </ProtectedRoute>
           } />
           <Route path="/series/:id" element={

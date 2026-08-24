@@ -160,7 +160,7 @@ router.post('/login', [
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'isAdmin', 'createdAt']
+      attributes: ['id', 'username', 'isAdmin', 'immich_url', 'createdAt']
     });
 
     if (!user) {

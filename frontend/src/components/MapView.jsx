@@ -273,9 +273,9 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
                 onClose={() => setPopupInfo(null)}
               >
                 <div style={{ padding: '8px' }}>
-                  {(pic.thumbnail_base64 || pic.thumbnail_url) && (
+                  {(pic.thumbnail_url) && (
                     <img 
-                      src={pic.thumbnail_base64 || pic.thumbnail_url} 
+                      src={pic.thumbnail_url} 
                       alt={pic.filename || 'Picture'}
                       style={{ 
                         maxWidth: '260px', 

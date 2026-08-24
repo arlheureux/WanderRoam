@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'process.env.REACT_APP_GIT_COMMIT': JSON.stringify(process.env.REACT_APP_GIT_COMMIT || 'unknown'),
+  },
   server: {
     port: 3000,
     proxy: {

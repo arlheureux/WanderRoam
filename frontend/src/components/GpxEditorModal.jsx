@@ -346,7 +346,7 @@ const GpxEditorModal = ({
           adventure_id: adventureId
         };
         result = await api.updateGpx(existingTrack.id, trackData);
-        savedTrack = result.data;
+        savedTrack = result.data.gpxTrack || result.data;
       } else {
         const trackData = {
           name: name.trim(),

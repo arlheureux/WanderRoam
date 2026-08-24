@@ -3,7 +3,7 @@ const { body, param, validationResult } = require('express-validator');
 const { Op } = require('sequelize');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
-const { Series, SeriesAdventure, Adventure, GpxTrack, Picture, Waypoint, User } = require('../models');
+const { Series, SeriesAdventure, Adventure, GpxTrack, Picture, Waypoint, User, Tag } = require('../models');
 
 const router = express.Router();
 
@@ -82,7 +82,7 @@ router.get('/', async (req, res) => {
       };
     }));
 
-    res.json({ series: seriesWithStats });
+    res.json({ series: seriesWithStats, total: seriesWithStats.length });
   } catch (error) {
     return handleError(error, res, { operation: 'listSeries' });
   }
@@ -117,7 +117,8 @@ router.get('/:id', async (req, res) => {
       include: [
         { model: GpxTrack, as: 'GpxTracks' },
         { model: Picture, as: 'Pictures' },
-        { model: Waypoint, as: 'Waypoints' }
+        { model: Waypoint, as: 'Waypoints' },
+        { model: Tag, as: 'tags', attributes: ['id', 'name', 'color', 'type'], through: { attributes: [] } }
       ]
     });
 
@@ -136,7 +137,8 @@ router.get('/:id', async (req, res) => {
         order: sa.order,
         distance,
         pictureCount: advJson.Pictures?.length || 0,
-        waypointCount: advJson.Waypoints?.length || 0
+        waypointCount: advJson.Waypoints?.length || 0,
+        tags: (advJson.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' }))
       };
     }).filter(Boolean);
 

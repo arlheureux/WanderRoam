@@ -404,7 +404,7 @@ const SeriesView = () => {
                     <div className="adventure-card-preview">
                       {adventure.Pictures && adventure.Pictures.length > 0 && adventure.Pictures[0].thumbnail_url ? (
                         <img 
-                          src={adventure.Pictures[0].thumbnail_base64 || adventure.Pictures[0].thumbnail_url} 
+                          src={adventure.Pictures[0].thumbnail_url} 
                           alt={adventure.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />

@@ -25,6 +25,7 @@ export function useDashboardData() {
   const [seriesList, setSeriesList] = useState([]);
   const [users, setUsers] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  const [allTracks, setAllTracks] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
@@ -80,17 +81,19 @@ export function useDashboardData() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [advRes, sharedRes, seriesRes, tagsRes] = await Promise.all([
+      const [advRes, sharedRes, seriesRes, tagsRes, gpxRes] = await Promise.all([
         api.get('/adventures', { params: { page: pagination.page, limit: pagination.limit, tags: selectedTags.join(',') } }),
         api.get('/adventures', { params: { shared: true } }),
         api.get('/series', { params: { page: seriesPagination.page, limit: seriesPagination.limit } }),
-        api.get('/adventures/tags')
+        api.get('/adventures/tags'),
+        api.get('/adventures/all-gpx', { params: { full: true } })
       ]);
 
       setAdventures(advRes.data.adventures || []);
       setSharedAdventures(sharedRes.data.adventures || []);
       setSeriesList(seriesRes.data.series || []);
       setAllTags(tagsRes.data.tags || []);
+      setAllTracks(gpxRes.data.tracks || []);
       setPagination(prev => ({ ...prev, total: advRes.data.total || 0 }));
       setSeriesPagination(prev => ({ ...prev, total: seriesRes.data.total || 0 }));
       setError(null);
@@ -167,10 +170,6 @@ export function useDashboardData() {
     });
     setToggleState(newState);
   };
-
-  const allTracks = useMemo(() => {
-    return adventures.filter(a => a.GpxTracks && a.GpxTracks.length > 0);
-  }, [adventures]);
 
   const visibleAdventures = toggleState;
 

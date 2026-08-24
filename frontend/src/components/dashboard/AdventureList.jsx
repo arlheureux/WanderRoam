@@ -86,7 +86,7 @@ function AdventureCard({ item, navigate }) {
       <div className="adventure-card-preview">
         {item.data.preview_picture ? (
           <img 
-            src={item.data.preview_picture.thumbnail_base64 || item.data.preview_picture.thumbnail_url} 
+            src={item.data.preview_picture.thumbnail_url} 
             alt={item.data.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />

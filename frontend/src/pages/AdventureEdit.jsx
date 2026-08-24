@@ -20,6 +20,7 @@ const TYPE_COLORS = {
   train: '#0891B2',
   boat: '#4F46E5',
   car: '#52525B',
+  plane: '#6366F1',
   other: '#0D9488'
 };
 
@@ -235,7 +236,7 @@ const AdventureEdit = () => {
 
   const loadUsers = async () => {
     try {
-      const res = await api.get('/admin/users');
+      const res = await api.get('/adventures/users');
       setUsers(res.data.users || []);
     } catch (err) {
       toast.error('Failed to load users');
@@ -670,9 +671,9 @@ const AdventureEdit = () => {
                     opacity={hoveredPictureId && hoveredPictureId !== picture.id ? 0.5 : 1}
                   >
                     <Popup>
-                      {(picture.thumbnail_base64 || picture.thumbnail_url) && (
+                      {(picture.thumbnail_url) && (
                         <img 
-                          src={picture.thumbnail_base64 || picture.thumbnail_url} 
+                          src={picture.thumbnail_url} 
                           alt={picture.filename}
                           style={{ maxWidth: '240px', marginTop: '8px', borderRadius: '4px' }}
                         />
@@ -987,9 +988,9 @@ const AdventureEdit = () => {
                         opacity: adventure.preview_picture_id === picture.id ? 1 : 0.7
                       }}
                     >
-                      {(picture.thumbnail_base64 || picture.thumbnail_url) ? (
+                      {(picture.thumbnail_url) ? (
                         <img 
-                          src={picture.thumbnail_base64 || picture.thumbnail_url} 
+                          src={picture.thumbnail_url} 
                           alt={picture.filename}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -1033,8 +1034,8 @@ const AdventureEdit = () => {
                       onMouseEnter={() => setHoveredPictureId(picture.id)}
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
-                      {(picture.thumbnail_base64 || picture.thumbnail_url) ? (
-                        <img src={picture.thumbnail_base64 || picture.thumbnail_url} alt={picture.filename} />
+                      {(picture.thumbnail_url) ? (
+                        <img src={picture.thumbnail_url} alt={picture.filename} />
                       ) : (
                         <div style={{ 
                           width: '100%', 
@@ -1117,7 +1118,7 @@ const AdventureEdit = () => {
             }}
           >
             <img 
-              src={viewingPicture.thumbnail_base64 || viewingPicture.thumbnail_url} 
+              src={viewingPicture.thumbnail_url} 
               alt={viewingPicture.filename}
               style={{ maxWidth: '110%', maxHeight: '110%', objectFit: 'contain' }}
             />

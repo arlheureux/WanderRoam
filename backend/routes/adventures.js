@@ -84,14 +84,14 @@ router.get('/', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
-    const { sort = 'adventure_date', order = 'DESC', tags } = req.query;
+    const { sort = 'adventure_date', order = 'DESC', tags, shared } = req.query;
     const sortField = ['adventure_date', 'createdAt', 'name'].includes(sort) ? sort : 'adventure_date';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const nullsOrder = sortOrder === 'DESC' ? 'NULLS LAST' : 'NULLS FIRST';
 
     const tagFilter = tags ? tags.split(',').filter(t => t) : [];
 
-    const myAdventures = await Adventure.findAll({
+    const myAdventures = shared === 'true' ? [] : await Adventure.findAll({
       where: { user_id: req.user.id },
       attributes: { include: [[sequelize.col('preview_picture_id'), 'preview_picture_id']] },
       include: [
@@ -295,8 +295,9 @@ router.get('/', authMiddleware, [
       };
     });
 
-    res.json({ 
-      adventures: adventuresWithStats
+    res.json({
+      adventures: adventuresWithStats,
+      total: adventuresWithStats.length
     });
   } catch (error) {
     return handleError(error, res, { operation: 'getAdventures' });
@@ -579,7 +580,6 @@ router.post('/tags', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
-    console.log('Create tag request - body:', req.body, 'user:', req.user?.username);
     const { name, category } = req.body;
 
     const existingTag = await Tag.findOne({ where: { name } });
@@ -810,7 +810,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 // Multer error handler for file uploads
 const handleMulterError = (err, req, res, next) => {
   if (err) {
-    console.log('Multer error:', err.message);
+    logger.warn('Multer error:', err.message);
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ error: 'File too large' });
     }
@@ -824,8 +824,6 @@ router.post('/:id/gpx', upload.single('file'), handleMulterError, authMiddleware
   validate
 ], async (req, res) => {
   try {
-    console.log('GPX upload START - params:', req.params, 'body:', req.body, 'file:', req.file ? 'present' : 'missing');
-    
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
     if (!adventure) {
@@ -906,8 +904,6 @@ router.post('/:id/gpx-base64', authMiddleware, [
   validate
 ], async (req, res) => {
   try {
-    console.log('GPX base64 upload START - params:', req.params, 'body keys:', Object.keys(req.body));
-    
     const { adventure, canEdit } = await getAdventureAccess(req.params.id, req.user.id);
     
     if (!adventure) {
@@ -931,10 +927,7 @@ router.post('/:id/gpx-base64', authMiddleware, [
     }
 
     const xmlContent = Buffer.from(base64Match[2], 'base64').toString('utf-8');
-    console.log('GPX XML parsed, length:', xmlContent.length);
-
     const gpxData = parseGpxFromText(xmlContent);
-    console.log('GPX points parsed:', gpxData.length);
 
     const gpxType = type || 'hiking';
     const color = TYPE_COLORS[gpxType] || TYPE_COLORS.other;
@@ -948,10 +941,8 @@ router.post('/:id/gpx-base64', authMiddleware, [
       adventure_id: adventure.id
     });
 
-    console.log('GPX track created:', gpxTrack.id, 'points:', gpxData.length);
     res.status(201).json({ gpxTrack });
   } catch (error) {
-    console.log('GPX base64 error:', error.message);
     return handleError(error, res, { operation: 'uploadGpxBase64' });
   }
 });

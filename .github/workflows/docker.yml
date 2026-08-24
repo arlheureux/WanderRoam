@@ -64,9 +64,6 @@ jobs:
           context: ./frontend
           push: true
           tags: ${{ steps.tags.outputs.frontend_tags }}
-          build-args: |
-            REACT_APP_VERSION=${{ steps.tags.outputs.version }}
-            REACT_APP_CHANNEL=${{ steps.tags.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

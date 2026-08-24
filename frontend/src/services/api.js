@@ -1,15 +1,20 @@
 import toast from 'react-hot-toast';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
-
 class ApiService {
   constructor() {
-    this.baseUrl = API_URL;
+    this.baseUrl = '/api';
   }
 
-  async getVersion() {
-    const response = await fetch(`${this.baseUrl}/version`);
-    return response.json();
+  buildUrl(endpoint, params) {
+    const url = new URL(`${this.baseUrl}${endpoint}`, window.location.origin);
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.append(key, value);
+        }
+      });
+    }
+    return url.toString();
   }
 
   getHeaders(includeAuth = true, isFormData = false) {
@@ -21,13 +26,17 @@ class ApiService {
     return headers;
   }
 
-  async request(method, endpoint, data = null, isFormData = false) {
-    const url = `${this.baseUrl}${endpoint}`;
+  async request(method, endpoint, data = null, isFormData = false, config = {}) {
+    const url = this.buildUrl(endpoint, config.params);
     const options = {
       method,
       headers: this.getHeaders(true, isFormData),
       credentials: 'include' // Required for CORS with cookies
     };
+
+    if (config.signal) {
+      options.signal = config.signal;
+    }
 
     if (data) {
       if (isFormData && data instanceof FormData) {
@@ -56,8 +65,8 @@ class ApiService {
     return { data: result };
   }
 
-  get(endpoint) {
-    return this.request('GET', endpoint);
+  get(endpoint, config = {}) {
+    return this.request('GET', endpoint, null, false, config);
   }
 
   post(endpoint, data, isFormData = false) {
@@ -72,8 +81,8 @@ class ApiService {
     return this.request('DELETE', endpoint);
   }
 
-  getTags() {
-    return this.get('/adventures/tags');
+  getTags(config = {}) {
+    return this.get('/adventures/tags', config);
   }
 
   updateAdventureTags(adventureId, tagIds) {
@@ -92,19 +101,11 @@ class ApiService {
     return this.put(`/gpx/${gpxId}`, data);
   }
 
-  uploadGpx(adventureId, file, name, type) {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (name) formData.append('name', name);
-    if (type) formData.append('type', type);
-    return this.post(`/adventures/${adventureId}/gpx`, formData, true);
-  }
-
   uploadGpxBase64(adventureId, base64Data, name, type) {
-    return this.post(`/adventures/${adventureId}/gpx-base64`, { 
-      file: base64Data, 
-      name, 
-      type 
+    return this.post(`/adventures/${adventureId}/gpx-base64`, {
+      file: base64Data,
+      name,
+      type
     });
   }
 
@@ -112,12 +113,12 @@ class ApiService {
     return this.post('/adventures/gpx/from-points', data);
   }
 
-  getSeries() {
-    return this.get('/series');
+  getSeries(config = {}) {
+    return this.get('/series', config);
   }
 
-  getSeriesById(id) {
-    return this.get(`/series/${id}`);
+  getSeriesById(id, config = {}) {
+    return this.get(`/series/${id}`, config);
   }
 
   createSeries(data) {

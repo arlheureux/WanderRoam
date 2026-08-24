@@ -8,23 +8,18 @@ if (!JWT_SECRET) {
 }
 
 const authMiddleware = (req, res, next) => {
-  console.log('Auth middleware - path:', req.path, 'method:', req.method);
-  
   // Try cookie first, then header (backward compatible)
   const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
-  
+
   if (!token) {
-    console.log('Auth middleware - No token');
     return res.status(401).json({ error: 'No token provided' });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Auth middleware - Token valid, user:', decoded.username);
     req.user = decoded;
     next();
   } catch (error) {
-    console.log('Auth middleware - Invalid token:', error.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 };

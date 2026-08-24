@@ -332,9 +332,9 @@ const AdventureView = () => {
                     icon={createCustomIcon(hoveredPictureId === picture.id ? '#10B981' : '#FFD700', hoveredPictureId === picture.id ? 1.5 : 1)}
                   >
                     <Popup>
-                      {(picture.thumbnail_base64 || picture.thumbnail_url) && (
+                      {(picture.thumbnail_url) && (
                         <img 
-                          src={picture.thumbnail_base64 || picture.thumbnail_url} 
+                          src={picture.thumbnail_url} 
                           alt={picture.filename}
                           style={{ maxWidth: '240px', marginTop: '8px', borderRadius: '4px' }}
                         />
@@ -404,8 +404,8 @@ const AdventureView = () => {
                       onMouseEnter={() => setHoveredPictureId(picture.id)}
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
-                      {(picture.thumbnail_base64 || picture.thumbnail_url) ? (
-                        <img src={picture.thumbnail_base64 || picture.thumbnail_url} alt={picture.filename} />
+                      {(picture.thumbnail_url) ? (
+                        <img src={picture.thumbnail_url} alt={picture.filename} />
                       ) : (
                         <div style={{ 
                           width: '100%', 
@@ -445,7 +445,7 @@ const AdventureView = () => {
             }}
           >
             <img 
-              src={viewingPicture.thumbnail_base64 || viewingPicture.thumbnail_url} 
+              src={viewingPicture.thumbnail_url} 
               alt={viewingPicture.filename}
               style={{ maxWidth: '110%', maxHeight: '110%', objectFit: 'contain' }}
             />

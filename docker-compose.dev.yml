@@ -53,8 +53,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_VERSION: dev
-        REACT_APP_CHANNEL: dev
         REACT_APP_GIT_COMMIT: local
     container_name: wanderroam-frontend
     volumes:
