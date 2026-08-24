@@ -252,6 +252,7 @@ const AdminDashboard = () => {
       setRestoreLoading(false);
       setRestoreTarget(null);
       setRestoreFile(null);
+      setShowRestoreConfirm(false);
     }
   };
 

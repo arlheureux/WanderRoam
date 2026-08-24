@@ -1,6 +1,7 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  useActiveTooltipDataPoints
 } from 'recharts';
 
 const TYPE_COLORS = {
@@ -17,6 +18,23 @@ const TYPE_COLORS = {
 };
 
 const ELEVATION_TYPES = ['car', 'walking', 'hiking', 'cycling'];
+
+const HoveredPointTracker = ({ onHover }) => {
+  const activePoints = useActiveTooltipDataPoints();
+
+  useEffect(() => {
+    if (activePoints && activePoints.length > 0) {
+      const point = activePoints.find(p => p && p._point);
+      if (point) {
+        onHover({ lat: point._point.lat, lng: point._point.lng });
+        return;
+      }
+    }
+    onHover(null);
+  }, [activePoints, onHover]);
+
+  return null;
+};
 
 const ElevationProfile = ({ tracks, onHover }) => {
   const [activeIndex, setActiveIndex] = useState(null);
@@ -94,22 +112,16 @@ const ElevationProfile = ({ tracks, onHover }) => {
   }, [filteredTracks]);
 
   const handleMouseMove = useCallback((state) => {
-    if (!state?.activePayload?.[0]?.payload) {
+    if (state?.activeTooltipIndex != null) {
+      setActiveIndex(state.activeTooltipIndex);
+    } else {
       setActiveIndex(null);
-      if (onHover) onHover(null);
-      return;
     }
-    const row = state.activePayload[0].payload;
-    setActiveIndex(state.activeTooltipIndex);
-    if (onHover && row._point) {
-      onHover({ lat: row._point.lat, lng: row._point.lng });
-    }
-  }, [onHover]);
+  }, []);
 
   const handleMouseLeave = useCallback(() => {
     setActiveIndex(null);
-    if (onHover) onHover(null);
-  }, [onHover]);
+  }, []);
 
   if (chartData.length === 0) return null;
 
@@ -172,6 +184,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
               tickFormatter={(v) => `${v}m`}
               domain={['dataMin - 10', 'dataMax + 10']}
             />
+            <HoveredPointTracker onHover={onHover} />
             <Tooltip
               formatter={(value, name, props) => {
                 const track = trackMeta.find(m => m.key === name);

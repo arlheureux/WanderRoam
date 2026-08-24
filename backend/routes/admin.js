@@ -4,25 +4,17 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const bcrypt = require('bcryptjs');
-const { User, Adventure, GpxTrack, Picture, AdventureShare } = require('../models');
+const { User, Adventure, GpxTrack, Picture, AdventureShare, AuditLog } = require('../models');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
 const { query, body, param, validationResult } = require('express-validator');
 
-// Middleware to check validation results
-const checkValidation = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-};
-
 // Escape shell arguments to prevent command injection
 function escapeShellArg(arg) {
   if (typeof arg !== 'string') arg = String(arg);
-  // Remove or escape shell metacharacters
-  return arg.replace(/[\"\'\\`$(){}\[\]*?~<>|&;!#\n\r\x0B\x1B]/g, '');
+  // Remove or escape shell metacharacters (control chars stripped intentionally)
+  // eslint-disable-next-line no-control-regex
+  return arg.replace(/["'\\`$(){}[\]*?~<>|&;!#\n\r\x0B\x1B]/g, '');
 }
 const os = require('os');
 const multer = require('multer');
@@ -50,6 +42,53 @@ const logAudit = async (adminUserId, action, targetUserId, details, req) => {
     });
   } catch (err) {
     console.error('[AuditLog]', err);
+  }
+};
+
+const RESTORE_WARNING = 'The .env file inside the backup was extracted to /app/.env but does not override variables provided by docker-compose env_file - review your host .env manually.';
+
+const runCommand = (cmd, options = {}) => new Promise((resolve, reject) => {
+  exec(cmd, options, (error, stdout, stderr) => {
+    if (error) return reject(new Error(`${stderr || stdout || error.message}`.trim()));
+    resolve({ stdout, stderr });
+  });
+});
+
+const performRestore = async (backupFilePath) => {
+  const tempDir = path.join(os.tmpdir(), `restore-${Date.now()}`);
+  fs.mkdirSync(tempDir, { recursive: true });
+  try {
+    await runCommand(`tar -xzf "${backupFilePath}" -C "${tempDir}"`);
+
+    const dbDumpPath = path.join(tempDir, 'database.dump');
+    const databaseRestored = fs.existsSync(dbDumpPath);
+    if (databaseRestored) {
+      const dbHost = process.env.DB_HOST || 'postgres';
+      const dbPort = process.env.DB_PORT || '5432';
+      const dbUser = process.env.DB_USER;
+      const dbName = process.env.DB_NAME;
+      const cmd = `/usr/bin/pg_restore -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -c --if-exists ${escapeShellArg(dbDumpPath)}`;
+      await runCommand(cmd, { env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD } });
+    }
+
+    const uploadsSrc = path.join(tempDir, 'uploads');
+    const uploadsDest = path.join(__dirname, '..', 'uploads');
+    let uploadsRestored = false;
+    if (fs.existsSync(uploadsSrc)) {
+      fs.rmSync(uploadsDest, { recursive: true, force: true });
+      fs.mkdirSync(uploadsDest, { recursive: true });
+      fs.cpSync(uploadsSrc, uploadsDest, { recursive: true });
+      uploadsRestored = true;
+    }
+
+    const envSrc = path.join(tempDir, '.env');
+    if (fs.existsSync(envSrc)) {
+      fs.copyFileSync(envSrc, path.join(__dirname, '..', '.env'));
+    }
+
+    return { databaseRestored, uploadsRestored };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 };
 
@@ -307,6 +346,8 @@ router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
 
     fs.rmSync(tempDir, { recursive: true, force: true });
 
+    await logAudit(req.user.id, 'CREATE_BACKUP', null, { filename: backupFilename }, req);
+
     res.json({ message: 'Backup created successfully', filename: backupFilename });
   } catch (error) {
     return handleError(error, res, { operation: 'createBackup' });
@@ -328,7 +369,7 @@ router.get('/backups', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 router.get('/backups/:filename', authMiddleware, adminMiddleware, [
-  param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
+  param('filename').matches(/^[\w.-]+$/).withMessage('Invalid filename'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -347,7 +388,7 @@ router.get('/backups/:filename', authMiddleware, adminMiddleware, [
 });
 
 router.delete('/backups/:filename', authMiddleware, adminMiddleware, [
-  param('filename').matches(/^[\w\-\.]+$/).withMessage('Invalid filename'),
+  param('filename').matches(/^[\w.-]+$/).withMessage('Invalid filename'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -360,6 +401,7 @@ router.delete('/backups/:filename', authMiddleware, adminMiddleware, [
     const filePath = path.join(BACKUP_DIR, req.params.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
     fs.unlinkSync(filePath);
+    await logAudit(req.user.id, 'DELETE_BACKUP', null, { filename: req.params.filename }, req);
     res.json({ message: 'Backup deleted successfully' });
   } catch (error) {
     return handleError(error, res, { operation: 'deleteBackup' });
@@ -367,121 +409,61 @@ router.delete('/backups/:filename', authMiddleware, adminMiddleware, [
 });
 
 router.post('/restore/existing', authMiddleware, adminMiddleware, [
-  query('token').optional()
+  body('filename').matches(/^[\w.-]+$/).withMessage('Invalid filename'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ], async (req, res) => {
   try {
-
-    if (!req.body.filename) {
-      return res.status(400).json({ error: 'No backup filename provided' });
+    const backupDirResolved = path.resolve(BACKUP_DIR);
+    const backupFilePath = path.resolve(BACKUP_DIR, req.body.filename);
+    if (!backupFilePath.startsWith(backupDirResolved + path.sep)) {
+      return res.status(400).json({ error: 'Invalid filename' });
     }
-
-    const backupFilePath = path.join(BACKUP_DIR, req.body.filename);
     if (!fs.existsSync(backupFilePath)) return res.status(404).json({ error: 'Backup not found' });
 
-    const tempDir = path.join(os.tmpdir(), `restore-${Date.now()}`);
-    fs.mkdirSync(tempDir, { recursive: true });
+    const restored = await performRestore(backupFilePath);
 
-    await new Promise((resolve, reject) => {
-      exec(`tar -xzf "${backupFilePath}" -C "${tempDir}"`, (error, stdout, stderr) => {
-        if (error) return reject(new Error(`Extract failed: ${stderr}`));
-        resolve();
-      });
-    });
-
-    const dbDumpPath = path.join(tempDir, 'database.dump');
-    if (fs.existsSync(dbDumpPath)) {
-      const dbHost = process.env.DB_HOST || 'postgres';
-      const dbPort = process.env.DB_PORT || '5432';
-      const dbUser = process.env.DB_USER;
-      const dbName = process.env.DB_NAME;
-      await new Promise((resolve, reject) => {
-        const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_restore -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -c ${escapeShellArg(dbDumpPath)} 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
-        exec(cmd, (error, stdout, stderr) => {
-          if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
-          resolve();
-        });
-      });
-    }
-
-    const uploadsSrc = path.join(tempDir, 'uploads');
-    const uploadsDest = path.join(__dirname, '..', 'uploads');
-    if (fs.existsSync(uploadsSrc)) {
-      fs.readdirSync(uploadsSrc).forEach(file => {
-        fs.cpSync(path.join(uploadsSrc, file), path.join(uploadsDest, file), { recursive: true, force: true });
-      });
-    }
-
-    const envSrc = path.join(tempDir, '.env');
-    const envDest = path.join(__dirname, '..', '.env');
-    if (fs.existsSync(envSrc)) fs.copyFileSync(envSrc, envDest);
-
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    await logAudit(req.user.id, 'RESTORE_BACKUP', null, { filename: req.body.filename, source: 'existing', ...restored }, req);
 
     res.json({
       message: 'Restore completed. Please restart the stack to apply new configuration.',
-      warning: 'Database credentials from backup have been applied. This is intended for new/empty instances.'
+      warning: RESTORE_WARNING,
+      restored
     });
   } catch (error) {
     return handleError(error, res, { operation: 'restoreBackup' });
   }
 });
 
-router.post('/restore/upload', authMiddleware, adminMiddleware, upload.single('backup'), [
-  query('token').optional()
-], async (req, res) => {
+router.post('/restore/upload', authMiddleware, adminMiddleware, upload.single('backup'), async (req, res) => {
+  let uploadCleaned = false;
   try {
-
     if (!req.file) {
       return res.status(400).json({ error: 'No backup file uploaded' });
     }
 
-    const backupFilePath = req.file.path;
-    const tempDir = path.join(os.tmpdir(), `restore-${Date.now()}`);
-    fs.mkdirSync(tempDir, { recursive: true });
-
-    await new Promise((resolve, reject) => {
-      exec(`tar -xzf "${backupFilePath}" -C "${tempDir}"`, (error, stdout, stderr) => {
-        if (error) return reject(new Error(`Extract failed: ${stderr}`));
-        resolve();
-      });
-    });
-
-    const dbDumpPath = path.join(tempDir, 'database.dump');
-    if (fs.existsSync(dbDumpPath)) {
-      const dbHost = process.env.DB_HOST || 'postgres';
-      const dbPort = process.env.DB_PORT || '5432';
-      const dbUser = process.env.DB_USER;
-      const dbName = process.env.DB_NAME;
-      await new Promise((resolve, reject) => {
-        const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_restore -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -c ${escapeShellArg(dbDumpPath)} 2>&1 | grep -v "transaction_timeout" | grep -v "ignored on restore"`;
-        exec(cmd, (error, stdout, stderr) => {
-          if (error && stderr && !stderr.includes('ignored on restore')) return reject(new Error(`Database restore failed: ${stderr}`));
-          resolve();
-        });
-      });
-    }
-
-    const uploadsSrc = path.join(tempDir, 'uploads');
-    const uploadsDest = path.join(__dirname, '..', 'uploads');
-    if (fs.existsSync(uploadsSrc)) {
-      fs.readdirSync(uploadsSrc).forEach(file => {
-        fs.cpSync(path.join(uploadsSrc, file), path.join(uploadsDest, file), { recursive: true, force: true });
-      });
-    }
-
-    const envSrc = path.join(tempDir, '.env');
-    const envDest = path.join(__dirname, '..', '.env');
-    if (fs.existsSync(envSrc)) fs.copyFileSync(envSrc, envDest);
-
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    const restored = await performRestore(req.file.path);
     fs.unlinkSync(req.file.path);
+    uploadCleaned = true;
+
+    await logAudit(req.user.id, 'RESTORE_BACKUP', null, { filename: req.file.originalname, source: 'upload', ...restored }, req);
 
     res.json({
       message: 'Restore completed. Please restart the stack to apply new configuration.',
-      warning: 'Database credentials from backup have been applied. This is intended for new/empty instances.'
+      warning: RESTORE_WARNING,
+      restored
     });
   } catch (error) {
     return handleError(error, res, { operation: 'restoreBackup' });
+  } finally {
+    if (!uploadCleaned && req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
   }
 });
 

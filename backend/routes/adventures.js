@@ -700,78 +700,11 @@ router.get('/:id', authMiddleware, async (req, res) => {
       adventure.dataValues.isOwner = true;
     }
 
-    const pictures = adventure.Pictures || [];
-    const thumbnails = {};
-    const failedIds = [];
-    
-    if (pictures.length > 0) {
-      const owner = await User.findByPk(adventure.user_id);
-      
-      if (owner.immich_url && owner.immich_api_key) {
-        const assetIds = pictures.map(p => p.immich_asset_id).filter(Boolean);
-        
-        // Add timeout to prevent hanging
-        const fetchWithTimeout = async (url, options, timeout = 5000) => {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-          
-          try {
-            const response = await fetch(url, { ...options, signal: controller.signal });
-            clearTimeout(timeoutId);
-            return response;
-          } catch (error) {
-            clearTimeout(timeoutId);
-            throw error;
-          }
-        };
-        
-        await Promise.all(
-          assetIds.map(async (assetId) => {
-            try {
-              const response = await fetchWithTimeout(
-                `${owner.immich_url}/api/assets/${assetId}/thumbnail?size=preview`,
-                {
-                  headers: {
-                    'x-api-key': owner.immich_api_key
-                  }
-                },
-                5000
-              );
-              if (response.ok) {
-                const buffer = await response.arrayBuffer();
-                const base64 = Buffer.from(buffer).toString('base64');
-                const contentType = response.headers.get('content-type') || 'image/jpeg';
-                thumbnails[assetId] = `data:${contentType};base64,${base64}`;
-              } else {
-                failedIds.push(assetId);
-              }
-            } catch (e) {
-              failedIds.push(assetId);
-              logger.warn(`Failed to fetch preview for ${assetId}: ${e.message}`);
-            }
-          })
-        );
-        
-        await Promise.all(
-          pictures.map(async (pic) => {
-            if (pic.immich_asset_id && thumbnails[pic.immich_asset_id]) {
-              pic.thumbnail_url = thumbnails[pic.immich_asset_id];
-              await pic.save();
-            }
-          })
-        );
-      }
-    }
-
     const adventureData = adventure.toJSON();
     adventureData.Pictures = adventureData.Pictures.map(p => ({
       ...p,
-      thumbnail_base64: thumbnails[p.immich_asset_id] || null,
-      full_url: p.immich_asset_id ? `/api/immich/full/${p.immich_asset_id}` : null,
-      thumbnail_url: p.thumbnail_url || null
+      full_url: p.immich_asset_id ? `/api/immich/full/${p.immich_asset_id}` : null
     }));
-    adventureData.pictures_loading = failedIds.length > 0;
-    adventureData.pictures_failed_count = failedIds.length;
     adventureData.tags = (adventureData.tags || []).map(t => ({
       id: t.id,
       name: t.name,

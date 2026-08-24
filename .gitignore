@@ -11,9 +11,8 @@ dist/
 *.tar
 brouter/
 
-# Environment
-# Note: .env is tracked for development convenience
-!.env
+# Environment (never commit .env)
+.env
 .env.local
 .env.*.local
 
@@ -30,7 +29,6 @@ Thumbs.db
 # Uploads
 uploads/
 postgres_data/
-.env
 backups/*.tar.gz
 wanderer/
 wanderer/data/

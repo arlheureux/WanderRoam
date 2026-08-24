@@ -1,2 +1,4 @@
-export const VERSION = process.env.REACT_APP_VERSION?.replace('v', '') || '0.7.1';
+import { version } from '../package.json';
+
+export const VERSION = version;
 export const GIT_COMMIT = process.env.REACT_APP_GIT_COMMIT || 'unknown';

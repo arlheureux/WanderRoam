@@ -59,7 +59,7 @@ const LeafletMapView = ({ center, zoom, children, bounds, onMoveEnd, selectedTra
   );
 };
 
-const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd, mapboxPictures = [], mapboxWaypoints = [], hoveredPictureId, selectedTrack = null }) => {
+const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd, mapboxPictures = [], mapboxWaypoints = [], hoveredPictureId, selectedTrack = null, hoveredElevPoint }) => {
   const mapRef = useRef(null);
   const [viewState, setViewState] = React.useState({
     longitude: center[1],
@@ -338,6 +338,21 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
           </Marker>
         );
       })}
+
+      {hoveredElevPoint && (
+        <Marker
+          longitude={hoveredElevPoint.lng}
+          latitude={hoveredElevPoint.lat}
+        >
+          <div style={{
+            width: 24, height: 24,
+            background: '#10B981',
+            borderRadius: '50%',
+            border: '3px solid white',
+            boxShadow: '0 0 12px rgba(16,185,129,0.6)',
+          }} />
+        </Marker>
+      )}
     </Map>
   );
 };
@@ -355,6 +370,7 @@ export const MapView = ({
   mapboxWaypoints = [],
   hoveredPictureId = null,
   selectedTrack = null,
+  hoveredElevPoint,
 }) => {
   const containerStyle = style || { height: '100%', width: '100%' };
   
@@ -371,6 +387,7 @@ export const MapView = ({
         mapboxWaypoints={mapboxWaypoints}
         hoveredPictureId={hoveredPictureId}
         selectedTrack={selectedTrack}
+        hoveredElevPoint={hoveredElevPoint}
       >
         {children}
       </MapboxMapView>

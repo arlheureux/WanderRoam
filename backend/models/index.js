@@ -158,7 +158,15 @@ const Picture = sequelize.define('Picture', {
   },
   thumbnail_url: {
     type: DataTypes.TEXT,
-    allowNull: true
+    allowNull: true,
+    get() {
+      const raw = this.getDataValue('thumbnail_url');
+      if (raw && !raw.startsWith('data:')) {
+        return raw;
+      }
+      const assetId = this.getDataValue('immich_asset_id');
+      return assetId ? `/api/immich/thumbnail/${assetId}?size=preview` : null;
+    }
   }
 }, {
   indexes: [

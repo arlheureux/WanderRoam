@@ -298,7 +298,13 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
 
     const { assetId } = req.params;
     const size = req.query.size || 'thumbnail';
-    
+    const etag = `"${assetId}-${size}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.set('ETag', etag);
+      res.set('Cache-Control', 'private, max-age=31536000, immutable');
+      return res.status(304).end();
+    }
+
     const response = await fetch(
       `${user.immich_url}/api/assets/${assetId}/thumbnail?size=${size}`,
       {
@@ -313,6 +319,8 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
     }
 
     res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=31536000, immutable');
+    res.set('ETag', etag);
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {
@@ -329,7 +337,13 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
     }
 
     const { assetId } = req.params;
-    
+    const etag = `"${assetId}-full"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.set('ETag', etag);
+      res.set('Cache-Control', 'private, max-age=31536000, immutable');
+      return res.status(304).end();
+    }
+
     const response = await fetch(
       `${user.immich_url}/api/assets/${assetId}/original`,
       {
@@ -344,6 +358,8 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
     }
 
     res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=31536000, immutable');
+    res.set('ETag', etag);
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {

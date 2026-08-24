@@ -317,6 +317,7 @@ const AdventureView = () => {
                 mapboxPictures={pictures.filter(p => p.latitude && p.longitude)}
                 mapboxWaypoints={waypoints}
                 hoveredPictureId={hoveredPictureId}
+                hoveredElevPoint={hoveredElevPoint}
               >
               {gpxTracks.map(track => (
                 <Polyline
