@@ -1,6 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { User, Adventure } = require('../models');
+const { User, Adventure, Picture } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError, logger } = require('../middleware/errorHandler');
 const { validate } = require('../middleware/validation');
@@ -315,6 +315,19 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
     );
 
     if (!response.ok) {
+      const pic = await Picture.findOne({
+        where: { immich_asset_id: assetId },
+        attributes: ['thumbnail_url']
+      });
+      const raw = pic && pic.getDataValue('thumbnail_url');
+      if (raw && raw.startsWith('data:')) {
+        const match = raw.match(/^data:([^;]+);base64,([\s\S]*)$/);
+        res.set('Content-Type', match ? match[1] : 'image/jpeg');
+        res.set('Cache-Control', 'private, max-age=31536000, immutable');
+        res.set('ETag', etag);
+        return res.send(Buffer.from(match ? match[2] : raw, 'base64'));
+      }
+      logger.warn(`[immichProxy] asset ${assetId} unavailable upstream (${response.status}) and no embedded fallback`);
       return res.status(response.status).send('Failed to fetch thumbnail');
     }
 

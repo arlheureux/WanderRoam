@@ -318,8 +318,8 @@ router.post('/backup', authMiddleware, adminMiddleware, async (req, res) => {
     const dbName = process.env.DB_NAME;
     const dbDumpPath = path.join(tempDir, 'database.dump');
     await new Promise((resolve, reject) => {
-      const cmd = `PGPASSWORD=${escapeShellArg(process.env.DB_PASSWORD)} /usr/bin/pg_dump -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -F c -f ${escapeShellArg(dbDumpPath)}`;
-      exec(cmd, (error, stdout, stderr) => {
+      const cmd = `/usr/bin/pg_dump -h ${escapeShellArg(dbHost)} -p ${escapeShellArg(dbPort)} -U ${escapeShellArg(dbUser)} -d ${escapeShellArg(dbName)} -F c -f ${escapeShellArg(dbDumpPath)}`;
+      exec(cmd, { env: { ...process.env, PGPASSWORD: process.env.DB_PASSWORD } }, (error, stdout, stderr) => {
         if (error) return reject(new Error(`Database backup failed: ${stderr}`));
         resolve();
       });
