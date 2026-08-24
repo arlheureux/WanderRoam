@@ -43,6 +43,8 @@ const Dashboard = () => {
     activeTab,
     setActiveTab,
     allTracks,
+    loadAllTracks,
+    allTracksLoading,
     visibleAdventures,
     appVersion,
     fetchGitHubRelease,
@@ -74,6 +76,10 @@ const Dashboard = () => {
   useEffect(() => {
     fetchGitHubRelease();
   }, [fetchGitHubRelease]);
+
+  useEffect(() => {
+    if (activeTab === 'map') loadAllTracks();
+  }, [activeTab, loadAllTracks]);
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
@@ -291,8 +297,9 @@ const Dashboard = () => {
 
       {activeTab === 'map' && (
         <div className="container">
-          <DashboardMapView 
+          <DashboardMapView
             allTracks={allTracks}
+            allTracksLoading={allTracksLoading}
             visibleAdventures={visibleAdventures}
             mapProvider={'leaflet'}
             mapboxToken={null}

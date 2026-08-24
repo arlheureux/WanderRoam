@@ -6,6 +6,10 @@ const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = re
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError, logger } = require('../middleware/errorHandler');
+
+const coverUrlFor = p => p && p.immich_asset_id
+  ? `/api/immich/thumbnail/${p.immich_asset_id}?size=preview`
+  : null;
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const { parseGpxData, computeDistanceKm } = require('../utils/gpxParser');
@@ -191,7 +195,8 @@ router.get('/', authMiddleware, [
     if (allAdventureIds.length > 0) {
       const allPictures = await Picture.findAll({
         where: { adventure_id: allAdventureIds },
-        attributes: ['id', 'adventure_id', 'immich_asset_id', 'thumbnail_url'],
+        attributes: ['id', 'adventure_id', 'immich_asset_id',
+          [sequelize.literal('"Picture"."thumbnail_url" IS NOT NULL'), 'has_thumb']],
         order: [['id', 'ASC']]
       });
 
@@ -206,14 +211,14 @@ router.get('/', authMiddleware, [
       Object.keys(picByAdventure).forEach(advId => {
         pictureCounts[advId] = picByAdventure[advId].length;
         if (picByAdventure[advId].length > 0) {
-          firstPictures[advId] = { id: picByAdventure[advId][0].id, thumbnail_url: picByAdventure[advId][0].thumbnail_url };
+          firstPictures[advId] = picByAdventure[advId][0];
         }
       });
 
       allPictures.forEach(p => {
         const adventure = allAdventures.find(a => a.id === p.adventure_id);
         if (adventure && p.id === adventure.preview_picture_id) {
-          previewPictures[p.id] = { id: p.id, thumbnail_url: p.thumbnail_url };
+          previewPictures[p.id] = p;
         }
       });
     }
@@ -234,11 +239,11 @@ router.get('/', authMiddleware, [
         previewPic = firstPictures[adventure.id];
       }
       
-      // If still null, try to find ANY picture with thumbnail_url
+      // If still null, try to find ANY picture with a thumbnail
       if (!previewPic && picByAdventure[adventure.id] && picByAdventure[adventure.id].length > 0) {
-        const firstWithThumb = picByAdventure[adventure.id].find(p => p.thumbnail_url);
+        const firstWithThumb = picByAdventure[adventure.id].find(p => p.get('has_thumb'));
         if (firstWithThumb) {
-          previewPic = { id: firstWithThumb.id, thumbnail_url: firstWithThumb.thumbnail_url };
+          previewPic = firstWithThumb;
         }
       }
       const pictureCount = pictureCounts[adventure.id] || 0;
@@ -288,7 +293,7 @@ router.get('/', authMiddleware, [
         gpxByType,
         isOwner: adventure.user_id === req.user.id,
         preview_picture_id: adventure.preview_picture_id,
-        preview_picture: previewPic,
+        preview_picture: previewPic ? { id: previewPic.id, thumbnail_url: coverUrlFor(previewPic) } : null,
         tags: (adventure.tags || []).map(t => ({ id: t.id, name: t.name, color: t.color, category: t.type || 'Custom' })),
         createdAt: adventure.createdAt,
         updatedAt: adventure.updatedAt

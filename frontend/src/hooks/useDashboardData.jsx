@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import React from 'react';
 import api from '../services/api';
 import { VERSION, GIT_COMMIT } from '../version';
@@ -26,6 +26,8 @@ export function useDashboardData() {
   const [users, setUsers] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [allTracks, setAllTracks] = useState([]);
+  const [allTracksLoading, setAllTracksLoading] = useState(false);
+  const allTracksRequested = useRef(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
@@ -81,27 +83,17 @@ export function useDashboardData() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [advRes, sharedRes, seriesRes, tagsRes, gpxRes] = await Promise.all([
+      const [advRes, sharedRes, seriesRes, tagsRes] = await Promise.all([
         api.get('/adventures', { params: { page: pagination.page, limit: pagination.limit, tags: selectedTags.join(',') } }),
         api.get('/adventures', { params: { shared: true } }),
         api.get('/series', { params: { page: seriesPagination.page, limit: seriesPagination.limit } }),
-        api.get('/adventures/tags'),
-        api.get('/adventures/all-gpx', { params: { full: true } })
+        api.get('/adventures/tags')
       ]);
 
       setAdventures(advRes.data.adventures || []);
       setSharedAdventures(sharedRes.data.adventures || []);
       setSeriesList(seriesRes.data.series || []);
       setAllTags(tagsRes.data.tags || []);
-      const tracks = gpxRes.data.tracks || [];
-      setAllTracks(tracks);
-      setToggleState(prev => {
-        const next = { ...prev };
-        tracks.forEach(t => {
-          if (!(t.adventureId in next)) next[t.adventureId] = true;
-        });
-        return next;
-      });
       setPagination(prev => ({ ...prev, total: advRes.data.total || 0 }));
       setSeriesPagination(prev => ({ ...prev, total: seriesRes.data.total || 0 }));
       setError(null);
@@ -117,6 +109,29 @@ export function useDashboardData() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadAllTracks = useCallback(async () => {
+    if (allTracksRequested.current || allTracksLoading) return;
+    allTracksRequested.current = true;
+    setAllTracksLoading(true);
+    try {
+      const res = await api.get('/adventures/all-gpx', { params: { full: true } });
+      const tracks = res.data.tracks || [];
+      setAllTracks(tracks);
+      setToggleState(prev => {
+        const next = { ...prev };
+        tracks.forEach(t => {
+          if (!(t.adventureId in next)) next[t.adventureId] = true;
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to load tracks:', err);
+      allTracksRequested.current = false;
+    } finally {
+      setAllTracksLoading(false);
+    }
+  }, [allTracksLoading]);
 
   const loadUsers = async () => {
     try {
@@ -236,6 +251,8 @@ export function useDashboardData() {
     seriesPagination,
     setSeriesPagination,
     loadData,
+    loadAllTracks,
+    allTracksLoading,
     loadUsers,
     fetchGitHubRelease,
     appVersion,

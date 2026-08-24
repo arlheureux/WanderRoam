@@ -3,9 +3,10 @@ import { Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapView as BaseMapView } from '../../components/MapView';
 
-export default function DashboardMapView({ 
-  allTracks, 
-  visibleAdventures, 
+export default function DashboardMapView({
+  allTracks,
+  allTracksLoading,
+  visibleAdventures,
   mapProvider, 
   mapboxToken, 
   selectedMapTag, 
@@ -43,8 +44,8 @@ export default function DashboardMapView({
   if (allTracks.length === 0) {
     return (
       <div className="empty-state">
-        <h3>No tracks found</h3>
-        <p>Add GPX tracks to your adventures to see them here</p>
+        <h3>{allTracksLoading ? 'Loading tracks…' : 'No tracks found'}</h3>
+        <p>{allTracksLoading ? 'Fetching your GPX data' : 'Add GPX tracks to your adventures to see them here'}</p>
       </div>
     );
   }
