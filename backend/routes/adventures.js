@@ -191,7 +191,7 @@ router.get('/', authMiddleware, [
     if (allAdventureIds.length > 0) {
       const allPictures = await Picture.findAll({
         where: { adventure_id: allAdventureIds },
-        attributes: ['id', 'adventure_id', 'thumbnail_url'],
+        attributes: ['id', 'adventure_id', 'immich_asset_id', 'thumbnail_url'],
         order: [['id', 'ASC']]
       });
 

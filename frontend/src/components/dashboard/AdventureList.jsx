@@ -84,7 +84,7 @@ function AdventureCard({ item, navigate }) {
       style={{ cursor: 'pointer' }}
     >
       <div className="adventure-card-preview">
-        {item.data.preview_picture ? (
+        {item.data.preview_picture?.thumbnail_url ? (
           <img 
             src={item.data.preview_picture.thumbnail_url} 
             alt={item.data.name}
