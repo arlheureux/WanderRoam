@@ -35,6 +35,11 @@ export default function DashboardMapView({
     return null;
   };
 
+  const visibleTracks = useMemo(
+    () => allTracks.filter(t => t.data && t.data.length > 0 && visibleAdventures[t.adventureId]),
+    [allTracks, visibleAdventures]
+  );
+
   if (allTracks.length === 0) {
     return (
       <div className="empty-state">
@@ -144,9 +149,9 @@ export default function DashboardMapView({
           mapboxToken={mapboxToken}
           center={[46.2276, 2.2137]}
           zoom={5}
-          bounds={allTracks.filter(t => visibleAdventures[t.adventureId]).flatMap(t => t.data?.map(p => [p.lat, p.lng]) || [])}
+          bounds={visibleTracks.flatMap(t => t.data.map(p => [p.lat, p.lng]))}
         >
-          {allTracks.filter(t => visibleAdventures[t.adventureId]).map(track => (
+          {visibleTracks.map(track => (
             <Polyline
               key={track.id}
               positions={track.data.map(p => [p.lat, p.lng])}
@@ -176,7 +181,7 @@ export default function DashboardMapView({
       </div>
 
       <div style={{ marginTop: '16px', color: 'var(--text-light)', fontSize: '0.85rem' }}>
-        {allTracks.filter(t => visibleAdventures[t.adventureId]).length} tracks visible • Click on a track to see details
+        {visibleTracks.length} tracks visible • Click on a track to see details
       </div>
     </>
   );

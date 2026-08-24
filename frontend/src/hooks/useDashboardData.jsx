@@ -93,7 +93,15 @@ export function useDashboardData() {
       setSharedAdventures(sharedRes.data.adventures || []);
       setSeriesList(seriesRes.data.series || []);
       setAllTags(tagsRes.data.tags || []);
-      setAllTracks(gpxRes.data.tracks || []);
+      const tracks = gpxRes.data.tracks || [];
+      setAllTracks(tracks);
+      setToggleState(prev => {
+        const next = { ...prev };
+        tracks.forEach(t => {
+          if (!(t.adventureId in next)) next[t.adventureId] = true;
+        });
+        return next;
+      });
       setPagination(prev => ({ ...prev, total: advRes.data.total || 0 }));
       setSeriesPagination(prev => ({ ...prev, total: seriesRes.data.total || 0 }));
       setError(null);
@@ -162,11 +170,12 @@ export function useDashboardData() {
     }));
   };
 
-  const toggleAll = () => {
+  const toggleAll = (force) => {
     const allVisible = Object.values(toggleState).every(v => v);
+    const target = force !== undefined ? force : !allVisible;
     const newState = {};
-    adventures.forEach(a => {
-      newState[a.id] = !allVisible;
+    uniqueAdventures.forEach(a => {
+      newState[a.id] = target;
     });
     setToggleState(newState);
   };
@@ -174,8 +183,18 @@ export function useDashboardData() {
   const visibleAdventures = toggleState;
 
   const uniqueAdventures = useMemo(() => {
-    return [...new Set(adventures.map(a => a.id))];
-  }, [adventures]);
+    const seen = new Map();
+    allTracks.forEach(t => {
+      if (!seen.has(t.adventureId)) {
+        seen.set(t.adventureId, {
+          id: t.adventureId,
+          name: t.adventureName || 'Unnamed adventure',
+          color: t.color || '#FF6B6B'
+        });
+      }
+    });
+    return [...seen.values()];
+  }, [allTracks]);
 
   const allUniqueAdventures = uniqueAdventures;
 
