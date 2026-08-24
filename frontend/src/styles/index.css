@@ -461,6 +461,19 @@ body {
   flex: 1;
 }
 
+.adventure-map-column {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.adventure-map-column .elevation-profile-card {
+  margin-bottom: 0;
+}
+
+
 .adventure-map-card {
   flex: 3;
   background: var(--card);
@@ -1371,6 +1384,7 @@ body {
   }
   
   .adventure-map-card,
+  .adventure-map-column,
   .adventure-picture-section {
     flex: none !important;
     width: 100% !important;

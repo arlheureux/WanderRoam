@@ -282,12 +282,10 @@ const AdventureView = () => {
           )}
         </div>
 
-        {/* Row 2.5: Elevation Profile */}
-        <ElevationProfile tracks={gpxTracks} onHover={setHoveredElevPoint} />
-
-        {/* Row 3: Map (60%) + Pictures (40%) */}
+        {/* Row 3: Map + Elevation (60%) | Pictures (40%) */}
         <div className="adventure-content-row">
-          <div className="adventure-map-card">
+          <div className="adventure-map-column">
+            <div className="adventure-map-card">
             <div className="adventure-card-header">
               <h3>Map</h3>
             </div>
@@ -379,6 +377,9 @@ const AdventureView = () => {
               )}
               </MapView>
               </div>
+            </div>
+
+            <ElevationProfile tracks={gpxTracks} onHover={setHoveredElevPoint} />
           </div>
 
           <div className="adventure-picture-section">
