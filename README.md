@@ -69,7 +69,7 @@
 | Branch | Description |
 |--------|-------------|
 | `master` | Stable production version (images built on release tags) |
-| `dev` | Development version (local testing with docker-compose.dev.yml) |
+| `dev` | Development version (`:dev` images auto-published on every push) |
 
 ### Stable Version (recommended)
 ```bash
@@ -80,6 +80,18 @@ wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/master/.env
 # Start services (pulls :stable images)
 docker compose up -d
 ```
+
+### Dev Version (prebuilt dev images)
+```bash
+# Fetch the docker-compose file and environment template
+wget -O docker-compose.dev-images.yml https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/docker-compose.dev-images.yml
+wget -O .env https://raw.githubusercontent.com/arlheureux/WanderRoam/dev/.env.example
+
+# Start services (pulls :dev images)
+docker compose -f docker-compose.dev-images.yml up -d
+```
+
+Dev images are rebuilt automatically by CI on every push to the `dev` branch. Note: BRouter always uses `:stable` (no `:dev` tag).
 
 ### Local Development (testing new features)
 ```bash
@@ -97,6 +109,7 @@ docker compose -f docker-compose.dev.yml up -d
 Docker Hub images:
 - **Stable**: `arlheureux/wanderroam-{service}:stable`
 - **Release tags**: `arlheureux/wanderroam-{service}:v0.7.x` (created on GitHub releases)
+- **Dev**: `arlheureux/wanderroam-{backend,frontend,admin}:dev` (built from the `dev` branch)
 
 Services (production):
 - Main App: http://localhost:3000
@@ -180,6 +193,7 @@ docker-app/
 ├── backend/           # Express API (port 5000)
 ├── admin/             # Admin panel (port 4000)
 ├── docker-compose.yml       # Stable version
+├── docker-compose.dev-images.yml  # Prebuilt dev images from Docker Hub
 └── docker-compose.dev.yml  # Development version
 ```
 

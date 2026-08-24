@@ -1,0 +1,113 @@
+# docker-compose.dev-images.yml - Prebuilt dev images from Docker Hub
+# Run: docker compose -f docker-compose.dev-images.yml up -d
+# Images auto-published by CI on every push to the dev branch.
+# NOTE: brouter has no :dev tag and stays on :stable.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: wanderroam-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wanderroam-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: always
+
+  backend:
+    image: arlheureux/wanderroam-backend:dev
+    container_name: wanderroam-backend
+    env_file:
+      - .env
+    environment:
+      - TAG=dev
+      - BROUTER_URL=http://wanderroam-brouter:17777/brouter
+    volumes:
+      - upload_data:/app/uploads
+      - ./backups:/app/backups
+    networks:
+      - wanderroam-internal
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      brouter:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    image: arlheureux/wanderroam-frontend:dev
+    container_name: wanderroam-frontend
+    networks:
+      - wanderroam-internal
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  admin:
+    image: arlheureux/wanderroam-admin:dev
+    container_name: wanderroam-admin
+    networks:
+      - wanderroam-internal
+    ports:
+      - "4000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  brouter:
+    image: arlheureux/wanderroam-brouter:stable
+    container_name: wanderroam-brouter
+    networks:
+      - wanderroam-internal
+    ports:
+      - "17777:17777"
+    environment:
+      - COUNTRIES=france,denmark
+    volumes:
+      - brouter_data:/segments4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:17777/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: on-failure
+
+volumes:
+  postgres_data:
+  upload_data:
+  brouter_data:
+
+networks:
+  wanderroam-internal:
+    name: wanderroam-internal
