@@ -6,6 +6,7 @@ import CreateAdventureModal from '../components/dashboard/CreateAdventureModal';
 import CreateSeriesModal from '../components/dashboard/CreateSeriesModal';
 import SeriesList from '../components/dashboard/SeriesList';
 import DashboardMapView from '../components/dashboard/MapView';
+import PhotoHeatmap from '../components/dashboard/PhotoHeatmap';
 import VersionBanner from '../components/dashboard/VersionBanner';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 
@@ -45,6 +46,9 @@ const Dashboard = () => {
     allTracks,
     loadAllTracks,
     allTracksLoading,
+    photoPoints,
+    loadPhotoGeo,
+    photoPointsLoading,
     visibleAdventures,
     appVersion,
     fetchGitHubRelease,
@@ -79,7 +83,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'map') loadAllTracks();
-  }, [activeTab, loadAllTracks]);
+    if (activeTab === 'photos') loadPhotoGeo();
+  }, [activeTab, loadAllTracks, loadPhotoGeo]);
 
   if (loading && activeTab === 'adventures') {
     return <div className="loading-screen">Loading adventures...</div>;
@@ -127,6 +132,12 @@ const Dashboard = () => {
              className={`tab-btn ${activeTab === 'series' ? 'active' : ''}`}
            >
              📚 Series
+           </button>
+           <button
+             onClick={() => setActiveTab('photos')}
+             className={`tab-btn ${activeTab === 'photos' ? 'active' : ''}`}
+           >
+             📷 Photos
            </button>
            <button
              onClick={() => setActiveTab('map')}
@@ -291,6 +302,15 @@ const Dashboard = () => {
             loadingSeries={loadingSeries}
             onCreateNew={() => setShowSeriesModal(true)}
             navigate={navigate}
+          />
+        </div>
+      )}
+
+      {activeTab === 'photos' && (
+        <div className="container">
+          <PhotoHeatmap
+            points={photoPoints}
+            loading={photoPointsLoading}
           />
         </div>
       )}

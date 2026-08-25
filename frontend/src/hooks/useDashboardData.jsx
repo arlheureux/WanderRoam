@@ -28,6 +28,9 @@ export function useDashboardData() {
   const [allTracks, setAllTracks] = useState([]);
   const [allTracksLoading, setAllTracksLoading] = useState(false);
   const allTracksRequested = useRef(false);
+  const [photoPoints, setPhotoPoints] = useState(null);
+  const [photoPointsLoading, setPhotoPointsLoading] = useState(false);
+  const photoGeoRequested = useRef(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
@@ -132,6 +135,21 @@ export function useDashboardData() {
       setAllTracksLoading(false);
     }
   }, [allTracksLoading]);
+
+  const loadPhotoGeo = useCallback(async () => {
+    if (photoGeoRequested.current || photoPointsLoading) return;
+    photoGeoRequested.current = true;
+    setPhotoPointsLoading(true);
+    try {
+      const res = await api.get('/adventures/pictures-geo');
+      setPhotoPoints(res.data.points || []);
+    } catch (err) {
+      console.error('Failed to load photo geo data:', err);
+      photoGeoRequested.current = false;
+    } finally {
+      setPhotoPointsLoading(false);
+    }
+  }, [photoPointsLoading]);
 
   const loadUsers = async () => {
     try {
@@ -253,6 +271,9 @@ export function useDashboardData() {
     loadData,
     loadAllTracks,
     allTracksLoading,
+    photoPoints,
+    loadPhotoGeo,
+    photoPointsLoading,
     loadUsers,
     fetchGitHubRelease,
     appVersion,

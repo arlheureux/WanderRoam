@@ -6,10 +6,9 @@ const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = re
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError, logger } = require('../middleware/errorHandler');
-
-const coverUrlFor = p => p && p.immich_asset_id
-  ? `/api/immich/thumbnail/${p.immich_asset_id}?size=preview`
-  : null;
+const { coverUrlFor } = require('../utils/coverUrl');
+const { getWeather } = require('../services/weatherService');
+const { aggregateTracks, addInto, emptyTotals, movingTimeSeconds } = require('../utils/statsAggregator');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const { parseGpxData, computeDistanceKm } = require('../utils/gpxParser');
@@ -404,12 +403,13 @@ router.get('/stats', authMiddleware, async (req, res) => {
       });
     }
 
-    const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance] = await Promise.all([
+    const [totalAdventures, totalPhotos, totalWaypoints, totalTracks, totalDistance, totalDuration] = await Promise.all([
       Adventure.count({ where: { id: { [Op.in]: filteredIds } } }),
       Picture.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
       Waypoint.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
       GpxTrack.count({ where: { adventure_id: { [Op.in]: filteredIds } } }),
-      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: filteredIds } } })
+      GpxTrack.sum('distance', { where: { adventure_id: { [Op.in]: filteredIds } } }),
+      GpxTrack.sum('duration_s', { where: { adventure_id: { [Op.in]: filteredIds } } })
     ]);
 
     const tracksByType = await GpxTrack.findAll({
@@ -455,7 +455,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
         photos: totalPhotos || 0,
         waypoints: totalWaypoints || 0,
         tracks: totalTracks || 0,
-        distance: totalDistance || 0
+        distance: totalDistance || 0,
+        movingHours: Math.round(((totalDuration || 0) / 3600) * 10) / 10
       },
       byYear: yearStats,
       byTransport: transportStats,
@@ -463,6 +464,143 @@ router.get('/stats', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     return handleError(error, res, { operation: 'getStats' });
+  }
+});
+
+const enhancedStatsCache = new Map();
+const ENHANCED_CACHE_TTL = 10 * 60 * 1000;
+const ENHANCED_CACHE_MAX = 50;
+
+router.get('/stats/enhanced', authMiddleware, async (req, res) => {
+  try {
+    const { view = 'all', startDate, endDate } = req.query;
+    const cacheKey = `${req.user.id}|${view}|${startDate || ''}|${endDate || ''}`;
+    const cached = enhancedStatsCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < ENHANCED_CACHE_TTL) {
+      return res.json(cached.payload);
+    }
+
+    let adventureIds;
+    if (view === 'owned') {
+      const owned = await Adventure.findAll({ where: { user_id: req.user.id }, attributes: ['id'] });
+      adventureIds = owned.map(a => a.id);
+    } else if (view === 'shared') {
+      const shared = await AdventureShare.findAll({ where: { UserId: req.user.id }, attributes: ['AdventureId'] });
+      adventureIds = shared.map(s => s.AdventureId);
+    } else {
+      const owned = await Adventure.findAll({ where: { user_id: req.user.id }, attributes: ['id'] });
+      const shared = await AdventureShare.findAll({ where: { UserId: req.user.id }, attributes: ['AdventureId'] });
+      adventureIds = [...owned.map(a => a.id), ...shared.map(s => s.AdventureId)];
+    }
+    if (adventureIds.length === 0) {
+      return res.json({ totals: { distanceKm: 0, gainM: 0, lossM: 0, seconds: 0 }, byMonth: [], byType: [], byAdventure: [], records: null });
+    }
+
+    const adventureWhere = { id: { [Op.in]: adventureIds } };
+    if (startDate || endDate) {
+      adventureWhere.adventure_date = {};
+      if (startDate) adventureWhere.adventure_date[Op.gte] = startDate;
+      if (endDate) adventureWhere.adventure_date[Op.lte] = endDate;
+    }
+    const adventures = await Adventure.findAll({
+      where: adventureWhere,
+      attributes: ['id', 'name', 'adventure_date']
+    });
+    if (adventures.length === 0) {
+      return res.json({ totals: { distanceKm: 0, gainM: 0, lossM: 0, seconds: 0 }, byMonth: [], byType: [], byAdventure: [], records: null });
+    }
+    const advIds = adventures.map(a => a.id);
+    const advById = new Map(adventures.map(a => [a.id, a]));
+
+    const tracks = await GpxTrack.findAll({
+      where: { adventure_id: { [Op.in]: advIds } },
+      attributes: ['adventure_id', 'name', 'type', 'distance', 'data']
+    });
+
+    const totals = emptyTotals();
+    const typeMap = new Map();
+    const monthMap = new Map();
+    const byAdventure = [];
+    let longestTrack = null;
+    let biggestGain = null;
+    let longestMovingDay = null;
+
+    for (const adv of adventures) {
+      const advTotals = emptyTotals();
+      for (const t of tracks) {
+        if (t.adventure_id !== adv.id) continue;
+        const tAgg = aggregateTracks([t]);
+        addInto(advTotals, tAgg);
+        const typeEntry = typeMap.get(t.type) || { type: t.type, distanceKm: 0, seconds: 0 };
+        typeEntry.distanceKm += tAgg.distanceKm;
+        typeEntry.seconds += tAgg.seconds;
+        typeMap.set(t.type, typeEntry);
+        if (!longestTrack || tAgg.distanceKm > longestTrack.distanceKm) {
+          longestTrack = { name: t.name, type: t.type, distanceKm: Math.round(tAgg.distanceKm * 10) / 10, when: adv.adventure_date };
+        }
+      }
+      addInto(totals, advTotals);
+      const rounded = {
+        id: adv.id,
+        name: adv.name,
+        date: adv.adventure_date,
+        distanceKm: Math.round(advTotals.distanceKm * 10) / 10,
+        gainM: Math.round(advTotals.gainM),
+        hours: Math.round((advTotals.seconds / 3600) * 10) / 10
+      };
+      byAdventure.push(rounded);
+      if (rounded.gainM > (biggestGain?.gainM || 0)) biggestGain = rounded;
+      if (rounded.hours > (longestMovingDay?.hours || 0)) longestMovingDay = rounded;
+      if (adv.adventure_date) {
+        const ym = String(adv.adventure_date).slice(0, 7);
+        const mEntry = monthMap.get(ym) || { ym, distanceKm: 0, gainM: 0, seconds: 0 };
+        mEntry.distanceKm += advTotals.distanceKm;
+        mEntry.gainM += advTotals.gainM;
+        mEntry.seconds += advTotals.seconds;
+        monthMap.set(ym, mEntry);
+      }
+    }
+
+    const photoCounts = await Picture.findAll({
+      where: { adventure_id: { [Op.in]: advIds } },
+      attributes: ['adventure_id', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['adventure_id'],
+      order: [[sequelize.literal('count'), 'DESC']]
+    });
+    const topPhotos = photoCounts[0];
+    const mostPhotos = topPhotos
+      ? { name: advById.get(topPhotos.adventure_id)?.name, count: parseInt(topPhotos.get('count')) }
+      : null;
+
+    const payload = {
+      totals: {
+        distanceKm: Math.round(totals.distanceKm),
+        gainM: Math.round(totals.gainM),
+        lossM: Math.round(totals.lossM),
+        hours: Math.round((totals.seconds / 3600) * 10) / 10
+      },
+      byMonth: [...monthMap.values()]
+        .map(m => ({ ym: m.ym, distanceKm: Math.round(m.distanceKm), gainM: Math.round(m.gainM), hours: Math.round((m.seconds / 3600) * 10) / 10 }))
+        .sort((a, b) => a.ym.localeCompare(b.ym)),
+      byType: [...typeMap.values()]
+        .map(t => ({ ...t, distanceKm: Math.round(t.distanceKm), hours: Math.round((t.seconds / 3600) * 10) / 10 }))
+        .sort((a, b) => b.distanceKm - a.distanceKm),
+      byAdventure: byAdventure.sort((a, b) => String(a.date).localeCompare(String(b.date))),
+      records: {
+        longestTrack,
+        biggestGain: biggestGain ? { name: biggestGain.name, gainM: biggestGain.gainM, date: biggestGain.date } : null,
+        longestMovingDay: longestMovingDay ? { name: longestMovingDay.name, hours: longestMovingDay.hours, date: longestMovingDay.date } : null,
+        mostPhotos
+      }
+    };
+
+    while (enhancedStatsCache.size >= ENHANCED_CACHE_MAX) {
+      enhancedStatsCache.delete(enhancedStatsCache.keys().next().value);
+    }
+    enhancedStatsCache.set(cacheKey, { at: Date.now(), payload });
+    res.json(payload);
+  } catch (error) {
+    return handleError(error, res, { operation: 'getEnhancedStats' });
   }
 });
 
@@ -622,6 +760,56 @@ router.delete('/tags/:id', authMiddleware, [
     res.json({ message: 'Tag deleted successfully' });
   } catch (error) {
     return handleError(error, res, { operation: 'deleteTag' });
+  }
+});
+
+router.get('/pictures-geo', authMiddleware, async (req, res) => {
+  try {
+    const owned = await Adventure.findAll({ where: { user_id: req.user.id }, attributes: ['id'] });
+    const shared = await AdventureShare.findAll({ where: { UserId: req.user.id }, attributes: ['AdventureId'] });
+    const ids = [...new Set([...owned.map(a => a.id), ...shared.map(s => s.AdventureId)])];
+    if (ids.length === 0) {
+      return res.json({ points: [] });
+    }
+    const pics = await Picture.findAll({
+      where: {
+        adventure_id: { [Op.in]: ids },
+        latitude: { [Op.not]: null },
+        longitude: { [Op.not]: null }
+      },
+      attributes: ['latitude', 'longitude']
+    });
+    res.json({
+      points: pics.map(p => ({ lat: parseFloat(p.latitude), lng: parseFloat(p.longitude) }))
+    });
+  } catch (error) {
+    return handleError(error, res, { operation: 'getPicturesGeo' });
+  }
+});
+
+router.get('/:id/weather', authMiddleware, async (req, res) => {
+  try {
+    const adventure = await Adventure.findByPk(req.params.id, {
+      attributes: ['user_id', 'center_lat', 'center_lng', 'adventure_date']
+    });
+    if (!adventure) {
+      return res.status(404).json({ error: 'Adventure not found' });
+    }
+    if (adventure.user_id !== req.user.id) {
+      const share = await AdventureShare.findOne({ where: { AdventureId: adventure.id, UserId: req.user.id } });
+      if (!share) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+    const lat = adventure.center_lat != null ? parseFloat(adventure.center_lat) : null;
+    const lng = adventure.center_lng != null ? parseFloat(adventure.center_lng) : null;
+    const date = adventure.adventure_date
+      ? new Date(adventure.adventure_date).toISOString().slice(0, 10)
+      : null;
+    const weather = await getWeather(lat, lng, date);
+    res.json({ weather });
+  } catch (error) {
+    return handleError(error, res, { operation: 'getAdventureWeather' });
   }
 });
 
@@ -858,6 +1046,7 @@ router.post('/:id/gpx', upload.single('file'), handleMulterError, authMiddleware
       file_path: gpxFile.path,
       data: gpxData,
       distance: computeDistanceKm(gpxData),
+      duration_s: movingTimeSeconds(gpxData || []),
       adventure_id: adventure.id
     });
 
@@ -894,6 +1083,7 @@ router.post('/gpx/from-points', authMiddleware, [
       color: trackColor,
       data: data || [],
       distance: computeDistanceKm(data || []),
+      duration_s: movingTimeSeconds(data || []),
       adventure_id: adventure.id
     });
 
@@ -943,6 +1133,7 @@ router.post('/:id/gpx-base64', authMiddleware, [
       color,
       data: gpxData,
       distance: computeDistanceKm(gpxData),
+      duration_s: movingTimeSeconds(gpxData || []),
       adventure_id: adventure.id
     });
 

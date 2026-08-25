@@ -4,6 +4,8 @@ import {
   useActiveTooltipDataPoints
 } from 'recharts';
 
+const MAX_PHOTO_SNAP_M = 400;
+
 const TYPE_COLORS = {
   walking: '#DC2626',
   hiking: '#EA580C',
@@ -19,7 +21,7 @@ const TYPE_COLORS = {
 
 const ELEVATION_TYPES = ['car', 'walking', 'hiking', 'cycling'];
 
-const HoveredPointTracker = ({ onHover }) => {
+const HoveredPointTracker = ({ onHover, onRowIndex }) => {
   const activePoints = useActiveTooltipDataPoints();
 
   useEffect(() => {
@@ -27,16 +29,18 @@ const HoveredPointTracker = ({ onHover }) => {
       const point = activePoints.find(p => p && p._point);
       if (point) {
         onHover({ lat: point._point.lat, lng: point._point.lng });
+        onRowIndex(point._point.idx ?? null);
         return;
       }
     }
     onHover(null);
-  }, [activePoints, onHover]);
+    onRowIndex(null);
+  }, [activePoints, onHover, onRowIndex]);
 
   return null;
 };
 
-const ElevationProfile = ({ tracks, onHover }) => {
+const ElevationProfile = ({ tracks, photos, onPhotoClick, onHover }) => {
   const [activeIndex, setActiveIndex] = useState(null);
 
   const filteredTracks = useMemo(() => {
@@ -44,9 +48,10 @@ const ElevationProfile = ({ tracks, onHover }) => {
     return tracks.filter(t => ELEVATION_TYPES.includes(t.type));
   }, [tracks]);
 
-  const { chartData, trackMeta, minEle, maxEle, totalGain, totalLoss, maxDist } = useMemo(() => {
+  const { chartData, trackMeta, minEle, maxEle, totalGain, totalLoss, maxDist, photoIdxMap } = useMemo(() => {
+    const noPhotos = new Map();
     if (!filteredTracks || filteredTracks.length === 0) {
-      return { chartData: [], trackMeta: [], minEle: 0, maxEle: 0, totalGain: 0, totalLoss: 0, maxDist: 0 };
+      return { chartData: [], trackMeta: [], minEle: 0, maxEle: 0, totalGain: 0, totalLoss: 0, maxDist: 0, photoIdxMap: noPhotos };
     }
 
     const chartRows = [];
@@ -74,7 +79,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
 
         const row = {
           distance: +(cumulativeDist / 1000).toFixed(3),
-          _point: { lat: p.lat, lng: p.lng, ele: p.ele },
+          _point: { lat: p.lat, lng: p.lng, ele: p.ele, idx: chartRows.length },
         };
         row[key] = Math.round(p.ele);
         allElevations.push(row[key]);
@@ -83,7 +88,38 @@ const ElevationProfile = ({ tracks, onHover }) => {
     });
 
     if (chartRows.length === 0) {
-      return { chartData: [], trackMeta: [], minEle: 0, maxEle: 0, totalGain: 0, totalLoss: 0, maxDist: 0 };
+      return { chartData: [], trackMeta: [], minEle: 0, maxEle: 0, totalGain: 0, totalLoss: 0, maxDist: 0, photoIdxMap: noPhotos };
+    }
+
+    const byRow = new Map();
+    if (photos && photos.length > 0) {
+      photos.forEach(ph => {
+        const lat = parseFloat(ph.latitude);
+        const lng = parseFloat(ph.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let i = 0; i < chartRows.length; i++) {
+          const pt = chartRows[i]._point;
+          if (!pt) continue;
+          const d = distanceTo({ lat, lng }, pt);
+          if (d < bestDist) {
+            bestDist = d;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx >= 0 && bestDist <= MAX_PHOTO_SNAP_M) {
+          if (!byRow.has(bestIdx)) byRow.set(bestIdx, []);
+          byRow.get(bestIdx).push({
+            id: ph.id,
+            thumbnail_url: ph.thumbnail_url,
+            filename: ph.filename
+          });
+        }
+      });
+      byRow.forEach((list, idx) => {
+        chartRows[idx]._photos = list;
+      });
     }
 
     let gain = 0;
@@ -107,20 +143,39 @@ const ElevationProfile = ({ tracks, onHover }) => {
       maxEle: Math.max(...allElevations),
       totalGain: Math.round(gain),
       totalLoss: Math.round(loss),
-      maxDist: chartRows[chartRows.length - 1].distance
+      maxDist: chartRows[chartRows.length - 1].distance,
+      photoIdxMap: byRow
     };
-  }, [filteredTracks]);
+  }, [filteredTracks, photos]);
 
-  const handleMouseMove = useCallback((state) => {
-    if (state?.activeTooltipIndex != null) {
-      setActiveIndex(state.activeTooltipIndex);
-    } else {
-      setActiveIndex(null);
-    }
-  }, []);
+  const handleChartClick = useCallback(() => {
+    if (!onPhotoClick || activeIndex == null) return;
+    const list = photoIdxMap.get(activeIndex);
+    if (list && list.length > 0) onPhotoClick(list[0]);
+  }, [onPhotoClick, activeIndex, photoIdxMap]);
 
-  const handleMouseLeave = useCallback(() => {
-    setActiveIndex(null);
+  const handleDotClick = useCallback((list) => {
+    if (onPhotoClick && list && list.length > 0) onPhotoClick(list[0]);
+  }, [onPhotoClick]);
+
+  const photoTotal = useMemo(
+    () => [...photoIdxMap.values()].reduce((n, list) => n + list.length, 0),
+    [photoIdxMap]
+  );
+
+  const renderPhotoDot = useCallback((m) => (dotProps) => {
+    const { cx, cy, payload } = dotProps;
+    if (cx == null || cy == null || !payload || payload[m.key] == null || !payload._photos) return null;
+    return (
+      <g onClick={() => handleDotClick(payload._photos)} style={{ cursor: onPhotoClick ? 'pointer' : 'default' }}>
+        <circle cx={cx} cy={cy} r={6} fill="#7C3AED" stroke="#fff" strokeWidth={1.5} />
+        <text x={cx} y={cy + 2.5} textAnchor="middle" fontSize={7}>📷</text>
+      </g>
+    );
+  }, [handleDotClick, onPhotoClick]);
+
+  const handleRowIndex = useCallback((idx) => {
+    setActiveIndex(idx);
   }, []);
 
   if (chartData.length === 0) return null;
@@ -161,8 +216,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
           <AreaChart
             data={chartData}
             margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
+            onClick={handleChartClick}
           >
             <defs>
               {trackMeta.map((m, i) => (
@@ -184,10 +238,14 @@ const ElevationProfile = ({ tracks, onHover }) => {
               tickFormatter={(v) => `${v}m`}
               domain={['dataMin - 10', 'dataMax + 10']}
             />
-            <HoveredPointTracker onHover={onHover} />
+            <HoveredPointTracker onHover={onHover} onRowIndex={handleRowIndex} />
             <Tooltip
               formatter={(value, name, props) => {
+                const photoList = props?.payload?._photos;
                 const track = trackMeta.find(m => m.key === name);
+                if (photoList && track) {
+                  return [`${formatTooltipEle(value)} · 📷 ${photoList.length}`, track.name];
+                }
                 if (!value && !track) return null;
                 return [formatTooltipEle(value), track ? track.name : 'Elevation'];
               }}
@@ -208,7 +266,7 @@ const ElevationProfile = ({ tracks, onHover }) => {
                 stroke={m.color}
                 strokeWidth={2}
                 fill={`url(#elevGrad-${i})`}
-                dot={false}
+                dot={renderPhotoDot(m)}
                 activeDot={activeIndex !== null ? { r: 4, fill: m.color, stroke: '#fff', strokeWidth: 2 } : false}
                 connectNulls={false}
               />
@@ -223,13 +281,18 @@ const ElevationProfile = ({ tracks, onHover }) => {
             {m.name}
           </span>
         ))}
+        {photoTotal > 0 && (
+          <span className="elevation-legend-item">
+            <span className="elevation-legend-dot" style={{ backgroundColor: '#7C3AED' }} />
+            📷 Photos ({photoTotal})
+          </span>
+        )}
       </div>
     </div>
   );
 };
 
-function distanceTo(a, b) {
-  const dlat = (b.lat - a.lat) * Math.PI / 180;
+function distanceTo(a, b) {  const dlat = (b.lat - a.lat) * Math.PI / 180;
   const dlng = (b.lng - a.lng) * Math.PI / 180;
   const c = 2 * Math.asin(Math.sqrt(
     Math.sin(dlat / 2) ** 2 +

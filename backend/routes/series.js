@@ -1,8 +1,10 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError } = require('../middleware/errorHandler');
+const { aggregateTracks, addInto, emptyTotals } = require('../utils/statsAggregator');
+const { coverUrlFor } = require('../utils/coverUrl');
 const { Series, SeriesAdventure, Adventure, GpxTrack, Picture, Waypoint, User, Tag } = require('../models');
 
 const router = express.Router();
@@ -13,58 +15,61 @@ router.get('/', async (req, res) => {
   try {
     const series = await Series.findAll({
       where: { user_id: req.user.id },
-      include: [{
-        model: Adventure,
-        as: 'adventures',
-        through: { attributes: ['order'] },
-        attributes: ['id']
-      }],
       order: [['createdAt', 'DESC']]
     });
+    if (series.length === 0) {
+      return res.json({ series: [], total: 0 });
+    }
+    const seriesIds = series.map(s => s.id);
 
-    const seriesWithStats = await Promise.all(series.map(async (s) => {
-      const seriesAdventures = await SeriesAdventure.findAll({
-        where: { SeriesId: s.id },
+    const [allJoins, allAdventureRows, trackSums, pictureCounts] = await Promise.all([
+      SeriesAdventure.findAll({
+        where: { SeriesId: { [Op.in]: seriesIds } },
+        attributes: ['SeriesId', 'AdventureId', 'order'],
         order: [['order', 'ASC']]
-      });
+      }),
+      Adventure.findAll({ attributes: ['id', 'adventure_date'] }),
+      GpxTrack.findAll({
+        where: {},
+        attributes: ['adventure_id',
+          [Sequelize.fn('SUM', Sequelize.col('distance')), 'total'],
+          [Sequelize.fn('SUM', Sequelize.col('duration_s')), 'totalDuration']],
+        group: ['adventure_id']
+      }),
+      Picture.findAll({
+        attributes: ['adventure_id', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+        group: ['adventure_id']
+      })
+    ]);
 
-      const adventureIds = seriesAdventures.map(sa => sa.AdventureId);
-      const adventures = await Adventure.findAll({
-        where: { id: { [Op.in]: adventureIds } },
-        attributes: ['id', 'adventure_date']
-      });
+    const joinsBySeries = {};
+    allJoins.forEach(j => {
+      (joinsBySeries[j.SeriesId] = joinsBySeries[j.SeriesId] || []).push(j);
+    });
+    const dateById = new Map(allAdventureRows.map(a => [a.id, a.adventure_date]));
+    const distById = new Map(trackSums.map(t => [t.adventure_id, parseFloat(t.get('total')) || 0]));
+    const durById = new Map(trackSums.map(t => [t.adventure_id, parseInt(t.get('totalDuration')) || 0]));
+    const photoCountById = new Map(pictureCounts.map(p => [p.adventure_id, parseInt(p.get('count')) || 0]));
 
-      const adventuresWithOrder = seriesAdventures.map(sa => ({
-        ...adventures.find(a => a.id === sa.AdventureId)?.toJSON(),
-        order: sa.order
-      })).filter(a => a.id);
+    const seriesWithStats = series.map(s => {
+      const rows = joinsBySeries[s.id] || [];
+      const adventureIds = rows.map(r => r.AdventureId);
+      const adventuresWithOrder = rows
+        .filter(r => dateById.has(r.AdventureId))
+        .map(r => ({ id: r.AdventureId, adventure_date: dateById.get(r.AdventureId), order: r.order }));
 
-      let totalDistance = 0;
-      if (adventureIds.length > 0) {
-        totalDistance = (await GpxTrack.sum('distance', {
-          where: { adventure_id: { [Op.in]: adventureIds } }
-        })) || 0;
-      }
-
-      let totalPhotos = 0;
       let startDate = null;
       let endDate = null;
-      
-      if (adventuresWithOrder.length > 0) {
-        for (const adv of adventuresWithOrder) {
-          const pictures = await Picture.count({ where: { adventure_id: adv.id } });
-          totalPhotos += pictures;
-
-          if (adv.adventure_date) {
-            if (!startDate || new Date(adv.adventure_date) < new Date(startDate)) {
-              startDate = adv.adventure_date;
-            }
-            if (!endDate || new Date(adv.adventure_date) > new Date(endDate)) {
-              endDate = adv.adventure_date;
-            }
-          }
+      adventuresWithOrder.forEach(adv => {
+        if (adv.adventure_date) {
+          if (!startDate || new Date(adv.adventure_date) < new Date(startDate)) startDate = adv.adventure_date;
+          if (!endDate || new Date(adv.adventure_date) > new Date(endDate)) endDate = adv.adventure_date;
         }
-      }
+      });
+
+      const totalDistance = adventureIds.reduce((acc, id) => acc + (distById.get(id) || 0), 0);
+      const totalHours = Math.round((adventureIds.reduce((acc, id) => acc + (durById.get(id) || 0), 0) / 3600) * 10) / 10;
+      const totalPhotos = adventureIds.reduce((acc, id) => acc + (photoCountById.get(id) || 0), 0);
 
       return {
         id: s.id,
@@ -73,14 +78,15 @@ router.get('/', async (req, res) => {
         start_date: s.start_date || startDate,
         end_date: s.end_date || endDate,
         adventureCount: adventuresWithOrder.length,
-        adventureIds: adventureIds,
+        adventureIds,
         totalPhotos,
         totalDistance: Math.round(totalDistance * 100) / 100,
+        totalHours,
         isOwner: s.user_id === req.user.id,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt
       };
-    }));
+    });
 
     res.json({ series: seriesWithStats, total: seriesWithStats.length });
   } catch (error) {
@@ -114,12 +120,17 @@ router.get('/:id', async (req, res) => {
     const adventureIds = seriesAdventures.map(sa => sa.AdventureId);
     const adventures = await Adventure.findAll({
       where: { id: { [Op.in]: adventureIds } },
-      include: [
-        { model: GpxTrack, as: 'GpxTracks' },
-        { model: Picture, as: 'Pictures' },
-        { model: Waypoint, as: 'Waypoints' },
-        { model: Tag, as: 'tags', attributes: ['id', 'name', 'color', 'type'], through: { attributes: [] } }
-      ]
+        include: [
+          { model: GpxTrack, as: 'GpxTracks' },
+          {
+            model: Picture,
+            as: 'Pictures',
+            attributes: ['id', 'adventure_id', 'immich_asset_id', 'filename', 'taken_at', 'latitude', 'longitude',
+              [Sequelize.literal('"Pictures"."thumbnail_url" IS NOT NULL'), 'has_thumb']]
+          },
+          { model: Waypoint, as: 'Waypoints' },
+          { model: Tag, as: 'tags', attributes: ['id', 'name', 'color', 'type'], through: { attributes: [] } }
+        ]
     });
 
     const adventuresWithDetails = seriesAdventures.map(sa => {
@@ -131,6 +142,17 @@ router.get('/:id', async (req, res) => {
       advJson.GpxTracks?.forEach(t => {
         distance += t.distance || 0;
       });
+
+      if (advJson.Pictures) {
+        advJson.Pictures = advJson.Pictures.map(p => ({
+          id: p.id,
+          filename: p.filename,
+          taken_at: p.taken_at,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          thumbnail_url: coverUrlFor(p)
+        }));
+      }
       
       return {
         ...advJson,
@@ -145,6 +167,7 @@ router.get('/:id', async (req, res) => {
     let totalDistance = 0;
     let totalPhotos = 0;
     let totalWaypoints = 0;
+    let totalDuration = 0;
     const allTracks = [];
     let minLat = null, maxLat = null, minLng = null, maxLng = null;
 
@@ -152,8 +175,9 @@ router.get('/:id', async (req, res) => {
       totalDistance += adv.distance || 0;
       totalPhotos += adv.pictureCount || 0;
       totalWaypoints += adv.waypointCount || 0;
-      
+
       adv.GpxTracks?.forEach(t => {
+        totalDuration += t.duration_s || 0;
         if (t.data && t.data.length > 0) {
           allTracks.push(t);
           t.data.forEach(p => {
@@ -187,7 +211,8 @@ router.get('/:id', async (req, res) => {
         updatedAt: series.updatedAt,
         adventures: adventuresWithDetails,
         stats: {
-          totalDistance: Math.round(totalDistance * 100) / 100,
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalHours: Math.round((totalDuration / 3600) * 10) / 10,
           totalPhotos,
           totalWaypoints,
           adventureCount: adventuresWithDetails.length
@@ -198,6 +223,97 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error) {
     return handleError(error, res, { operation: 'getSeries' });
+  }
+});
+
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const series = await Series.findByPk(id, { attributes: ['id', 'user_id'] });
+    if (!series) {
+      return res.status(404).json({ error: 'Series not found' });
+    }
+    if (series.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const joins = await SeriesAdventure.findAll({
+      where: { SeriesId: id },
+      attributes: ['AdventureId'],
+      order: [['order', 'ASC']]
+    });
+    const adventureIds = joins.map(j => j.AdventureId);
+    if (adventureIds.length === 0) {
+      return res.json({ totals: { distanceKm: 0, gainM: 0, hours: 0 }, byAdventure: [], byType: [] });
+    }
+
+    const [adventures, tracks, photoCounts, waypointCounts] = await Promise.all([
+      Adventure.findAll({
+        where: { id: { [Op.in]: adventureIds } },
+        attributes: ['id', 'name', 'adventure_date']
+      }),
+      GpxTrack.findAll({
+        where: { adventure_id: { [Op.in]: adventureIds } },
+        attributes: ['adventure_id', 'type', 'distance', 'data']
+      }),
+      Picture.findAll({
+        where: { adventure_id: { [Op.in]: adventureIds } },
+        attributes: ['adventure_id', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+        group: ['adventure_id']
+      }),
+      Waypoint.findAll({
+        where: { adventure_id: { [Op.in]: adventureIds } },
+        attributes: ['adventure_id', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+        group: ['adventure_id']
+      })
+    ]);
+
+    const photosById = new Map(photoCounts.map(p => [p.adventure_id, parseInt(p.get('count')) || 0]));
+    const waypointsById = new Map(waypointCounts.map(w => [w.adventure_id, parseInt(w.get('count')) || 0]));
+    const advById = new Map(adventures.map(a => [a.id, a]));
+
+    const totals = emptyTotals();
+    const typeMap = new Map();
+    const byAdventure = adventureIds
+      .filter(advId => advById.has(advId))
+      .map(advId => {
+        const adv = advById.get(advId);
+        const advTotals = emptyTotals();
+        for (const t of tracks) {
+          if (t.adventure_id !== advId) continue;
+          addInto(advTotals, aggregateTracks([t]));
+          if (!typeMap.has(t.type)) typeMap.set(t.type, true);
+        }
+        return {
+          id: adv.id,
+          name: adv.name,
+          date: adv.adventure_date,
+          distanceKm: Math.round(advTotals.distanceKm * 10) / 10,
+          gainM: Math.round(advTotals.gainM),
+          hours: Math.round((advTotals.seconds / 3600) * 10) / 10,
+          photos: photosById.get(advId) || 0,
+          waypoints: waypointsById.get(advId) || 0
+        };
+      });
+
+    totals.distanceKm = byAdventure.reduce((a, x) => a + x.distanceKm, 0);
+    totals.gainM = byAdventure.reduce((a, x) => a + x.gainM, 0);
+    totals.hours = Math.round(byAdventure.reduce((a, x) => a + x.hours, 0) * 10) / 10;
+
+    const byType = [...typeMap.keys()].map((type) => {
+      const typeTracks = tracks.filter(t => t.type === type);
+      const agg = aggregateTracks(typeTracks);
+      return {
+        type,
+        distanceKm: Math.round(agg.distanceKm),
+        hours: Math.round((agg.seconds / 3600) * 10) / 10,
+        count: typeTracks.length
+      };
+    }).sort((a, b) => b.distanceKm - a.distanceKm);
+
+    res.json({ totals, byAdventure, byType });
+  } catch (error) {
+    return handleError(error, res, { operation: 'getSeriesStats' });
   }
 });
 

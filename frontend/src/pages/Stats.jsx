@@ -3,10 +3,9 @@ import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, ComposedChart, Line
 } from 'recharts';
 import AnimatedNumber from '../components/AnimatedNumber';
-import ActivityHeatmap from '../components/ActivityHeatmap';
 import api from '../services/api';
 
 const TYPE_COLORS = {
@@ -32,6 +31,7 @@ const DATE_PRESETS = [
 const Stats = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState(null);
+  const [enhanced, setEnhanced] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const abortControllerRef = useRef(null);
@@ -77,8 +77,12 @@ const Stats = () => {
       const params = new URLSearchParams({ view });
       if (getDateRange.startDate) params.set('startDate', getDateRange.startDate);
       if (getDateRange.endDate) params.set('endDate', getDateRange.endDate);
-      const res = await api.get(`/adventures/stats?${params.toString()}`, { signal });
+      const [res, enhRes] = await Promise.all([
+        api.get(`/adventures/stats?${params.toString()}`, { signal }),
+        api.get(`/adventures/stats/enhanced?${params.toString()}`, { signal })
+      ]);
       setStats(res.data);
+      setEnhanced(enhRes.data);
       hasLoadedOnceRef.current = true;
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -133,7 +137,6 @@ const Stats = () => {
   }, [stats]);
 
   const showCharts = stats?.byYear?.length > 0 || stats?.byTransport?.length > 0;
-  const showHeatmap = stats?.byDate?.length > 0;
 
   if (loading) {
     return <div className="loading-screen">Loading statistics...</div>;
@@ -280,14 +283,15 @@ const Stats = () => {
           </div>
           <div style={{ color: 'var(--text-light)', marginTop: '4px' }}>Total Distance</div>
         </div>
+        {overview.movingHours > 0 && (
+          <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--accent)' }}>
+              <AnimatedNumber value={overview.movingHours} />
+            </div>
+            <div style={{ color: 'var(--text-light)', marginTop: '4px' }}>Moving Hours</div>
+          </div>
+        )}
       </div>
-
-      {showHeatmap && (
-        <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', marginBottom: '24px' }}>
-          <h2 style={{ marginTop: 0, marginBottom: '16px' }}>Activity Heatmap</h2>
-          <ActivityHeatmap byDate={stats.byDate} />
-        </div>
-      )}
 
       {showCharts && (
         <div style={{ display: 'grid', gridTemplateColumns: stats.byTransport?.length > 0 ? '1fr 1fr' : '1fr', gap: '24px', marginBottom: '24px' }}>
@@ -357,7 +361,85 @@ const Stats = () => {
         </div>
       )}
 
-      {!showCharts && !showHeatmap && (
+      {enhanced && enhanced.totals && (enhanced.totals.distanceKm > 0 || enhanced.totals.gainM > 0) && (
+        <>
+          <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', marginBottom: '24px' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '16px' }}>Elevation & Time</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 600, color: 'var(--accent)' }}>
+                  <AnimatedNumber value={enhanced.totals.gainM || 0} /> m
+                </div>
+                <div style={{ color: 'var(--text-light)' }}>Total Elevation Gain</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 600, color: 'var(--accent)' }}>
+                  <AnimatedNumber value={enhanced.totals.hours || 0} /> h
+                </div>
+                <div style={{ color: 'var(--text-light)' }}>Moving Time</div>
+              </div>
+            </div>
+            {enhanced.byMonth?.length > 0 && (
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={enhanced.byMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="ym" tick={{ fill: '#64748B', fontSize: 12 }} />
+                  <YAxis yAxisId="left" tick={{ fill: '#64748B' }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: '#64748B' }} />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1a1a2e',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      color: '#F8FAFC'
+                    }}
+                    labelStyle={{ color: '#94A3B8' }}
+                  />
+                  <Legend formatter={(value) => <span style={{ color: '#0F172A' }}>{value}</span>} />
+                  <Bar yAxisId="left" dataKey="distanceKm" name="Distance (km)" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="gainM" name="Elevation gain (m)" stroke="#EA580C" strokeWidth={2} dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {enhanced.records && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              {[
+                enhanced.records.longestTrack && {
+                  icon: '🏆', title: 'Longest Track',
+                  main: `${enhanced.records.longestTrack.distanceKm} km`,
+                  sub: `${enhanced.records.longestTrack.name} · ${enhanced.records.longestTrack.when ? new Date(enhanced.records.longestTrack.when).getFullYear() : ''}`
+                },
+                enhanced.records.biggestGain && {
+                  icon: '⛰️', title: 'Biggest Climb Day',
+                  main: `${enhanced.records.biggestGain.gainM} m`,
+                  sub: `${enhanced.records.biggestGain.name}${enhanced.records.biggestGain.date ? ` · ${new Date(enhanced.records.biggestGain.date).toLocaleDateString()}` : ''}`
+                },
+                enhanced.records.longestMovingDay && {
+                  icon: '⏱️', title: 'Longest Moving Day',
+                  main: `${enhanced.records.longestMovingDay.hours} h`,
+                  sub: `${enhanced.records.longestMovingDay.name}${enhanced.records.longestMovingDay.date ? ` · ${new Date(enhanced.records.longestMovingDay.date).toLocaleDateString()}` : ''}`
+                },
+                enhanced.records.mostPhotos && {
+                  icon: '📷', title: 'Most Photographed',
+                  main: `${enhanced.records.mostPhotos.count} photos`,
+                  sub: enhanced.records.mostPhotos.name
+                }
+              ].filter(Boolean).map(card => (
+                <div key={card.title} style={{ background: 'var(--surface)', padding: '16px 20px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '1.4rem' }}>{card.icon}</div>
+                  <div style={{ fontWeight: 600, marginTop: '4px' }}>{card.main}</div>
+                  <div style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginTop: '2px' }}>{card.title}</div>
+                  <div style={{ color: 'var(--text-light)', fontSize: '0.8rem', opacity: 0.8 }}>{card.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {!showCharts && (
         <div style={{ background: 'var(--surface)', padding: '40px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🗺️</div>
           <div style={{ color: 'var(--text-light)' }}>

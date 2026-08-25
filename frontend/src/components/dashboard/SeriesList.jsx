@@ -42,6 +42,7 @@ export default function SeriesList({ seriesList, loadingSeries, onCreateNew, nav
           )}
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '8px' }}>
             {series.adventureIds?.length || 0} adventures
+            {series.totalHours > 0 && ` · ${series.totalHours} h`}
           </p>
         </div>
       ))}

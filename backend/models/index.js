@@ -122,6 +122,10 @@ const GpxTrack = sequelize.define('GpxTrack', {
   distance: {
     type: DataTypes.FLOAT,
     allowNull: true
+  },
+  duration_s: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 }, {
   indexes: [

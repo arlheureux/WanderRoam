@@ -8,6 +8,10 @@ import { useMapContext } from '../contexts/MapContext';
 import { MapView, TYPE_COLORS } from '../components/MapView';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import api from '../services/api';
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 
 const SeriesView = () => {
   const { id } = useParams();
@@ -15,6 +19,7 @@ const SeriesView = () => {
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('adventures');
+  const [seriesStats, setSeriesStats] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSeries, setEditSeries] = useState({ name: '', description: '' });
   const [updating, setUpdating] = useState(false);
@@ -45,6 +50,15 @@ const SeriesView = () => {
     loadTags(abortController.signal);
     return () => abortController.abort();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== 'stats' || seriesStats) return;
+    let cancelled = false;
+    api.get(`/series/${id}/stats`)
+      .then(res => { if (!cancelled) setSeriesStats(res.data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeTab, id, seriesStats]);
 
   const loadSeries = async (signal) => {
     try {
@@ -255,6 +269,12 @@ const SeriesView = () => {
           >
             🗺️ Map
           </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`tab-btn ${activeTab === 'stats' ? 'active' : ''}`}
+          >
+            📊 Stats
+          </button>
         </div>
       </div>
 
@@ -266,10 +286,10 @@ const SeriesView = () => {
         )}
 
         {series.stats && (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: '16px', 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '16px',
             marginTop: '16px',
             marginBottom: '24px'
           }}>
@@ -281,6 +301,12 @@ const SeriesView = () => {
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{series.stats.totalDistance.toFixed(1)} km</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Total Distance</div>
             </div>
+            {series.stats.totalHours > 0 && (
+              <div style={{ padding: '16px', background: 'var(--surface)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{series.stats.totalHours.toFixed(1)} h</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Moving Time</div>
+              </div>
+            )}
             <div style={{ padding: '16px', background: 'var(--surface)', borderRadius: '8px', textAlign: 'center' }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{series.stats.totalPhotos}</div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Photos</div>
@@ -492,6 +518,113 @@ const SeriesView = () => {
                 </Polyline>
               ))}
             </MapView>
+          </div>
+        )}
+
+        {activeTab === 'stats' && (
+          <div style={{ marginTop: '16px' }}>
+            {!seriesStats ? (
+              <div className="loading-screen">Computing series statistics…</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                  {[
+                    { value: `${seriesStats.totals.distanceKm.toFixed(0)} km`, label: 'Total Distance' },
+                    { value: `${seriesStats.totals.gainM.toLocaleString()} m`, label: 'Elevation Gain' },
+                    { value: `${seriesStats.totals.hours.toFixed(1)} h`, label: 'Moving Time' },
+                    {
+                      value: seriesStats.byAdventure.length
+                        ? `${new Date(seriesStats.byAdventure[0].date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} → ${new Date(seriesStats.byAdventure[seriesStats.byAdventure.length - 1].date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`
+                        : '—',
+                      label: 'Span'
+                    }
+                  ].map(kpi => (
+                    <div key={kpi.label} style={{ padding: '16px', background: 'var(--surface)', borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>{kpi.value}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{kpi.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {seriesStats.byAdventure.length > 0 && (
+                  <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', marginBottom: '24px' }}>
+                    <h3 style={{ marginTop: 0 }}>Distance & Elevation per Adventure</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <ComposedChart data={seriesStats.byAdventure} margin={{ top: 5, right: 10, left: 0, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: '#64748B', fontSize: 11 }}
+                          angle={-25}
+                          textAnchor="end"
+                          interval={0}
+                          tickFormatter={n => n.length > 18 ? n.slice(0, 17) + '…' : n}
+                        />
+                        <YAxis yAxisId="left" tick={{ fill: '#64748B' }} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fill: '#64748B' }} />
+                        <ChartTooltip
+                          contentStyle={{ background: '#1a1a2e', border: '1px solid #E2E8F0', borderRadius: '6px', color: '#F8FAFC' }}
+                          labelStyle={{ color: '#94A3B8' }}
+                        />
+                        <Legend formatter={(value) => <span style={{ color: '#0F172A' }}>{value}</span>} />
+                        <Bar yAxisId="left" dataKey="distanceKm" name="Distance (km)" radius={[4, 4, 0, 0]}>
+                          {seriesStats.byAdventure.map((entry, i) => (
+                            <Cell key={`c-${i}`} fill="#10B981" />
+                          ))}
+                        </Bar>
+                        <Line yAxisId="right" type="monotone" dataKey="gainM" name="Elevation gain (m)" stroke="#EA580C" strokeWidth={2} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {seriesStats.byType.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: seriesStats.byType.length > 2 ? '2fr 1fr' : '1fr 1fr', gap: '24px', alignItems: 'start' }}>
+                    <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px' }}>
+                      <h3 style={{ marginTop: 0 }}>Breakdown by Type</h3>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                        <thead>
+                          <tr style={{ color: 'var(--text-light)', textAlign: 'left' }}>
+                            <th style={{ padding: '8px 4px' }}>Type</th>
+                            <th style={{ padding: '8px 4px' }}>Tracks</th>
+                            <th style={{ padding: '8px 4px' }}>Distance</th>
+                            <th style={{ padding: '8px 4px' }}>Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {seriesStats.byType.map(t => (
+                            <tr key={t.type} style={{ borderTop: '1px solid var(--border)' }}>
+                              <td style={{ padding: '8px 4px' }}>
+                                <span style={{ color: TYPE_COLORS[t.type] || TYPE_COLORS.other, fontWeight: 600 }}>●</span> {t.type}
+                              </td>
+                              <td style={{ padding: '8px 4px' }}>{t.count}</td>
+                              <td style={{ padding: '8px 4px' }}>{t.distanceKm} km</td>
+                              <td style={{ padding: '8px 4px' }}>{t.hours} h</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px' }}>
+                      <h3 style={{ marginTop: 0 }}>Distance Share</h3>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie data={seriesStats.byType} dataKey="distanceKm" nameKey="type" cx="50%" cy="50%" outerRadius={75}>
+                            {seriesStats.byType.map((t, i) => (
+                              <Cell key={`p-${i}`} fill={TYPE_COLORS[t.type] || TYPE_COLORS.other} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip
+                            contentStyle={{ background: '#1a1a2e', border: '1px solid #E2E8F0', borderRadius: '6px', color: '#F8FAFC' }}
+                            formatter={(v, n) => [`${v} km`, n]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

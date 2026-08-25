@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useMapContext } from '../contexts/MapContext';
 import { MapView, TYPE_COLORS } from '../components/MapView';
 import ElevationProfile from '../components/ElevationProfile';
+import WeatherStrip from '../components/WeatherStrip';
 import api from '../services/api';
 
 const createCustomIcon = (color, scale = 1) => {
@@ -207,12 +208,13 @@ const AdventureView = () => {
                 fontSize: '0.9rem',
                 color: 'var(--text-light)'
               }}>
-                {new Date(adventure.adventure_date).toLocaleDateString(undefined, { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                {new Date(adventure.adventure_date).toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
                 })}
+                <WeatherStrip adventureId={id} />
               </div>
             </div>
           )}
@@ -379,7 +381,12 @@ const AdventureView = () => {
               </div>
             </div>
 
-            <ElevationProfile tracks={gpxTracks} onHover={setHoveredElevPoint} />
+            <ElevationProfile
+              tracks={gpxTracks}
+              photos={pictures.filter(p => p.latitude && p.longitude)}
+              onPhotoClick={setViewingPicture}
+              onHover={setHoveredElevPoint}
+            />
           </div>
 
           <div className="adventure-picture-section">
