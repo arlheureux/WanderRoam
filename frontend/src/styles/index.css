@@ -119,7 +119,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-4) var(--space-8);
+  padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--space-8) var(--space-4);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
