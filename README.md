@@ -185,44 +185,6 @@ If you don't need routing functionality, you can disable BRouter by removing or 
 
 Register a new account at http://localhost:3000/register. The first registered user becomes admin automatically.
 
-### PostgreSQL Major Upgrades
-
-Postgres data directories are incompatible between major versions: after bumping `image:` in your compose file, the database refuses to start on the old volume. Migrate with a dump/reload (downtime: a few minutes):
-
-```bash
-# 1. Back up first (plain-SQL dump; restorable on any newer Postgres)
-./scripts/backup.sh
-
-# 2. Stop the stack, keeping volumes
-docker compose down
-
-# 3. Move the old data volume aside as a rollback net
-docker volume rename <project>_postgres_data <project>_postgres_data_old
-#    Find the exact name with: docker volume ls | grep postgres
-
-# 4. Update image: in docker-compose.yml (e.g. postgres:15-alpine -> postgres:18-alpine), then start the fresh database:
-docker compose up -d postgres
-
-# 5. Restore only the database part of the backup
-mkdir /tmp/wr-upgrade && tar -xzf backups/wanderroam_backup_<DATE>.tar.gz -C /tmp/wr-upgrade
-zcat /tmp/wr-upgrade/db_<DATE>.sql.gz | docker exec -i wanderroam-db \
-  psql -U "$DB_USER" -d "$DB_NAME"
-
-# 6. Bring up the rest of the stack and verify the app
-docker compose up -d
-
-# 7. Once verified, delete the rollback net
-docker volume rm <project>_postgres_data_old
-```
-
-Notes:
-
-- Never use `docker compose down -v` for this — it deletes **all** volumes including uploaded photos.
-- Postgres 18+ images refuse the legacy `/var/lib/postgresql/data` mount point: the volume must mount at `/var/lib/postgresql`. This repo's compose files are already updated.
-- Deliberately not using `scripts/restore.sh` here: it also restores uploads and overwrites `.env` with the password-stripped copy saved by `backup.sh`, which would break login unless you re-add secrets afterwards.
-- Backups made by the admin panel (`database.dump`, custom format) restore on any Postgres whose client is the same major or newer.
-- If your compose variant uses different service/container names, adjust step 5 accordingly.
-
 ## Development
 
 ```
