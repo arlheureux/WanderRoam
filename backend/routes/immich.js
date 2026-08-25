@@ -123,32 +123,44 @@ router.get('/assets', authMiddleware, async (req, res) => {
 
     const { albumId } = req.query;
     
-    let url;
-    if (albumId) {
-      url = `${user.immich_url}/api/albums/${albumId}`;
-    } else {
-      url = `${user.immich_url}/api/albums`;
-    }
-
-    const data = await fetchWithAuth(url, user.immich_api_key);
-
     let assets = [];
     
-    if (albumId && data.assets) {
-      assets = data.assets;
-    } else if (!albumId && Array.isArray(data)) {
-      const albumsWithAssets = await Promise.all(
-        data.slice(0, 10).map(async (album) => {
-          try {
-            const albumUrl = `${user.immich_url}/api/albums/${album.id}`;
-            const albumData = await fetchWithAuth(albumUrl, user.immich_api_key);
-            return albumData.assets || [];
-          } catch (e) {
-            return [];
-          }
-        })
+    if (albumId) {
+      const searchRes = await fetch(
+        `${user.immich_url}/api/search/metadata`,
+        {
+          method: 'POST',
+          headers: {
+            'x-api-key': user.immich_api_key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ albumIds: [albumId], size: 1000, withExif: true })
+        }
       );
-      assets = albumsWithAssets.flat();
+      if (!searchRes.ok) {
+        throw new Error(`Immich search failed: ${searchRes.status}`);
+      }
+      const searchData = await searchRes.json();
+      assets = searchData?.assets?.items || [];
+    } else {
+      const data = await fetchWithAuth(
+        `${user.immich_url}/api/albums`,
+        user.immich_api_key
+      );
+      if (Array.isArray(data)) {
+        const albumsWithAssets = await Promise.all(
+          data.slice(0, 10).map(async (album) => {
+            try {
+              const albumUrl = `${user.immich_url}/api/albums/${album.id}`;
+              const albumData = await fetchWithAuth(albumUrl, user.immich_api_key);
+              return albumData.assets || [];
+            } catch (e) {
+              return [];
+            }
+          })
+        );
+        assets = albumsWithAssets.flat();
+      }
     }
 
     const processedAssets = assets
