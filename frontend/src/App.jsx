@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './services/AuthContext';
 import { MapProvider } from './contexts/MapContext';
@@ -12,6 +12,34 @@ import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import SeriesView from './pages/SeriesView';
 import Series from './pages/Series';
+import Setup from './pages/Setup';
+import api from './services/api';
+
+const isNative = () => window.Capacitor?.isNativePlatform?.() || false;
+
+const SetupGate = ({ children }) => {
+  const [needsSetup, setNeedsSetup] = useState(null);
+
+  useEffect(() => {
+    if (!isNative()) {
+      setNeedsSetup(false);
+      return;
+    }
+    api.getServerUrl().then(url => {
+      setNeedsSetup(!url);
+    });
+  }, []);
+
+  if (needsSetup === null) {
+    return <div className="loading-screen">Loading...</div>;
+  }
+
+  if (needsSetup) {
+    return <Setup />;
+  }
+
+  return children;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -30,42 +58,61 @@ function App() {
         <ToastContainer />
         <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/setup" element={<Setup />} />
+          <Route path="/login" element={
+            <SetupGate><Login /></SetupGate>
+          } />
+          <Route path="/register" element={
+            <SetupGate><Register /></SetupGate>
+          } />
           <Route path="/" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/adventure/:id" element={
-            <ProtectedRoute>
-              <AdventureView />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <AdventureView />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/adventure/:id/edit" element={
-            <ProtectedRoute>
-              <AdventureEdit />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <AdventureEdit />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/settings" element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/stats" element={
-            <ProtectedRoute>
-              <Stats />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <Stats />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/series" element={
-            <ProtectedRoute>
-              <Series />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <Series />
+              </ProtectedRoute>
+            </SetupGate>
           } />
           <Route path="/series/:id" element={
-            <ProtectedRoute>
-              <SeriesView />
-            </ProtectedRoute>
+            <SetupGate>
+              <ProtectedRoute>
+                <SeriesView />
+              </ProtectedRoute>
+            </SetupGate>
           } />
         </Routes>
         </BrowserRouter>

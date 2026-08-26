@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const getTypeColor = (type) => {
   const colors = {
@@ -86,7 +87,7 @@ function AdventureCard({ item, navigate }) {
       <div className="adventure-card-preview">
         {item.data.preview_picture?.thumbnail_url ? (
           <img 
-            src={item.data.preview_picture.thumbnail_url} 
+            src={getImageUrl(item.data.preview_picture.thumbnail_url)} 
             alt={item.data.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />

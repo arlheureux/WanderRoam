@@ -12,6 +12,8 @@ import { MapView, TYPE_COLORS } from '../components/MapView';
 import ElevationProfile from '../components/ElevationProfile';
 import WeatherStrip from '../components/WeatherStrip';
 import api from '../services/api';
+import { getImageUrl } from '../utils/imageUrl';
+import PictureLightbox from '../components/PictureLightbox';
 
 const createCustomIcon = (color, scale = 1) => {
   const size = 26 * scale;
@@ -334,7 +336,7 @@ const AdventureView = () => {
                     <Popup>
                       {(picture.thumbnail_url) && (
                         <img 
-                          src={picture.thumbnail_url} 
+                          src={getImageUrl(picture.thumbnail_url)} 
                           alt={picture.filename}
                           style={{ maxWidth: '240px', marginTop: '8px', borderRadius: '4px' }}
                         />
@@ -413,7 +415,7 @@ const AdventureView = () => {
                       onMouseLeave={() => setHoveredPictureId(null)}
                     >
                       {(picture.thumbnail_url) ? (
-                        <img src={picture.thumbnail_url} alt={picture.filename} />
+                        <img src={getImageUrl(picture.thumbnail_url)} alt={picture.filename} />
                       ) : (
                         <div style={{ 
                           width: '100%', 
@@ -436,99 +438,15 @@ const AdventureView = () => {
       </div>
 
       {viewingPicture && (
-        <div 
-          className="modal-overlay" 
-          onClick={() => setViewingPicture(null)}
-          style={{ background: 'rgba(0,0,0,0.95)', cursor: 'pointer' }}
-        >
-          <div 
-            onClick={e => e.stopPropagation()} 
-            style={{ 
-              position: 'relative', 
-              width: '100%', 
-              height: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center'
-            }}
-          >
-            <img 
-              src={viewingPicture.thumbnail_url} 
-              alt={viewingPicture.filename}
-              style={{ maxWidth: '110%', maxHeight: '110%', objectFit: 'contain' }}
-            />
-            {pictures.length > 1 && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); prevPicture(); }}
-                  className="btn"
-                  style={{
-                    position: 'absolute',
-                    left: '20px',
-                    background: 'rgba(255,255,255,0.15)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    color: 'white',
-                    fontSize: '1.5rem',
-                    padding: '12px 20px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                >
-                  ←
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); nextPicture(); }}
-                  className="btn"
-                  style={{
-                    position: 'absolute',
-                    right: '20px',
-                    background: 'rgba(255,255,255,0.15)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    color: 'white',
-                    fontSize: '1.5rem',
-                    padding: '12px 20px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                >
-                  →
-                </button>
-                <div style={{
-                  position: 'absolute',
-                  bottom: '20px',
-                  color: 'white',
-                  fontSize: '0.9rem',
-                  background: 'rgba(0,0,0,0.5)',
-                  padding: '8px 16px',
-                  borderRadius: '20px'
-                }}>
-                  {pictureIndex + 1} / {pictures.length}
-                </div>
-              </>
-            )}
-            <button
-              onClick={() => setViewingPicture(null)}
-              className="btn"
-              style={{
-                position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: 'white',
-                fontSize: '1.2rem',
-                padding: '10px 14px',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                backdropFilter: 'blur(10px)'
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <PictureLightbox
+          pictures={pictures}
+          currentIndex={pictureIndex}
+          onClose={() => setViewingPicture(null)}
+          onNavigate={(i) => {
+            setPictureIndex(i);
+            setViewingPicture(pictures[i]);
+          }}
+        />
       )}
     </div>
   );

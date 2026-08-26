@@ -5,6 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import 'leaflet/dist/leaflet.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import L from 'leaflet';
+import { getImageUrl } from '../utils/imageUrl';
 
 const TYPE_COLORS = {
   walking: '#DC2626',
@@ -275,7 +276,7 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
                 <div style={{ padding: '8px' }}>
                   {(pic.thumbnail_url) && (
                     <img 
-                      src={pic.thumbnail_url} 
+                      src={getImageUrl(pic.thumbnail_url)} 
                       alt={pic.filename || 'Picture'}
                       style={{ 
                         maxWidth: '260px', 

@@ -230,7 +230,7 @@ const Stats = () => {
             />
           </div>
         )}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {['owned', 'shared', 'all'].map(v => (
             <button
               key={v}

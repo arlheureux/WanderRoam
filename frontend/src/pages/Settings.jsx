@@ -4,6 +4,10 @@ import { useAuth } from '../services/AuthContext';
 import { useMapContext } from '../contexts/MapContext';
 import api from '../services/api';
 
+function isNative() {
+  return window.Capacitor?.isNativePlatform?.() || false;
+}
+
 const Settings = () => {
   const { user, updateSettings } = useAuth();
   const { mapProvider, setMapProvider, mapboxToken, setMapboxToken } = useMapContext();
@@ -14,10 +18,42 @@ const Settings = () => {
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState({ connected: false, checking: true });
   const [message, setMessage] = useState('');
+  const [serverUrl, setServerUrl] = useState('');
+  const [serverUrlSaving, setServerUrlSaving] = useState(false);
+  const [serverUrlMessage, setServerUrlMessage] = useState('');
+  const [showServerUrl, setShowServerUrl] = useState(isNative());
 
   useEffect(() => {
     checkImmichStatus();
+    loadServerUrl();
   }, []);
+
+  const loadServerUrl = async () => {
+    const url = await api.getServerUrl();
+    setServerUrl(url || '');
+  };
+
+  const handleSaveServerUrl = async (e) => {
+    e.preventDefault();
+    setServerUrlSaving(true);
+    setServerUrlMessage('');
+    try {
+      const trimmed = serverUrl.trim() || null;
+      await api.setServerUrl(trimmed);
+      if (isNative() && trimmed) {
+        const { registerPlugin } = await import('@capacitor/core');
+        const ServerLoader = registerPlugin('ServerLoader');
+        await ServerLoader.loadServerUrl({ url: trimmed });
+        setServerUrlMessage('Server URL saved. Loading from new server...');
+      } else {
+        setServerUrlMessage('Server URL saved. Restart the app to apply.');
+      }
+    } catch (err) {
+      setServerUrlMessage('Failed to save: ' + err.message);
+    } finally {
+      setServerUrlSaving(false);
+    }
+  };
 
   const checkImmichStatus = async () => {
     try {
@@ -65,7 +101,46 @@ const Settings = () => {
       </header>
 
       <div className="container" style={{ maxWidth: '600px' }}>
-        <div className="settings-section">
+        {showServerUrl && (
+          <div className="settings-section">
+            <h3>Server URL</h3>
+            <p style={{ color: 'var(--text-light)', marginBottom: '16px' }}>
+              Enter your WanderRoam server address. Required for the native app to connect to your self-hosted instance.
+            </p>
+
+            <form onSubmit={handleSaveServerUrl}>
+              <div className="form-group">
+                <label>Server URL</label>
+                <input
+                  type="url"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="https://wanderroam.yourdomain.com"
+                />
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '4px' }}>
+                  Include the protocol (https://) and port if non-standard
+                </p>
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={serverUrlSaving}>
+                {serverUrlSaving ? 'Saving...' : 'Save Server URL'}
+              </button>
+            </form>
+
+            {serverUrlMessage && (
+              <div style={{
+                padding: '12px',
+                borderRadius: '8px',
+                marginTop: '12px',
+                background: serverUrlMessage.includes('saved') ? '#E8F5E9' : '#FFEBEE',
+                color: serverUrlMessage.includes('saved') ? '#2E7D32' : '#C62828'
+              }}>
+                {serverUrlMessage}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="settings-section" style={{ marginTop: showServerUrl ? '32px' : undefined }}>
           <h3>Immich Integration</h3>
           <p style={{ color: 'var(--text-light)', marginBottom: '16px' }}>
             Connect to your Immich instance to add photos to your adventures.

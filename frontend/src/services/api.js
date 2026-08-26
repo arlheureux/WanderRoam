@@ -1,8 +1,41 @@
 import toast from 'react-hot-toast';
 
+const STORAGE_KEY = 'wanderroam_server_url';
+
+function isNative() {
+  return window.Capacitor?.isNativePlatform?.() || false;
+}
+
 class ApiService {
   constructor() {
     this.baseUrl = '/api';
+  }
+
+  async getServerUrl() {
+    if (isNative()) {
+      const { Preferences } = await import('@capacitor/preferences');
+      const { value } = await Preferences.get({ key: STORAGE_KEY });
+      return value || null;
+    }
+    return localStorage.getItem(STORAGE_KEY) || null;
+  }
+
+  async setServerUrl(url) {
+    const trimmed = url ? url.replace(/\/+$/, '') : null;
+    if (isNative()) {
+      const { Preferences } = await import('@capacitor/preferences');
+      if (trimmed) {
+        await Preferences.set({ key: STORAGE_KEY, value: trimmed });
+      } else {
+        await Preferences.remove({ key: STORAGE_KEY });
+      }
+    } else {
+      if (trimmed) {
+        localStorage.setItem(STORAGE_KEY, trimmed);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
   }
 
   buildUrl(endpoint, params) {
@@ -22,7 +55,6 @@ class ApiService {
     if (!isFormData) {
       headers['Content-Type'] = 'application/json';
     }
-    // Authorization header removed - using httpOnly cookies instead
     return headers;
   }
 
@@ -31,7 +63,7 @@ class ApiService {
     const options = {
       method,
       headers: this.getHeaders(true, isFormData),
-      credentials: 'include' // Required for CORS with cookies
+      credentials: 'include'
     };
 
     if (config.signal) {
@@ -110,7 +142,7 @@ class ApiService {
   }
 
   createGpxFromPoints(data) {
-    return this.post('/adventures/gpx/from-points', data);
+    return this.post(`/adventures/gpx/from-points`, data);
   }
 
   getSeries(config = {}) {

@@ -8,6 +8,7 @@ import { useMapContext } from '../contexts/MapContext';
 import { MapView, TYPE_COLORS } from '../components/MapView';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import api from '../services/api';
+import { getImageUrl } from '../utils/imageUrl';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell
@@ -430,7 +431,7 @@ const SeriesView = () => {
                     <div className="adventure-card-preview">
                       {adventure.Pictures && adventure.Pictures.length > 0 && adventure.Pictures[0].thumbnail_url ? (
                         <img 
-                          src={adventure.Pictures[0].thumbnail_url} 
+                          src={getImageUrl(adventure.Pictures[0].thumbnail_url)} 
                           alt={adventure.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
