@@ -3,23 +3,18 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
-const winston = require('winston');
 const { sequelize } = require('./models');
+const { logger } = require('./middleware/errorHandler');
+const { csrfProtection } = require('./middleware/csrf');
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    })
-  ]
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception', { error: err.message, stack: err.stack });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection', { error: reason?.message || String(reason) });
+  process.exit(1);
 });
 
 const authRoutes = require('./routes/auth');
@@ -32,7 +27,7 @@ const seriesRoutes = require('./routes/series');
 const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', process.env.TRUST_PROXY === 'true');
 
 const PORT = process.env.PORT || 5000;
 
@@ -63,6 +58,7 @@ const globalLimiter = rateLimit({
 });
 
 app.use('/api/', globalLimiter);
+app.use('/api/', csrfProtection);
 
 const adventureLimiter = rateLimit({
   windowMs: 60 * 1000,

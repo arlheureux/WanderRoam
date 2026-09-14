@@ -10,7 +10,9 @@ RUN npm install --production
 
 COPY . .
 
-RUN mkdir -p /app/uploads /app/backups
+RUN mkdir -p /app/uploads /app/backups && chown -R node:node /app/uploads /app/backups
+
+USER node
 
 EXPOSE 5000
 

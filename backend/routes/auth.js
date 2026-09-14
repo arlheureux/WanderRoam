@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const { User } = require('../models');
 const { generateToken, authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
@@ -9,6 +10,14 @@ const { handleError } = require('../middleware/errorHandler');
 const router = express.Router();
 
 const ENABLE_REGISTRATION = process.env.ENABLE_REGISTRATION !== 'false';
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many registration attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const failedAttempts = new Map();
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000;
@@ -50,7 +59,7 @@ function resetFailedAttempts(ip) {
   failedAttempts.delete(ip);
 }
 
-router.post('/register', [
+router.post('/register', registerLimiter, [
   body('username').trim().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
   body('password').notEmpty().withMessage('Password is required').isLength({ min: 4 }).withMessage('Password must be at least 4 characters'),
   validate

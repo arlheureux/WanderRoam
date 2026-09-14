@@ -5,7 +5,7 @@ const { computeDistanceKm } = require('../utils/gpxParser');
 const { authMiddleware } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { handleError } = require('../middleware/errorHandler');
-const { getAdventureAccess } = require('./adventures');
+const { getAdventureAccess } = require('../utils/accessControl');
 
 const router = express.Router();
 

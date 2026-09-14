@@ -52,6 +52,7 @@ class ApiService {
 
   getHeaders(includeAuth = true, isFormData = false) {
     const headers = {};
+    headers['X-Requested-With'] = 'XMLHttpRequest';
     if (!isFormData) {
       headers['Content-Type'] = 'application/json';
     }

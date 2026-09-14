@@ -32,3 +32,4 @@ postgres_data/
 backups/*.tar.gz
 wanderer/
 wanderer/data/
+app-debug.apk

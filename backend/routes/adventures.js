@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const multer = require('multer');
 const { body, param, query } = require('express-validator');
 const { Adventure, GpxTrack, Picture, Waypoint, User, AdventureShare, Tag } = require('../models');
@@ -9,6 +10,7 @@ const { handleError, logger } = require('../middleware/errorHandler');
 const { coverUrlFor } = require('../utils/coverUrl');
 const { getWeather } = require('../services/weatherService');
 const { aggregateTracks, addInto, emptyTotals, movingTimeSeconds } = require('../utils/statsAggregator');
+const { getAdventureAccess } = require('../utils/accessControl');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const { parseGpxData, computeDistanceKm } = require('../utils/gpxParser');
@@ -25,12 +27,14 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    const safeBase = path.basename(file.originalname || 'upload.gpx').replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, uniqueSuffix + '-' + safeBase);
   }
 });
 
 const upload = multer({ 
   storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/gpx+xml' || file.originalname.endsWith('.gpx')) {
       cb(null, true);
@@ -39,27 +43,6 @@ const upload = multer({
     }
   }
 });
-
-const getAdventureAccess = async (adventureId, userId) => {
-  const adventure = await Adventure.findByPk(adventureId);
-  if (!adventure) return { adventure: null, canEdit: false, canView: false };
-  
-  if (adventure.user_id === userId) {
-    return { adventure, canEdit: true, canView: true };
-  }
-  
-  const share = await AdventureShare.findOne({
-    where: { AdventureId: adventureId, UserId: userId }
-  });
-  
-  if (!share) return { adventure: null, canEdit: false, canView: false };
-  
-  return { 
-    adventure, 
-    canEdit: share.permission === 'edit', 
-    canView: share.permission === 'view' || share.permission === 'edit' 
-  };
-};
 
 const parseGpx = async (filePath) => {
   const xml = fs.readFileSync(filePath, 'utf-8');
@@ -1492,4 +1475,3 @@ router.put('/:id/tags', authMiddleware, [
 });
 
 module.exports = router;
-module.exports.getAdventureAccess = getAdventureAccess;

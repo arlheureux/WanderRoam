@@ -229,7 +229,7 @@ const GpxEditorModal = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({
           waypoints: routingWaypoints.map(p => ({ lat: p.lat, lng: p.lng })),

@@ -1,14 +1,28 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { User, Adventure, Picture } = require('../models');
+const { User, Picture } = require('../models');
 const { authMiddleware } = require('../middleware/auth');
 const { handleError, logger } = require('../middleware/errorHandler');
 const { validate } = require('../middleware/validation');
+const { getAdventureAccess } = require('../utils/accessControl');
 
 const router = express.Router();
 
+const IMMICH_TIMEOUT_MS = 30000;
+const ASSET_ID_RE = /^[A-Za-z0-9_-]+$/;
+
+const fetchWithTimeout = async (url, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), IMMICH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const fetchWithAuth = async (url, apiKey) => {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       'x-api-key': apiKey,
       'Content-Type': 'application/json'
@@ -81,7 +95,7 @@ router.get('/albums', authMiddleware, async (req, res) => {
 
       if (!thumbId && album.assetCount > 0) {
         try {
-          const assetsResponse = await fetch(
+          const assetsResponse = await fetchWithTimeout(
             `${user.immich_url}/api/albums/${album.id}/assets`,
             { headers: { 'x-api-key': user.immich_api_key } }
           );
@@ -125,8 +139,12 @@ router.get('/assets', authMiddleware, async (req, res) => {
     
     let assets = [];
     
+    if (albumId && !ASSET_ID_RE.test(albumId)) {
+      return res.status(400).json({ error: 'Invalid album ID' });
+    }
+    
     if (albumId) {
-      const searchRes = await fetch(
+      const searchRes = await fetchWithTimeout(
         `${user.immich_url}/api/search/metadata`,
         {
           method: 'POST',
@@ -233,6 +251,10 @@ router.get('/asset/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Immich not configured' });
     }
 
+    if (!ASSET_ID_RE.test(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid asset ID' });
+    }
+
     const asset = await fetchWithAuth(
       `${user.immich_url}/api/assets/${req.params.id}`,
       user.immich_api_key
@@ -272,9 +294,13 @@ router.get('/thumbnails', authMiddleware, async (req, res) => {
 
     await Promise.all(
       assetIds.map(async (assetId) => {
+        const trimmedId = assetId.trim();
+        if (!ASSET_ID_RE.test(trimmedId)) {
+          return;
+        }
         try {
-          const response = await fetch(
-            `${user.immich_url}/api/assets/${assetId.trim()}/thumbnail?size=thumbnail`,
+          const response = await fetchWithTimeout(
+            `${user.immich_url}/api/assets/${trimmedId}/thumbnail?size=thumbnail`,
             {
               headers: {
                 'x-api-key': user.immich_api_key
@@ -286,7 +312,7 @@ router.get('/thumbnails', authMiddleware, async (req, res) => {
             const buffer = await response.arrayBuffer();
             const base64 = Buffer.from(buffer).toString('base64');
             const contentType = response.headers.get('content-type') || 'image/jpeg';
-            thumbnails[assetId.trim()] = `data:${contentType};base64,${base64}`;
+            thumbnails[trimmedId] = `data:${contentType};base64,${base64}`;
           }
         } catch (e) {
           logger.warn(`Failed to fetch thumbnail for ${assetId}: ${e.message}`);
@@ -309,6 +335,10 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
     }
 
     const { assetId } = req.params;
+    if (!ASSET_ID_RE.test(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset ID' });
+    }
+
     const size = req.query.size || 'thumbnail';
     const etag = `"${assetId}-${size}"`;
     if (req.headers['if-none-match'] === etag) {
@@ -317,8 +347,8 @@ router.get('/thumbnail/:assetId', authMiddleware, async (req, res) => {
       return res.status(304).end();
     }
 
-    const response = await fetch(
-      `${user.immich_url}/api/assets/${assetId}/thumbnail?size=${size}`,
+    const response = await fetchWithTimeout(
+      `${user.immich_url}/api/assets/${assetId}/thumbnail?size=${encodeURIComponent(size)}`,
       {
         headers: {
           'x-api-key': user.immich_api_key
@@ -362,6 +392,10 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
     }
 
     const { assetId } = req.params;
+    if (!ASSET_ID_RE.test(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset ID' });
+    }
+
     const etag = `"${assetId}-full"`;
     if (req.headers['if-none-match'] === etag) {
       res.set('ETag', etag);
@@ -369,7 +403,7 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
       return res.status(304).end();
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${user.immich_url}/api/assets/${assetId}/original`,
       {
         headers: {
@@ -395,10 +429,14 @@ router.get('/full/:assetId', authMiddleware, async (req, res) => {
 router.get('/full/:adventureId/:assetId', authMiddleware, async (req, res) => {
   try {
     const { adventureId, assetId } = req.params;
-    
-    const adventure = await Adventure.findByPk(adventureId);
-    if (!adventure) {
-      return res.status(404).json({ error: 'Adventure not found' });
+
+    if (!ASSET_ID_RE.test(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset ID' });
+    }
+
+    const { adventure, canView } = await getAdventureAccess(adventureId, req.user.id);
+    if (!adventure || !canView) {
+      return res.status(403).json({ error: 'You do not have access to this adventure' });
     }
 
     const owner = await User.findByPk(adventure.user_id);
@@ -407,7 +445,7 @@ router.get('/full/:adventureId/:assetId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Immich not configured by adventure owner' });
     }
     
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${owner.immich_url}/api/assets/${assetId}/original`,
       {
         headers: {

@@ -113,14 +113,11 @@ const AdventureView = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!viewingPicture) return;
-      if (e.key === 'ArrowLeft') prevPicture();
-      if (e.key === 'ArrowRight') nextPicture();
       if (e.key === 'Escape') setViewingPicture(null);
     };
-    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingPicture, pictureIndex]);
+  }, [viewingPicture]);
 
   const loadAdventure = async (signal) => {
     try {

@@ -13,7 +13,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "ServerLoader")
 public class ServerLoaderPlugin extends Plugin {
 
-    private static final String PREFS_NAME = "CapacitorPreferences";
+    private static final String PREFS_NAME = "CapacitorStorage";
     private static final String KEY = "wanderroam_server_url";
 
     @Override
