@@ -69,6 +69,32 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
   });
   const [popupInfo, setPopupInfo] = useState(null);
   const [terrainEnabled, setTerrainEnabled] = useState(true);
+  const [mapError, setMapError] = useState(null);
+  const [demFailure, setDemFailure] = useState(false);
+
+  const handleMapError = (err) => {
+    // react-map-gl surfaces style/tile load failures here. A 401/403 almost
+    // always means the Mapbox token is URL-restricted and this app's origin
+    // (Capacitor WebView) isn't in the token's allow-list, OR the token is
+    // missing/expired. Don't let the map die silently.
+    const status = err?.error?.status || err?.status;
+    const url = err?.error?.url || err?.url || '';
+    console.error('[mapbox] load error', { status, url, message: err?.message || err?.error?.message });
+    if (status === 401 || status === 403) {
+      setMapError(
+        'Mapbox rejected the map request (' + status + '). This usually means the ' +
+        'Mapbox token is restricted to certain origins (e.g. localhost) and this app\'s ' +
+        'origin isn\'t allowed. In the Mapbox dashboard, remove the URL restriction or ' +
+        'add your app\'s origin, or use an unrestricted token.'
+      );
+    } else if (status) {
+      setMapError('Mapbox map error (' + status + ').' + (url ? ' Endpoint: ' + url : ''));
+    } else if (err?.message) {
+      setMapError('Mapbox map error: ' + err.message);
+    }
+  };
+
+  const dismissMapError = () => setMapError(null);
 
   const handleMapLoad = (evt) => {
     mapRef.current = evt.target;
@@ -183,8 +209,9 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
       style={{ height: '100%', width: '100%' }}
       mapStyle="mapbox://styles/mapbox/outdoors-v12"
       mapboxAccessToken={mapboxToken}
-      terrain={terrainEnabled ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
-      projection="globe"
+      onError={handleMapError}
+      terrain={demFailure ? undefined : terrainEnabled ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
+      projection={demFailure ? 'mercator' : 'globe'}
     >
       <NavigationControl position="top-right" />
       <FullscreenControl position="top-right" />
@@ -340,19 +367,59 @@ const MapboxMapView = ({ center, zoom, children, bounds, mapboxToken, onMoveEnd,
         );
       })}
 
-      {hoveredElevPoint && (
+      {hoveredElevPoint ? (
         <Marker
-          longitude={hoveredElevPoint.lng}
-          latitude={hoveredElevPoint.lat}
+          longitude={hoveredElevPoint.lat}
+          latitude={hoveredElevPoint.lon}
         >
           <div style={{
-            width: 24, height: 24,
-            background: '#10B981',
+            width: 18, height: 18,
+            background: '#F59E0B',
             borderRadius: '50%',
             border: '3px solid white',
-            boxShadow: '0 0 12px rgba(16,185,129,0.6)',
+            boxShadow: '0 0 10px rgba(245,158,11,0.8)',
           }} />
         </Marker>
+      ) : null}
+      {mapError && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 50,
+            right: 50,
+            zIndex: 20,
+            padding: '12px 16px',
+            borderRadius: '8px',
+            background: '#FFF3E0',
+            border: '1px solid #FFB74D',
+            color: '#E65100',
+            fontSize: '0.85rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Mapbox map unavailable</div>
+          <div style={{ opacity: 0.9 }}>
+            {mapError}
+            <button
+              onClick={dismissMapError}
+              style={{
+                display: 'block',
+                marginTop: 10,
+                padding: '6px 14px',
+                background: '#E65100',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </Map>
   );
